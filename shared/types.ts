@@ -1,8 +1,17 @@
+export interface PushRowIssue {
+  date?: string;
+  description?: string;
+  reference?: string;
+  accountCode?: string;
+  message: string;
+}
+
 export interface ApiError {
   code: string;
   message: string;
   retry_after?: number;
   details?: string[];
+  rowIssues?: PushRowIssue[];
 }
 
 export interface ApiResponse<T = unknown> {
@@ -56,6 +65,7 @@ export interface XeroAccount {
   Type: string;
   TaxType: string;
   SystemAccount?: string;
+  CurrencyCode?: string;
 }
 
 export interface StripeAuthMessage {
@@ -81,6 +91,15 @@ export interface XeroConnectionStatus {
   connected: boolean;
   tenantName?: string;
   tenantId?: string;
+  /** Organisation base currency (uppercase ISO), set when Xero is connected */
+  baseCurrency?: string;
+}
+
+export interface StripePullResponse<T> {
+  currency: string;
+  rows: T[];
+  excludedByCurrency: number;
+  totalBeforeCurrencyFilter: number;
 }
 
 export interface XeroAccountOption {
@@ -88,6 +107,7 @@ export interface XeroAccountOption {
   Name: string;
   Type: string;
   SystemAccount?: string;
+  CurrencyCode?: string;
   displayLabel: string;
 }
 
@@ -104,10 +124,17 @@ export interface XeroTrackingCategoryOption {
   Options: string[];
 }
 
+export interface XeroContactOption {
+  ContactID: string;
+  Name: string;
+  displayLabel: string;
+}
+
 export interface XeroMappingOptions {
   accounts: XeroAccountOption[];
   taxRates: XeroTaxRateOption[];
   trackingCategories: XeroTrackingCategoryOption[];
+  contacts: XeroContactOption[];
 }
 
 export type XeroManualJournalStatus = 'DRAFT' | 'POSTED';
@@ -130,5 +157,29 @@ export interface ManualJournalPushRequest {
 export interface ManualJournalPushResult {
   created: number;
   manualJournalIds: string[];
+  /** ISO date (YYYY-MM-DD) → Xero ManualJournalID */
+  journalIdsByDate?: Record<string, string>;
   errors?: Array<{ date: string; message: string }>;
+  rowIssues?: PushRowIssue[];
+}
+
+export interface XeroBankTransactionInput {
+  date: string;
+  type: string;
+  contactName: string;
+  bankAccountCode: string;
+  reference: string;
+  accountCode: string;
+  amount: number;
+}
+
+export interface BankTransactionPushRequest {
+  transactions: XeroBankTransactionInput[];
+}
+
+export interface BankTransactionPushResult {
+  created: number;
+  bankTransactionIds: string[];
+  errors?: Array<{ reference: string; message: string }>;
+  rowIssues?: PushRowIssue[];
 }

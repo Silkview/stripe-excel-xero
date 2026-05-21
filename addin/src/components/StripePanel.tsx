@@ -3,7 +3,14 @@ import type {
   StripeBalanceTransactionRow,
   StripeChargeRow,
   StripePayoutRow,
+  StripePullResponse,
 } from '@stripesync/shared';
+import Card from './ui/Card';
+import Button from './ui/Button';
+import Field from './ui/Field';
+import ResultBar from './ui/ResultBar';
+import Badge from './ui/Badge';
+import InfoRow from './ui/InfoRow';
 import { apiGet } from '../utils/api';
 import { friendlyError } from '../utils/errorMessages';
 import {
@@ -13,7 +20,17 @@ import {
   STRIPE_PULL_OBJECTS,
   type StripePullObjectType,
 } from '../config/workbookSheets';
-import { writeDataToSheet, parseDestination } from '../utils/officeHelpers';
+import {
+  MAX_STRIPE_PULL_DAYS,
+  MAX_STRIPE_PULL_ROWS,
+  stripePullRangeError,
+  stripePullRowCountError,
+} from '@stripesync/shared/pullLimits';
+import {
+  writeDataToSheet,
+  parseDestination,
+  activateWorksheet,
+} from '../utils/officeHelpers';
 
 function getCurrentMonthRange(): { from: string; to: string } {
   const now = new Date();
@@ -86,10 +103,18 @@ function mapRowsToSheetData(
 }
 
 interface StripePanelProps {
-  connected: boolean;
+  stripeConnected: boolean;
+  currencyReady: boolean;
+  defaultCurrency?: string;
+  onPulled?: () => void;
 }
 
-export default function StripePanel({ connected }: StripePanelProps) {
+export default function StripePanel({
+  stripeConnected,
+  currencyReady,
+  defaultCurrency,
+  onPulled,
+}: StripePanelProps) {
   const monthRange = getCurrentMonthRange();
   const [objectType, setObjectType] = useState<StripePullObjectType>('payouts');
   const [from, setFrom] = useState(monthRange.from);
@@ -111,9 +136,19 @@ export default function StripePanel({ connected }: StripePanelProps) {
     setStatusError(false);
 
     try {
-      const res = await apiGet<
-        StripePayoutRow[] | StripeBalanceTransactionRow[] | StripeChargeRow[]
-      >(
+      const rangeError = stripePullRangeError(from, to);
+      if (rangeError) {
+        setStatusMessage(rangeError);
+        setStatusError(true);
+        return;
+      }
+
+      type PullRow =
+        | StripePayoutRow
+        | StripeBalanceTransactionRow
+        | StripeChargeRow;
+
+      const res = await apiGet<StripePullResponse<PullRow>>(
         `${pullConfig.endpoint}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
       );
 
@@ -123,15 +158,25 @@ export default function StripePanel({ connected }: StripePanelProps) {
         return;
       }
 
-      const rows = res.data;
+      const { rows, excludedByCurrency } = res.data;
+      const rowError = stripePullRowCountError(rows.length);
+      if (rowError) {
+        setStatusMessage(rowError);
+        setStatusError(true);
+        return;
+      }
+
       const { headers, data } = mapRowsToSheetData(objectType, rows);
       const { sheetName } = parseDestination(destination);
       await writeDataToSheet(sheetName, 'A1', data, headers);
+      await activateWorksheet(sheetName, data.length > 0 ? 'A2' : 'A1');
 
-      const label = pullConfig.label.toLowerCase();
-      setStatusMessage(
-        `${rows.length} ${label} pulled to ${sheetName}`
-      );
+      let msg = `${rows.length} ${pullConfig.label.toLowerCase()} → ${sheetName}`;
+      if (excludedByCurrency > 0) {
+        msg += ` (${excludedByCurrency} other currencies excluded)`;
+      }
+      setStatusMessage(msg);
+      onPulled?.();
     } catch (err) {
       setStatusMessage(
         err instanceof Error
@@ -145,70 +190,96 @@ export default function StripePanel({ connected }: StripePanelProps) {
   };
 
   return (
-    <section className="mb-4">
-      <h2 className="text-sm font-semibold text-gray-800 mb-2">Pull from Stripe</h2>
-
-      <label className="block text-xs text-gray-600 mb-1">Object</label>
-      <select
-        value={objectType}
-        onChange={(e) => setObjectType(e.target.value as StripePullObjectType)}
-        className="w-full border border-gray-300 rounded px-2 py-1 mb-2 text-sm"
-      >
-        {(Object.keys(STRIPE_PULL_OBJECTS) as StripePullObjectType[]).map(
-          (key) => (
-            <option key={key} value={key}>
-              {STRIPE_PULL_OBJECTS[key].label}
-            </option>
+    <div className="p-3">
+      <Card
+        title="Pull from Stripe"
+        icon="↓"
+        iconClass="bg-stripe-light text-stripe"
+        badge={
+          stripeConnected ? (
+            <Badge variant="success">Connected</Badge>
+          ) : (
+            <Badge variant="warn">Connect Stripe</Badge>
           )
-        )}
-      </select>
-
-      <div className="grid grid-cols-2 gap-2 mb-2">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">From</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">To</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-          />
-        </div>
-      </div>
-
-      <label className="block text-xs text-gray-600 mb-1">Destination</label>
-      <input
-        type="text"
-        value={destination}
-        onChange={(e) => setDestination(e.target.value)}
-        className="w-full border border-gray-300 rounded px-2 py-1 mb-2 text-sm"
-      />
-
-      <button
-        type="button"
-        onClick={handlePull}
-        disabled={!connected || loading}
-        className="w-full py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        }
       >
-        {loading ? 'Pulling…' : '↓ Pull to sheet'}
-      </button>
+        {!currencyReady && (
+          <InfoRow className="mb-2 text-warn">
+            Connect Xero first to set your organisation currency. Pull is disabled until then.
+          </InfoRow>
+        )}
+        {currencyReady && defaultCurrency && (
+          <InfoRow className="mb-2">
+            Only {defaultCurrency} rows are pulled (from your Xero organisation).
+          </InfoRow>
+        )}
+        <Field label="Object">
+          <select
+            value={objectType}
+            onChange={(e) =>
+              setObjectType(e.target.value as StripePullObjectType)
+            }
+            className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
+          >
+            {(Object.keys(STRIPE_PULL_OBJECTS) as StripePullObjectType[]).map(
+              (key) => (
+                <option key={key} value={key}>
+                  {STRIPE_PULL_OBJECTS[key].label}
+                </option>
+              )
+            )}
+          </select>
+        </Field>
+
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <Field label="From">
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
+            />
+          </Field>
+          <Field label="To">
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
+            />
+          </Field>
+        </div>
+
+        <InfoRow className="mt-2 mb-0">
+          Max {MAX_STRIPE_PULL_DAYS} days per pull and {MAX_STRIPE_PULL_ROWS.toLocaleString()}{' '}
+          rows. Exceeding either limit shows an error and does not write to the sheet.
+        </InfoRow>
+
+        <Field label="Destination" className="mt-2">
+          <input
+            type="text"
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            className="w-full border border-border rounded-sm px-2 py-1.5 text-xs font-mono bg-surface"
+            spellCheck={false}
+          />
+        </Field>
+
+        <Button
+          variant="primary"
+          onClick={handlePull}
+          disabled={!stripeConnected || !currencyReady || loading}
+          className="mt-2"
+        >
+          {loading ? 'Pulling…' : '↓ Pull to sheet'}
+        </Button>
+      </Card>
 
       {(statusMessage || loading) && (
-        <p
-          className={`mt-2 text-xs ${statusError ? 'text-red-600' : 'text-gray-600'}`}
-          role="status"
-        >
-          {loading ? 'Fetching from Stripe…' : statusMessage}
-        </p>
+        <ResultBar variant={statusError ? 'warn' : 'success'}>
+          {loading ? 'Fetching from Stripe…' : (statusMessage ?? '')}
+        </ResultBar>
       )}
-    </section>
+    </div>
   );
 }

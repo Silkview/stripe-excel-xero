@@ -1,8 +1,9 @@
+import { rowMatchesCurrency } from '@stripesync/shared/currencyFilter';
+import { BT_IDX_CURRENCY } from '../config/xeroBankTransactionBuilder';
 import {
   BT_SHEET,
   JOURNAL_SHEET,
   MAPPING_SHEET,
-  JOURNAL_CLEAR_ROWS,
   type BalanceTxnType,
   type JournalDescriptionKind,
   descriptionFormula,
@@ -12,11 +13,15 @@ import {
   sumifsAmount,
   sumifsFee,
 } from '../config/xeroJournalBuilder';
+import { WORKBOOK_SHEETS } from '../config/workbookSheets';
 import { colLetter } from './officeHelpers';
+import { clearSheetDataArea } from './sheetClear';
 
 const BT_FIRST_DATA_ROW = 2;
 const JOURNAL_FIRST_DATA_ROW = 2;
+/** Data columns A–H; sheet also has Xero ID in I. */
 const JOURNAL_COL_COUNT = 8;
+const JOURNAL_SHEET_COL_COUNT = 9;
 
 /** BT columns: A=transaction_id, B=created, ... H=type, ... */
 const BT_IDX_CREATED = 1;
@@ -223,7 +228,24 @@ function addFeePair(
   return lines.length;
 }
 
-export async function buildXeroJournalsFromBalanceTransactions(): Promise<BuildJournalsResult> {
+function filterBtRowsByCurrency(
+  rows: unknown[][],
+  defaultCurrency: string
+): unknown[][] {
+  return rows.filter((row) =>
+    rowMatchesCurrency(String(row[BT_IDX_CURRENCY] ?? ''), defaultCurrency)
+  );
+}
+
+export async function buildXeroJournalsFromBalanceTransactions(
+  defaultCurrency: string
+): Promise<BuildJournalsResult> {
+  await clearSheetDataArea(
+    JOURNAL_SHEET,
+    JOURNAL_FIRST_DATA_ROW,
+    colLetter(JOURNAL_SHEET_COL_COUNT)
+  );
+
   return await Excel.run(async (context) => {
     const btSheet =
       context.workbook.worksheets.getItemOrNullObject(BT_SHEET);
@@ -253,6 +275,13 @@ export async function buildXeroJournalsFromBalanceTransactions(): Promise<BuildJ
       );
     }
 
+    const journalHeaders = WORKBOOK_SHEETS.find((s) => s.name === JOURNAL_SHEET)
+      ?.headers;
+    if (journalHeaders) {
+      const headerEnd = colLetter(journalHeaders.length);
+      journalSheet.getRange(`A1:${headerEnd}1`).values = [journalHeaders];
+    }
+
     const used = btSheet.getUsedRangeOrNullObject();
     used.load(['rowIndex', 'rowCount']);
     await context.sync();
@@ -268,7 +297,15 @@ export async function buildXeroJournalsFromBalanceTransactions(): Promise<BuildJ
     dataRange.load('values');
     await context.sync();
 
-    const rows = dataRange.values as unknown[][];
+    const allRows = dataRange.values as unknown[][];
+    const rows = filterBtRowsByCurrency(allRows, defaultCurrency);
+
+    if (rows.length === 0) {
+      throw new Error(
+        `No balance transactions in ${defaultCurrency}. Pull Stripe data for this currency or check your Xero organisation currency.`
+      );
+    }
+
     const dateValues = new Map<string, string | number>();
 
     const chargeDates = collectDatesFromRows(
@@ -307,10 +344,6 @@ export async function buildXeroJournalsFromBalanceTransactions(): Promise<BuildJ
     }
 
     const lastCol = colLetter(JOURNAL_COL_COUNT);
-    const clearEnd = JOURNAL_FIRST_DATA_ROW + JOURNAL_CLEAR_ROWS - 1;
-    journalSheet
-      .getRange(`A${JOURNAL_FIRST_DATA_ROW}:${lastCol}${clearEnd}`)
-      .clear(Excel.ClearApplyTo.contents);
 
     if (lines.length > 0) {
       const writeEnd = JOURNAL_FIRST_DATA_ROW + lines.length - 1;

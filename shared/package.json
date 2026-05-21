@@ -6,6 +6,8 @@
   "types": "./types.ts",
   "exports": {
     ".": "./types.ts",
-    "./accountMappingRules": "./accountMappingRules.ts"
+    "./accountMappingRules": "./accountMappingRules.ts",
+    "./pullLimits": "./pullLimits.ts",
+    "./currencyFilter": "./currencyFilter.ts"
   }
 }

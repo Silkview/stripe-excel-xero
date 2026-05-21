@@ -7,15 +7,31 @@ import {
   mappingDataRangeA1,
   parseAccountMappingRows,
 } from './accountMappingsRead';
+import { parseSheetRange } from './officeHelpers';
 
-const JOURNAL_FIRST_DATA_ROW = 2;
+export const DEFAULT_JOURNAL_PUSH_RANGE = `${JOURNAL_SHEET}!A2:I500`;
+
 const COL_DATE = 0;
 const COL_ACCOUNT = 2;
 const COL_DESCRIPTION = 3;
-const COL_NET_AMOUNT = 4;
+const COL_GROSS_AMOUNT = 4;
 const COL_TAX = 5;
 const COL_TRACKING_NAME = 6;
 const COL_TRACKING_OPTION = 7;
+const COL_XERO_ID = 8;
+
+export interface JournalRowContext {
+  excelRow: number;
+  date: string;
+  description: string;
+  accountCode: string;
+}
+
+export interface ReadJournalsForPushResult {
+  lines: XeroJournalLineInput[];
+  skippedCount: number;
+  rowContext: JournalRowContext[];
+}
 
 function formatLocalYmd(d: Date): string {
   const y = d.getFullYear();
@@ -44,8 +60,11 @@ export function normalizeJournalDate(value: unknown): string | null {
   return null;
 }
 
-function extractCode(label: unknown): string {
-  return extractMappingCode(label);
+function isAlreadyPushed(xeroId: unknown): boolean {
+  const s = String(xeroId ?? '').trim();
+  if (!s) return false;
+  if (s === '✓ pushed' || /pushed/i.test(s)) return true;
+  return true;
 }
 
 function enrichClearingLines(
@@ -90,47 +109,30 @@ function optionalText(value: unknown): string | undefined {
   return s;
 }
 
-export async function readXeroJournalsForPush(): Promise<XeroJournalLineInput[]> {
+export async function readXeroJournalsForPush(
+  rangeA1: string = DEFAULT_JOURNAL_PUSH_RANGE
+): Promise<ReadJournalsForPushResult> {
   return await Excel.run(async (context) => {
-    const sheet =
-      context.workbook.worksheets.getItemOrNullObject(JOURNAL_SHEET);
+    const parsed = parseSheetRange(rangeA1);
+    const sheet = context.workbook.worksheets.getItemOrNullObject(
+      parsed.sheetName
+    );
     sheet.load('name');
     await context.sync();
 
     if (sheet.isNullObject) {
       throw new Error(
-        `${JOURNAL_SHEET} sheet not found. Run Set up workbook sheets and build journals first.`
+        `${parsed.sheetName} sheet not found. Run Set up workbook sheets and build journals first.`
       );
     }
 
     context.application.calculate(Excel.CalculationType.full);
 
-    const used = sheet.getUsedRangeOrNullObject();
-    used.load(['rowIndex', 'rowCount']);
-    await context.sync();
-
-    if (used.isNullObject || used.rowCount <= 1) {
-      throw new Error(`${JOURNAL_SHEET} has no journal lines to push.`);
-    }
-
-    let lastRow = used.rowIndex + used.rowCount;
-    const probeRange = sheet.getRange(`A${JOURNAL_FIRST_DATA_ROW}:A${lastRow}`);
-    probeRange.load('values');
-    await context.sync();
-    const probeRows = probeRange.values as unknown[][];
-    let lastDataIdx = -1;
-    for (let i = probeRows.length - 1; i >= 0; i--) {
-      if (normalizeJournalDate(probeRows[i][0])) {
-        lastDataIdx = i;
-        break;
-      }
-    }
-    if (lastDataIdx < 0) {
-      throw new Error(`${JOURNAL_SHEET} has no journal lines to push.`);
-    }
-    lastRow = JOURNAL_FIRST_DATA_ROW + lastDataIdx;
-
-    const range = sheet.getRange(`A${JOURNAL_FIRST_DATA_ROW}:H${lastRow}`);
+    const endCol = Math.max(parsed.endCol, 9);
+    const endColLetter = String.fromCharCode(64 + endCol);
+    const range = sheet.getRange(
+      `A${parsed.startRow}:${endColLetter}${parsed.endRow}`
+    );
     range.load('values');
     await context.sync();
 
@@ -151,28 +153,32 @@ export async function readXeroJournalsForPush(): Promise<XeroJournalLineInput[]>
     }
 
     const rows = range.values as unknown[][];
-    const lines: XeroJournalLineInput[] = [];
-
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'readXeroJournals.ts:range',message:'read scope',data:{usedLastRow:used.rowIndex+used.rowCount,trimmedLastRow:lastRow,rowCount:rows.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
+    const candidates: { line: XeroJournalLineInput; excelRow: number }[] = [];
+    let skippedCount = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const date = normalizeJournalDate(row[COL_DATE]);
-      const accountCode = extractCode(row[COL_ACCOUNT]);
-      const netAmount = parseAmount(row[COL_NET_AMOUNT]);
+      const excelRow = parsed.startRow + i;
 
-      if (!date || netAmount === 0) continue;
+      if (row.length > COL_XERO_ID && isAlreadyPushed(row[COL_XERO_ID])) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const date = normalizeJournalDate(row[COL_DATE]);
+      const accountCode = extractMappingCode(row[COL_ACCOUNT]);
+      const grossAmount = parseAmount(row[COL_GROSS_AMOUNT]);
+
+      if (!date || grossAmount === 0) continue;
 
       const line: XeroJournalLineInput = {
         date,
         accountCode,
         description: String(row[COL_DESCRIPTION] ?? '').trim(),
-        netAmount,
+        netAmount: grossAmount,
       };
 
-      const taxType = extractCode(row[COL_TAX]);
+      const taxType = extractMappingCode(row[COL_TAX]);
       if (taxType) line.taxType = taxType;
 
       const trackingName = optionalText(row[COL_TRACKING_NAME]);
@@ -180,38 +186,32 @@ export async function readXeroJournalsForPush(): Promise<XeroJournalLineInput[]>
       if (trackingName) line.trackingName1 = trackingName;
       if (trackingOption) line.trackingOption1 = trackingOption;
 
-      lines.push(line);
+      candidates.push({ line, excelRow });
     }
 
+    const lines = candidates.map((c) => c.line);
     enrichClearingLines(lines, clearingMapping);
 
-    const validLines = lines.filter((l) => Boolean(l.accountCode));
+    const valid = candidates.filter((c) => Boolean(c.line.accountCode));
+    skippedCount += candidates.length - valid.length;
 
-    // #region agent log
-    const clearingAcct = clearingMapping?.accountCode;
-    const clearingLines = clearingAcct
-      ? validLines.filter((l) => l.accountCode === clearingAcct)
-      : [];
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'readXeroJournals.ts:clearingEnrich',message:'clearing mapping applied',data:{clearingAccount:clearingAcct,clearingTax:clearingMapping?.taxType,clearingLineCount:clearingLines.length,clearingWithTax:clearingLines.filter(l=>l.taxType).length,clearingSample:clearingLines.slice(0,2).map(l=>({acct:l.accountCode,tax:l.taxType??'(none)',amt:l.netAmount}))},timestamp:Date.now(),hypothesisId:'H-TAX-CLEAR'})}).catch(()=>{});
-    // #endregion
-
-    // #region agent log
-    const byDate = new Map<string, { count: number; sum: number }>();
-    for (const l of validLines) {
-      const g = byDate.get(l.date) ?? { count: 0, sum: 0 };
-      g.count += 1;
-      g.sum += l.netAmount;
-      byDate.set(l.date, g);
-    }
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'readXeroJournals.ts:done',message:'lines read for push',data:{lineCount:validLines.length,skippedNoAccount:lines.length-validLines.length,byDate:Object.fromEntries(byDate)},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
-    // #endregion
-
-    if (validLines.length === 0) {
+    if (valid.length === 0) {
       throw new Error(
-        'No valid journal lines found (need Date, Account Code, and non-zero Net Amount).'
+        skippedCount > 0
+          ? 'All journal lines in range are already pushed or invalid.'
+          : 'No valid journal lines found (need Date, Account Code, and non-zero Gross Amount).'
       );
     }
 
-    return validLines;
+    return {
+      lines: valid.map((c) => c.line),
+      skippedCount,
+      rowContext: valid.map((c) => ({
+        excelRow: c.excelRow,
+        date: c.line.date,
+        description: c.line.description,
+        accountCode: c.line.accountCode,
+      })),
+    };
   });
 }

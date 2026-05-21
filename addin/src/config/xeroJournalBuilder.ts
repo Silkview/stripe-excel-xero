@@ -1,3 +1,5 @@
+import { ACCOUNT_MAPPING_STRIPE_OBJECTS } from './workbookSheets';
+
 export const BT_SHEET = 'Stripe_Balance_Transactions';
 export const MAPPING_SHEET = 'Account_Mappings';
 export const JOURNAL_SHEET = 'Xero_Journals';
@@ -7,22 +9,29 @@ export const BT_COL_AMOUNT = 'D';
 export const BT_COL_FEE = 'E';
 export const BT_COL_TYPE = 'H';
 
-export const MAPPING_RANGE_A = '$A$2:$A$6';
 export const MAPPING_FIRST_ROW = 2;
-export const MAPPING_LAST_ROW = 6;
+export const MAPPING_LAST_ROW =
+  MAPPING_FIRST_ROW + ACCOUNT_MAPPING_STRIPE_OBJECTS.length - 1;
+export const MAPPING_RANGE_A = `$A$${MAPPING_FIRST_ROW}:$A$${MAPPING_LAST_ROW}`;
 
 export const JOURNAL_CLEAR_ROWS = 500;
 
 export type JournalDescriptionKind = 'Charges' | 'Refunds' | 'Fees';
 export type BalanceTxnType = 'charge' | 'refund';
 
-export type MappingField = 'account' | 'tax' | 'trackingName' | 'trackingOption';
+export type MappingField =
+  | 'account'
+  | 'tax'
+  | 'trackingName'
+  | 'trackingOption'
+  | 'contact';
 
 const MAPPING_COL: Record<MappingField, string> = {
   account: 'B',
   tax: 'C',
   trackingName: 'D',
   trackingOption: 'E',
+  contact: 'F',
 };
 
 function quoteSheet(name: string): string {
@@ -34,6 +43,7 @@ export function btRange(col: string, lastRow: number): string {
 }
 
 const BLANK_ON_ZERO_FIELDS: MappingField[] = [
+  'tax',
   'trackingName',
   'trackingOption',
 ];
@@ -45,7 +55,7 @@ export function mappingFormula(
   const col = MAPPING_COL[field];
   const indexExpr = `INDEX(${MAPPING_SHEET}!$${col}$${MAPPING_FIRST_ROW}:$${col}$${MAPPING_LAST_ROW},MATCH("${stripeObject}",${MAPPING_SHEET}!${MAPPING_RANGE_A},0))`;
   if (BLANK_ON_ZERO_FIELDS.includes(field)) {
-    return `=IF(${indexExpr}=0,"",${indexExpr})`;
+    return `=IF(OR(${indexExpr}="",${indexExpr}=0),"",${indexExpr})`;
   }
   return `=${indexExpr}`;
 }

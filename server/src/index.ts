@@ -50,5 +50,5 @@ app.use(
 );
 
 app.listen(PORT, () => {
-  console.log(`StripeSync API running on http://localhost:${PORT}`);
+  console.log(`Silkview Sync API running on http://localhost:${PORT}`);
 });

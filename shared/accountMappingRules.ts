@@ -2,6 +2,7 @@
 export interface XeroAccountForMapping {
   Type: string;
   SystemAccount?: string;
+  CurrencyCode?: string;
 }
 
 const PAYOUT_BANK_TYPE = 'BANK';
@@ -12,8 +13,16 @@ const JOURNAL_EXCLUDED_TYPES = new Set(['BANK', 'GST', 'DEBTOR', 'DEBTORS']);
 /** System accounts that must not be used on journal mapping rows. */
 const JOURNAL_EXCLUDED_SYSTEM = new Set(['DEBTORS', 'DEBTOR', 'GST']);
 
-export function isBankPayoutAccount(account: XeroAccountForMapping): boolean {
-  return (account.Type || '').toUpperCase() === PAYOUT_BANK_TYPE;
+export function isBankPayoutAccount(
+  account: XeroAccountForMapping,
+  defaultCurrency?: string
+): boolean {
+  if ((account.Type || '').toUpperCase() !== PAYOUT_BANK_TYPE) return false;
+  if (!defaultCurrency) return true;
+  const acctCur = (account.CurrencyCode || '').trim().toUpperCase();
+  const target = defaultCurrency.trim().toUpperCase();
+  if (!acctCur) return true;
+  return acctCur === target;
 }
 
 export function isJournalMappingAccount(account: XeroAccountForMapping): boolean {

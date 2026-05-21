@@ -1,4 +1,4 @@
-# StripeSync
+# Silkview Sync
 
 Microsoft Excel Add-in that connects to **Stripe** (pull financial data) and **Xero** (push accounting entries). Phase 1 provides the framework, OAuth via Office Dialog API, and Stripe pulls (**Payouts**, **Balance Transactions**, **Charges**) to worksheets.
 
@@ -75,7 +75,7 @@ npm run dev:server
 1. Open Excel (desktop).
 2. **Insert** → **Add-ins** → **Upload My Add-in** (or **Get Add-ins** → **Upload My Add-in**).
 3. Select `addin/manifest.xml`.
-4. Open the **StripeSync** task pane from the ribbon or **Home** tab if configured.
+4. Open the **Silkview Sync** task pane from the ribbon or **Home** tab if configured.
 
 **macOS:** You may need to allow the add-in under **Excel** → **Preferences** → **Security** → **Trust Center**.
 
@@ -84,6 +84,28 @@ npm run dev:server
 > **Screenshot placeholder:** Excel “Upload Office Add-in” dialog with `manifest.xml` selected.
 
 The task pane is ~300px wide. Use **Insert** → **Add-ins** → **My Add-ins** to reopen it.
+
+## Task pane UI
+
+The task pane uses a **3-step workflow** (Pull → Build → Push) with Stripe/Xero connection pills at the top. Open **Setup** (gear icon) for workbook creation and refreshing Xero dropdowns on the **Account_Mappings** sheet tab.
+
+| Step | What you do |
+|------|-------------|
+| **0 Connect Xero** | Connect Xero first — your organisation **base currency** (e.g. AUD) is set automatically and shown in Setup |
+| **1 Pull** | Connect Stripe, choose object and date range, pull to sheet (only rows in org currency) |
+| **2 Build** | Build `Xero_Journals` and/or `Xero_Bank_Transaction` from balance transactions (same currency only) |
+| **3 Push** | Push Manual Journals or Bank Transactions to Xero in org currency; bank payout account must match |
+
+**Single currency:** Pull, Build, and Push are disabled until Xero is connected and base currency is known. Stripe pulls filter out other currencies; the status message shows how many rows were excluded. Build skips non-matching balance transactions. Push sets `CurrencyCode` on manual journals and validates that the **stripe_payout_bank** mapping is a BANK account in the org currency.
+
+**Setup** (overlay): view **Default currency** (read-only, from Xero), **Set up workbook sheets**, and **Refresh Xero dropdowns** on the **Account_Mappings** sheet. Bank account dropdowns list only BANK accounts in the org currency. Edit mapping values on that sheet tab in Excel.
+
+**Push read ranges** (saved in browser `localStorage`):
+
+- Journals default: `Xero_Journals!A2:I500`
+- Bank transactions default: `Xero_Bank_Transaction!A2:H500`
+
+Rows with **Xero ID** already set (`✓ pushed` or an existing ID) are **skipped** on push. After push, the **Xero ID** column shows status: light **green** row fill when successful, **red** row fill with an error message when validation or Xero rejects that row.
 
 ## Register Stripe Connect OAuth app
 
@@ -139,44 +161,48 @@ OAuth uses **read_write** scope (required by Stripe Connect for this app type; u
 
 ## Set up workbook sheets
 
-Before pulling or pushing data, use **Set up workbook sheets** in the task pane (Workbook section). This creates tabs with header rows only:
+Before pulling or pushing data, open **Setup** (gear) and click **Set up workbook sheets**. This creates tabs with header rows only:
 
 | Sheet | Purpose |
 |-------|---------|
 | `Stripe_Payouts` | Stripe payout pulls |
 | `Stripe_Balance_Transactions` | Balance transaction pulls |
 | `Stripe_Charges` | Charge pulls |
-| `Xero_Journals` | Formula-driven manual journal lines (build from balance transactions) |
-| `Xero_Bank_Transfers` | Bank transaction push source (phase 2) |
+| `Xero_Journals` | Formula-driven manual journal lines (build from balance transactions); **Xero ID** column (I) for push status |
+| `Xero_Bank_Transaction` | Bank transaction lines (build from balance transactions); **Xero ID** column (H) for push status |
 | `Account_Mappings` | Stripe → Xero mapping (dropdowns from Xero) |
 
 **Account_Mappings layout** (created on first setup):
 
-| stripe_object | xero_account_code | xero_tax_type | xero_tracking_name | xero_tracking_option |
-|---------------|-------------------|---------------|--------------------|-----------------------|
-| charge | dropdown | dropdown | dropdown | dropdown (depends on tracking name) |
-| refund | | | | |
-| fee | | | | |
-| stripe_clearing | | | | |
-| stripe_payout_bank | | | | |
+| stripe_object | xero_account_code | xero_tax_type | xero_tracking_name | xero_tracking_option | xero_contact |
+|---------------|-------------------|---------------|--------------------|-----------------------|--------------|
+| charge | dropdown | dropdown | dropdown | dropdown (depends on tracking name) | |
+| refund | | | | | |
+| fee | | | | | |
+| stripe_clearing | | | | | |
+| stripe_payout_bank | BANK only | | | | |
+| stripe_payout_contact | | | | | contact dropdown |
 
 - **Connect Xero** first, then run setup (dropdowns apply automatically) or click **Refresh Xero mapping dropdowns**.
-- Dropdowns use accounts, tax rates, and tracking categories from your Xero organisation (`GET /api/xero/mapping-options`).
+- Dropdowns use accounts, tax rates, tracking categories, and contacts from your Xero organisation (`GET /api/xero/mapping-options`).
 - **Account code dropdowns (column B):**
   - `stripe_payout_bank` — **BANK** accounts only.
-  - `charge`, `refund`, `fee`, `stripe_clearing` — any active account **except** BANK, GST, and debtor/system receivable accounts (Xero `Type` or `SystemAccount` such as `DEBTORS` / `GST`).
+  - `charge`, `refund`, `fee`, `stripe_clearing` — any active account **except** BANK, GST, and debtor/system receivable accounts (Xero `Type` or `SystemAccount` such as `DEBTORS` / `GST`). The same `stripe_clearing` account is used for journal clearing lines and bank transaction account code.
+  - `stripe_payout_contact` — no account column; use **xero_contact** (column F).
 - `xero_tracking_option` is a **dependent** dropdown: options change based on the category chosen in the same row.
 
-**Existing sheets are skipped** — if a tab already exists, it is left unchanged. To get the new `Account_Mappings` layout, delete that sheet and run **Set up workbook sheets** again.
+**Existing sheets are skipped** — if a tab already exists, it is left unchanged. To get the new sheet names, columns, or mapping rows, delete `Xero_Bank_Transfers` / `Account_Mappings` (if present) and run **Set up workbook sheets** again, or adjust tabs manually.
 
 ## Pull from Stripe
 
-After connecting Stripe in the task pane:
+On the **Pull** tab, after connecting Stripe:
 
 1. Choose **Object**: Payouts, Balance Transactions, or Charges.
 2. Set **From** / **To** dates (`YYYY-MM-DD`).
 3. Confirm **Destination** (defaults to the matching sheet, e.g. `Stripe_Balance_Transactions!A1`).
 4. Click **Pull to sheet**.
+
+**Limits:** Date range cannot exceed **90 days** (inclusive). If Stripe returns more than **2000** rows, the pull fails with an error and **nothing is written** to the sheet. The destination sheet’s existing data rows (from row 2 down) are **cleared** before new data is written.
 
 | Object | Default destination | API |
 |--------|---------------------|-----|
@@ -188,15 +214,15 @@ Rows are written with header row plus data. Amounts are in major currency units 
 
 ## Build Xero journals from balance transactions
 
-In the task pane **Xero journals** section, click **Build journals from balance transactions** after:
+On the **Build** tab, click **Build journals from balance transactions** after:
 
 1. **Set up workbook sheets** (includes `Xero_Journals` and `Account_Mappings`).
 2. **Pull** data into `Stripe_Balance_Transactions`.
 3. Fill **Account_Mappings** for `charge`, `refund`, `fee`, and `stripe_clearing` (account code and tax type at minimum).
 
-The add-in writes **formula-driven** rows to `Xero_Journals` (clears previous journal data rows first). For each distinct `created` date:
+The add-in **clears** existing data on `Xero_Journals` (including column I and row formatting) then writes **formula-driven** rows. For each distinct `created` date:
 
-| Category | Lines per date | Net Amount formula | Account (from mappings) |
+| Category | Lines per date | Gross Amount formula | Account (from mappings) |
 |----------|----------------|--------------------|-------------------------|
 | Charges | 2 | `SUMIFS` amount (col D) where type = `charge` | `charge` + opposite `stripe_clearing` |
 | Refunds | 2 | `SUMIFS` amount where type = `refund` | `refund` + opposite `stripe_clearing` |
@@ -207,17 +233,62 @@ The add-in writes **formula-driven** rows to `Xero_Journals` (clears previous jo
 
 Changing balance transaction data recalculates journal amounts on Excel recalc.
 
+## Build Xero bank transactions from balance transactions
+
+On the **Build** tab, click **Build bank transactions from balance transactions** after:
+
+1. **Set up workbook sheets** (includes `Xero_Bank_Transaction` and `Account_Mappings`).
+2. **Pull** data into `Stripe_Balance_Transactions`.
+3. Fill **Account_Mappings** for `stripe_payout_bank`, `stripe_clearing`, and `stripe_payout_contact`.
+
+The add-in **clears** existing data on `Xero_Bank_Transaction` (including column H and row formatting), then writes one row per balance transaction where `type` = `payout`:
+
+| Column | Source |
+|--------|--------|
+| Date | `available_on` |
+| Type | `RECEIVE` |
+| Contact | `stripe_payout_contact` mapping |
+| Bank Account | `stripe_payout_bank` mapping |
+| Reference | `source_id` |
+| Account Code | `stripe_clearing` mapping |
+| Amount | Negated Stripe `amount` (column D): payout rows are usually negative on the balance sheet, shown as positive RECEIVE in Xero |
+
+## Push bank transactions to Xero
+
+On the **Push** tab, choose **Bank Transactions**, set the read range (default `Xero_Bank_Transaction!A2:H500`), then click **Push bank transactions to Xero** after building rows.
+
+- Skips rows that already have **Xero ID** set.
+- Successful rows: light green fill and `✓ pushed` (or short ID) in column H.
+- Failed rows: red fill and error message in column H.
+- Reads calculated values from the sheet (Contact, Bank Account, Account Code from mapping formulas).
+- Creates one Xero bank transaction per row: `Type: RECEIVE`, `Status: AUTHORISED`.
+- Line description: `Stripe Payout - dd/mm/yyyy`.
+- Amounts are sent as written on the sheet (positive RECEIVE after build negates Stripe payout signage).
+
+Pre-push validation (server):
+
+| Issue | What you’ll see |
+|-------|------------------|
+| Type not RECEIVE | Row must have Type = RECEIVE |
+| Invalid contact | Contact must match a Xero contact from `stripe_payout_contact` mapping |
+| Invalid bank account | Must be a BANK account code from Xero |
+| Invalid line account | Clearing account must not be BANK/GST/debtor |
+| Zero amount | Amount must be non-zero |
+
 ## Push manual journals to Xero
 
-In **Push to Xero** (task pane):
+On the **Push** tab, choose **Manual Journals**:
 
 1. Connect Xero and ensure `Xero_Journals` has lines (build journals first).
-2. Choose **Journal status**: **Draft** (`DRAFT`) or **Posted** (`POSTED`).
-3. Click **Push journals to Xero**.
+2. Set the read range (default `Xero_Journals!A2:I500`).
+3. Choose **Journal status**: **Draft** (`DRAFT`) or **Posted** (`POSTED`).
+4. Click **Push journals to Xero**.
 
-The add-in reads calculated values from `Xero_Journals`, groups all lines by **date**, and creates one manual journal per date with narration `Stripe posting - dd/mm/yyyy`. Account codes and tax types are parsed from dropdown labels (`CODE — Name`). Rows without account code or with zero net amount are skipped.
+The add-in reads calculated values from the range, **skips rows with Xero ID already set**, groups remaining lines by **date**, and creates one manual journal per date with narration `Stripe posting - dd/mm/yyyy`. Account codes and tax types are parsed from dropdown labels (`CODE — Name`). Rows without account code or with zero gross amount are skipped.
 
-Before calling Xero, the server validates each date’s journal and returns specific errors in the task pane (not a generic message):
+**Row feedback:** All pushed rows in range are highlighted **light green** with status in column I when everything succeeds. Rows that fail validation or Xero POST are highlighted **red** with the error in column I; other dates may still push successfully.
+
+Before calling Xero, the server validates each date’s journal and returns row-level issues (also shown in the task pane):
 
 | Issue | What you’ll see |
 |-------|------------------|
@@ -272,9 +343,9 @@ Tokens are stored **in memory** on the server, keyed by `express-session` cookie
 | GET | `/api/stripe/charges?from=&to=` | Pull charges |
 | GET | `/api/xero/connections` | Xero connection status |
 | GET | `/api/xero/accounts` | Chart of accounts (filtered) |
-| GET | `/api/xero/mapping-options` | Accounts, tax rates, tracking categories for mapping dropdowns |
+| GET | `/api/xero/mapping-options` | Accounts, tax rates, tracking categories, contacts for mapping dropdowns |
 | POST | `/api/xero/manual-journals` | Push manual journals (`status`: `DRAFT` \| `POSTED`, `lines[]`) |
-| POST | `/api/xero/bank-transactions` | 501 — phase 2 |
+| POST | `/api/xero/bank-transactions` | Push bank transactions (`transactions[]`, status AUTHORISED in Xero) |
 
 ## Troubleshooting
 

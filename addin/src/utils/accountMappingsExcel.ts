@@ -18,6 +18,8 @@ const LAST_DATA_ROW = FIRST_DATA_ROW + MAPPING_ROW_COUNT - 1;
 const NAMED_JOURNAL_ACCOUNTS = 'XeroJournalAccounts';
 const NAMED_BANK_ACCOUNTS = 'XeroBankAccounts';
 const BANK_LIST_COL = 'H';
+const NAMED_CONTACTS = 'XeroContacts';
+const CONTACT_LIST_COL = 'I';
 const NAMED_TAX = 'XeroTaxTypes';
 const NAMED_TRACKING = 'XeroTrackingNames';
 const NAMED_TRACK_PREFIX = 'XeroTrack_';
@@ -43,7 +45,8 @@ function listValidation(source: string): Excel.DataValidationRule {
 }
 
 export async function applyAccountMappingsDropdowns(
-  options: XeroMappingOptions
+  options: XeroMappingOptions,
+  defaultCurrency?: string
 ): Promise<void> {
   await Excel.run(async (context) => {
     const mappingsSheet =
@@ -72,9 +75,10 @@ export async function applyAccountMappingsDropdowns(
       .filter((a) => isJournalMappingAccount(a))
       .map((a) => a.displayLabel);
     const bankAccountLabels = options.accounts
-      .filter((a) => isBankPayoutAccount(a))
+      .filter((a) => isBankPayoutAccount(a, defaultCurrency))
       .map((a) => a.displayLabel);
     const taxLabels = options.taxRates.map((t) => t.displayLabel);
+    const contactLabels = (options.contacts ?? []).map((c) => c.displayLabel);
     const categoryNames = options.trackingCategories.map((c) => c.Name);
 
     if (journalAccountLabels.length > 0) {
@@ -85,6 +89,11 @@ export async function applyAccountMappingsDropdowns(
       listsSheet.getRange(
         `${BANK_LIST_COL}1:${BANK_LIST_COL}${bankAccountLabels.length}`
       ).values = bankAccountLabels.map((l) => [l]);
+    }
+    if (contactLabels.length > 0) {
+      listsSheet.getRange(
+        `${CONTACT_LIST_COL}1:${CONTACT_LIST_COL}${contactLabels.length}`
+      ).values = contactLabels.map((l) => [l]);
     }
     if (taxLabels.length > 0) {
       listsSheet.getRange(`B1:B${taxLabels.length}`).values =
@@ -111,6 +120,7 @@ export async function applyAccountMappingsDropdowns(
     const toDelete = [
       NAMED_JOURNAL_ACCOUNTS,
       NAMED_BANK_ACCOUNTS,
+      NAMED_CONTACTS,
       'XeroAccounts',
       NAMED_TAX,
       NAMED_TRACKING,
@@ -136,6 +146,12 @@ export async function applyAccountMappingsDropdowns(
       names.add(
         NAMED_BANK_ACCOUNTS,
         `='${LISTS_SHEET}'!$${BANK_LIST_COL}$1:$${BANK_LIST_COL}$${bankAccountLabels.length}`
+      );
+    }
+    if (contactLabels.length > 0) {
+      names.add(
+        NAMED_CONTACTS,
+        `='${LISTS_SHEET}'!$${CONTACT_LIST_COL}$1:$${CONTACT_LIST_COL}$${contactLabels.length}`
       );
     }
     if (taxLabels.length > 0) {
@@ -184,6 +200,13 @@ export async function applyAccountMappingsDropdowns(
     for (let i = 0; i < ACCOUNT_MAPPING_STRIPE_OBJECTS.length; i++) {
       const row = FIRST_DATA_ROW + i;
       const stripeObject = ACCOUNT_MAPPING_STRIPE_OBJECTS[i];
+      if (stripeObject === 'stripe_payout_contact') {
+        if (contactLabels.length > 0) {
+          mappingsSheet.getRange(`F${row}`).dataValidation.rule =
+            listValidation(`=${NAMED_CONTACTS}`);
+        }
+        continue;
+      }
       const accountSource =
         stripeObject === 'stripe_payout_bank'
           ? bankAccountLabels.length > 0

@@ -8,6 +8,16 @@ import {
   StripeServiceError,
 } from '../services/stripeService';
 import { resolveSessionId } from '../utils/sessionId';
+import { filterRowsByCurrency } from '@stripesync/shared/currencyFilter';
+import {
+  stripePullRangeError,
+  stripePullRowCountError,
+} from '@stripesync/shared/pullLimits';
+import {
+  getSessionDefaultCurrency,
+  XeroServiceError,
+} from '../services/xeroService';
+import type { StripePullResponse } from '@stripesync/shared';
 
 const router = Router();
 
@@ -48,9 +58,45 @@ async function handleStripeDatePull(
     return;
   }
 
+  const rangeError = stripePullRangeError(from, to);
+  if (rangeError) {
+    sendError(res, 'VALIDATION_ERROR', rangeError, 400);
+    return;
+  }
+
   try {
-    const data = await fetchFn(stripe.access_token, from, to);
-    sendSuccess(res, data);
+    let defaultCurrency: string;
+    try {
+      defaultCurrency = getSessionDefaultCurrency(sessionId);
+    } catch (err) {
+      if (err instanceof XeroServiceError) {
+        const status = err.code === 'XERO_AUTH_REQUIRED' ? 401 : 400;
+        sendError(res, err.code, err.message, status);
+        return;
+      }
+      throw err;
+    }
+
+    const raw = await fetchFn(stripe.access_token, from, to);
+    const totalBeforeCurrencyFilter = raw.length;
+    const { rows, excludedByCurrency } = filterRowsByCurrency(
+      raw as Array<{ currency: string }>,
+      defaultCurrency
+    );
+
+    const rowError = stripePullRowCountError(rows.length);
+    if (rowError) {
+      sendError(res, 'VALIDATION_ERROR', rowError, 400);
+      return;
+    }
+
+    const payload: StripePullResponse<unknown> = {
+      currency: defaultCurrency,
+      rows,
+      excludedByCurrency,
+      totalBeforeCurrencyFilter,
+    };
+    sendSuccess(res, payload);
   } catch (err) {
     if (err instanceof StripeServiceError) {
       const status =

@@ -69,6 +69,7 @@ export const ACCOUNT_MAPPING_STRIPE_OBJECTS = [
   'fee',
   'stripe_clearing',
   'stripe_payout_bank',
+  'stripe_payout_contact',
 ] as const;
 
 export const ACCOUNT_MAPPING_HEADERS = [
@@ -77,6 +78,7 @@ export const ACCOUNT_MAPPING_HEADERS = [
   'xero_tax_type',
   'xero_tracking_name',
   'xero_tracking_option',
+  'xero_contact',
 ];
 
 export interface WorkbookSheetConfig {
@@ -96,22 +98,24 @@ export const WORKBOOK_SHEETS: WorkbookSheetConfig[] = [
       'Narration',
       'Account Code',
       'Description',
-      'Net Amount',
+      'Gross Amount',
       'Tax Type',
       'Tracking Name 1',
       'Tracking Option 1',
+      'Xero ID',
     ],
   },
   {
-    name: 'Xero_Bank_Transfers',
+    name: 'Xero_Bank_Transaction',
     headers: [
       'Date',
       'Type',
       'Contact',
+      'Bank Account',
       'Reference',
       'Account Code',
       'Amount',
-      'Description',
+      'Xero ID',
     ],
   },
   {

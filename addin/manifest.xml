@@ -4,9 +4,9 @@
            xsi:type="TaskPaneApp">
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>StripeSync</ProviderName>
+  <ProviderName>Silkview Sync</ProviderName>
   <DefaultLocale>en-AU</DefaultLocale>
-  <DisplayName DefaultValue="StripeSync"/>
+  <DisplayName DefaultValue="Silkview Sync"/>
   <Description DefaultValue="Connect Stripe and Xero to sync financial data with Excel."/>
   <IconUrl DefaultValue="https://localhost:4000/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:4000/icon-64.png"/>

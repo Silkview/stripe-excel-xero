@@ -1,4 +1,5 @@
 import { WORKBOOK_SHEETS } from '../config/workbookSheets';
+import { clearSheetDataArea } from './sheetClear';
 
 export interface SetupSheetsResult {
   created: string[];
@@ -22,6 +23,9 @@ export async function writeDataToSheet(
   data: unknown[][],
   headers: string[]
 ): Promise<void> {
+  const lastCol = colLetter(headers.length);
+  await clearSheetDataArea(sheetName, 2, lastCol);
+
   await Excel.run(async (context) => {
     let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
     await context.sync();
@@ -30,7 +34,6 @@ export async function writeDataToSheet(
       sheet = context.workbook.worksheets.add(sheetName);
     }
 
-    const lastCol = colLetter(headers.length);
     const headerRange = sheet.getRange(`A1:${lastCol}1`);
     headerRange.values = [headers];
     headerRange.format.font.bold = true;
@@ -41,13 +44,46 @@ export async function writeDataToSheet(
         `A2:${lastCol}${data.length + 1}`
       );
       dataRange.values = data;
-    } else {
-      const clearRange = sheet.getRange(`A2:${lastCol}1000`);
-      clearRange.clear(Excel.ClearApplyTo.contents);
     }
 
     sheet.getUsedRange().format.autofitColumns();
     await context.sync();
+  });
+}
+
+/** Activate a worksheet and select a cell so Excel shows the updated sheet. */
+export async function activateWorksheet(
+  sheetName: string,
+  focusCell = 'A1'
+): Promise<void> {
+  await Excel.run(async (context) => {
+    const sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
+    sheet.load('name');
+    await context.sync();
+    if (sheet.isNullObject) return;
+    sheet.activate();
+    sheet.getRange(focusCell).select();
+    await context.sync();
+  });
+}
+
+/** Activate the first worksheet that exists from the given names. */
+export async function activateFirstAvailableWorksheet(
+  sheetNames: readonly string[],
+  focusCell = 'A1'
+): Promise<void> {
+  await Excel.run(async (context) => {
+    for (const name of sheetNames) {
+      const sheet = context.workbook.worksheets.getItemOrNullObject(name);
+      sheet.load('name');
+      await context.sync();
+      if (!sheet.isNullObject) {
+        sheet.activate();
+        sheet.getRange(focusCell).select();
+        await context.sync();
+        return;
+      }
+    }
   });
 }
 
@@ -131,4 +167,44 @@ export function parseDestination(destination: string): {
     };
   }
   return { sheetName: destination || 'Stripe_Payouts', startCell: 'A1' };
+}
+
+export interface ParsedSheetRange {
+  sheetName: string;
+  startRow: number;
+  endRow: number;
+  startCol: number;
+  endCol: number;
+}
+
+function parseCellRef(ref: string): { col: number; row: number } {
+  const match = ref.match(/^(\$?)([A-Za-z]+)(\$?)(\d+)$/);
+  if (!match) return { col: 1, row: 1 };
+  const letters = match[2].toUpperCase();
+  let col = 0;
+  for (let i = 0; i < letters.length; i++) {
+    col = col * 26 + (letters.charCodeAt(i) - 64);
+  }
+  return { col, row: parseInt(match[4], 10) };
+}
+
+/** Parse A1-style range e.g. Xero_Journals!A2:I200 */
+export function parseSheetRange(rangeA1: string): ParsedSheetRange {
+  const trimmed = rangeA1.trim();
+  const bang = trimmed.indexOf('!');
+  const sheetPart = bang >= 0 ? trimmed.slice(0, bang) : trimmed;
+  const rangePart = bang >= 0 ? trimmed.slice(bang + 1) : 'A1';
+  const sheetName = sheetPart.replace(/^'|'$/g, '');
+
+  const cells = rangePart.split(':');
+  const start = parseCellRef(cells[0] || 'A1');
+  const end = parseCellRef(cells[1] || cells[0] || 'A1');
+
+  return {
+    sheetName,
+    startRow: Math.min(start.row, end.row),
+    endRow: Math.max(start.row, end.row),
+    startCol: Math.min(start.col, end.col),
+    endCol: Math.max(start.col, end.col),
+  };
 }

@@ -29,7 +29,7 @@ export function authCallbackHtml(payload: object): string {
     payload !== null &&
     'status' in payload &&
     String((payload as { status: string }).status).includes('connected');
-  const title = isSuccess ? 'StripeSync connected' : 'Connection issue';
+  const title = isSuccess ? 'Silkview Sync connected' : 'Connection issue';
   const message = isSuccess
     ? 'You can close this tab and return to Excel.'
     : 'Please close this tab and try again from the add-in.';
@@ -37,7 +37,7 @@ export function authCallbackHtml(payload: object): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>StripeSync</title>
+  <title>Silkview Sync</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>

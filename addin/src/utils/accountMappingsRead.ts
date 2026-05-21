@@ -11,11 +11,13 @@ const LABEL_SEP = ' — ';
 const COL_STRIPE_OBJECT = 0;
 const COL_ACCOUNT = 1;
 const COL_TAX = 2;
+const COL_CONTACT = 5;
 
 export interface AccountMappingRow {
   stripeObject: string;
   accountCode: string;
   taxType?: string;
+  contactLabel?: string;
 }
 
 export function extractMappingCode(label: unknown): string {
@@ -35,10 +37,12 @@ export function parseAccountMappingRows(rows: unknown[][]): AccountMappingRow[] 
     if (!stripeObject) continue;
     const accountCode = extractMappingCode(rows[i][COL_ACCOUNT]);
     const taxType = extractMappingCode(rows[i][COL_TAX]);
+    const contactLabel = String(rows[i][COL_CONTACT] ?? '').trim();
     result.push({
       stripeObject,
       accountCode,
       taxType: taxType || undefined,
+      contactLabel: contactLabel || undefined,
     });
   }
 

@@ -1,14 +1,19 @@
 import axios, { AxiosError } from 'axios';
 import {
+  isBankPayoutAccount,
   isJournalMappingAccount,
   journalAccountExclusionReason,
 } from '@stripesync/shared/accountMappingRules';
 import type {
+  BankTransactionPushResult,
   ManualJournalPushResult,
+  PushRowIssue,
   XeroAccount,
   XeroAccountOption,
+  XeroBankTransactionInput,
   XeroJournalLineInput,
   XeroManualJournalStatus,
+  XeroContactOption,
   XeroMappingOptions,
   XeroTaxRateOption,
   XeroTrackingCategoryOption,
@@ -25,7 +30,8 @@ export class XeroServiceError extends Error {
     public code: string,
     message: string,
     public retryAfter?: number,
-    public details?: string[]
+    public details?: string[],
+    public rowIssues?: PushRowIssue[]
   ) {
     super(message);
   }
@@ -61,6 +67,64 @@ export async function exchangeXeroCode(
   } catch (err) {
     throw mapXeroError(err);
   }
+}
+
+export async function getOrganisationBaseCurrency(
+  accessToken: string,
+  tenantId: string
+): Promise<string> {
+  try {
+    const response = await axios.get(`${XERO_API}/api.xro/2.0/Organisation`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Xero-tenant-id': tenantId,
+        Accept: 'application/json',
+      },
+      timeout: REQUEST_TIMEOUT_MS,
+    });
+    const base = response.data?.Organisations?.[0]?.BaseCurrency;
+    if (!base || typeof base !== 'string') {
+      throw new XeroServiceError(
+        'XERO_ERROR',
+        'Could not read base currency from Xero organisation.'
+      );
+    }
+    return base.toUpperCase();
+  } catch (err) {
+    if (err instanceof XeroServiceError) throw err;
+    throw mapXeroError(err);
+  }
+}
+
+export async function ensureXeroBaseCurrency(
+  sessionId: string
+): Promise<string> {
+  const xero = await ensureValidToken(sessionId);
+  if (xero.baseCurrency) return xero.baseCurrency;
+
+  const baseCurrency = await getOrganisationBaseCurrency(
+    xero.access_token,
+    xero.tenantId
+  );
+  tokenStore.setXero(sessionId, { ...xero, baseCurrency });
+  return baseCurrency;
+}
+
+export function getSessionDefaultCurrency(sessionId: string): string {
+  const xero = tokenStore.getXero(sessionId);
+  if (!xero) {
+    throw new XeroServiceError(
+      'XERO_AUTH_REQUIRED',
+      'Connect Xero to set your posting currency.'
+    );
+  }
+  if (!xero.baseCurrency) {
+    throw new XeroServiceError(
+      'VALIDATION_ERROR',
+      'Posting currency is not set. Reconnect Xero or refresh the connection.'
+    );
+  }
+  return xero.baseCurrency;
 }
 
 export async function fetchXeroConnections(
@@ -158,7 +222,9 @@ async function xeroPost<T>(
 }
 
 const JOURNAL_NARRATION_PREFIX = 'Stripe posting - ';
+const BANK_TXN_DESCRIPTION_PREFIX = 'Stripe Payout - ';
 const MANUAL_JOURNAL_CHUNK = 50;
+const BANK_TRANSACTION_CHUNK = 50;
 
 function formatDateDdMmYyyy(isoDate: string): string {
   const [y, m, d] = isoDate.split('-');
@@ -266,15 +332,26 @@ function parseXeroManualJournalErrors(data: unknown): string[] {
   return [...new Set(details)];
 }
 
-function throwValidationIssues(issues: string[]): never {
-  const summary = `Found ${issues.length} validation issue${issues.length === 1 ? '' : 's'}. Fix Xero_Journals and Account_Mappings, then push again.`;
-  throw new XeroServiceError('VALIDATION_ERROR', summary, undefined, issues);
+function validationErrorFromRowIssues(
+  rowIssues: PushRowIssue[],
+  sheetHint: string
+): never {
+  const details = rowIssues.map((i) => i.message);
+  const summary = `Found ${rowIssues.length} validation issue${rowIssues.length === 1 ? '' : 's'}. Fix ${sheetHint}, then push again.`;
+  throw new XeroServiceError(
+    'VALIDATION_ERROR',
+    summary,
+    undefined,
+    details,
+    rowIssues
+  );
 }
 
-async function validateManualJournalLines(
+async function collectManualJournalValidationIssues(
   sessionId: string,
-  lines: XeroJournalLineInput[]
-): Promise<void> {
+  lines: XeroJournalLineInput[],
+  _defaultCurrency: string
+): Promise<PushRowIssue[]> {
   const options = await getMappingOptions(sessionId);
   const accountByCode = new Map(
     options.accounts.map((a) => [a.Code, a] as const)
@@ -286,7 +363,7 @@ async function validateManualJournalLines(
   }
 
   const groups = groupLinesByDate(lines);
-  const issues: string[] = [];
+  const rowIssues: PushRowIssue[] = [];
 
   for (const [date, groupLines] of groups) {
     const total = groupLines.reduce((sum, l) => sum + l.netAmount, 0);
@@ -318,54 +395,70 @@ async function validateManualJournalLines(
     );
     // #endregion
     if (Math.abs(total) > BALANCE_EPSILON) {
-      issues.push(
-        `${date}: Journal is unbalanced (total ${total.toFixed(2)}). Line amounts must sum to zero (Inclusive).`
-      );
+      rowIssues.push({
+        date,
+        message: `Journal is unbalanced (total ${total.toFixed(2)}). Line amounts must sum to zero (Inclusive).`,
+      });
     }
 
     for (const line of groupLines) {
-      const lineRef = line.description
-        ? `${date}, line "${line.description}"`
-        : `${date}, account ${line.accountCode}`;
-
       const mappedAccount = accountByCode.get(line.accountCode);
       if (!mappedAccount) {
-        issues.push(
-          `${lineRef}: Invalid account code "${line.accountCode}".`
-        );
+        rowIssues.push({
+          date,
+          description: line.description,
+          accountCode: line.accountCode,
+          message: `Invalid account code "${line.accountCode}".`,
+        });
       } else if (!isJournalMappingAccount(mappedAccount)) {
         const reason =
           journalAccountExclusionReason(mappedAccount) ??
           'This account cannot be used on journal lines.';
-        issues.push(`${lineRef}: ${reason}`);
+        rowIssues.push({
+          date,
+          description: line.description,
+          accountCode: line.accountCode,
+          message: reason,
+        });
       }
 
       if (line.taxType && !validTaxTypes.has(line.taxType)) {
-        issues.push(`${lineRef}: Invalid tax type "${line.taxType}".`);
+        rowIssues.push({
+          date,
+          description: line.description,
+          accountCode: line.accountCode,
+          message: `Invalid tax type "${line.taxType}".`,
+        });
       }
 
       const hasName = Boolean(line.trackingName1?.trim());
       const hasOption = Boolean(line.trackingOption1?.trim());
       if (hasName !== hasOption) {
-        issues.push(
-          `${date}: Tracking requires both category and option (account ${line.accountCode}).`
-        );
+        rowIssues.push({
+          date,
+          accountCode: line.accountCode,
+          message: `Tracking requires both category and option (account ${line.accountCode}).`,
+        });
       } else if (hasName && hasOption) {
         const optionsForCat = trackingOptions.get(line.trackingName1!);
         if (!optionsForCat) {
-          issues.push(
-            `${date}: Invalid tracking — category "${line.trackingName1}" not found in Xero.`
-          );
+          rowIssues.push({
+            date,
+            accountCode: line.accountCode,
+            message: `Invalid tracking — category "${line.trackingName1}" not found in Xero.`,
+          });
         } else if (!optionsForCat.has(line.trackingOption1!)) {
-          issues.push(
-            `${date}: Invalid tracking — option "${line.trackingOption1}" not found for category "${line.trackingName1}".`
-          );
+          rowIssues.push({
+            date,
+            accountCode: line.accountCode,
+            message: `Invalid tracking — option "${line.trackingOption1}" not found for category "${line.trackingName1}".`,
+          });
         }
       }
     }
   }
 
-  if (issues.length > 0) throwValidationIssues(issues);
+  return rowIssues;
 }
 
 export async function pushManualJournals(
@@ -374,7 +467,18 @@ export async function pushManualJournals(
   lines: XeroJournalLineInput[]
 ): Promise<ManualJournalPushResult> {
   await ensureValidToken(sessionId);
-  await validateManualJournalLines(sessionId, lines);
+  const defaultCurrency = getSessionDefaultCurrency(sessionId);
+  const validationIssues = await collectManualJournalValidationIssues(
+    sessionId,
+    lines,
+    defaultCurrency
+  );
+  if (validationIssues.length > 0) {
+    validationErrorFromRowIssues(
+      validationIssues,
+      'Xero_Journals and Account_Mappings'
+    );
+  }
 
   const groups = groupLinesByDate(lines);
   const sortedDates = [...groups.keys()].sort();
@@ -385,6 +489,7 @@ export async function pushManualJournals(
       Narration: `${JOURNAL_NARRATION_PREFIX}${formatDateDdMmYyyy(date)}`,
       Status: status,
       LineAmountTypes: 'Inclusive',
+      CurrencyCode: defaultCurrency,
       JournalLines: journalLines.map(buildJournalLine),
     };
     // #region agent log
@@ -409,7 +514,9 @@ export async function pushManualJournals(
   });
 
   const manualJournalIds: string[] = [];
+  const journalIdsByDate: Record<string, string> = {};
   const errors: Array<{ date: string; message: string }> = [];
+  const rowIssues: PushRowIssue[] = [];
 
   for (let i = 0; i < manualJournals.length; i += MANUAL_JOURNAL_CHUNK) {
     const chunk = manualJournals.slice(i, i + MANUAL_JOURNAL_CHUNK);
@@ -418,8 +525,14 @@ export async function pushManualJournals(
         ManualJournals?: Array<{ ManualJournalID?: string }>;
       }>(sessionId, '/api.xro/2.0/ManualJournals', { ManualJournals: chunk });
 
-      for (const mj of data.ManualJournals ?? []) {
-        if (mj.ManualJournalID) manualJournalIds.push(mj.ManualJournalID);
+      const created = data.ManualJournals ?? [];
+      for (let j = 0; j < created.length; j++) {
+        const mj = created[j];
+        const date = chunk[j]?.Date;
+        if (mj.ManualJournalID) {
+          manualJournalIds.push(mj.ManualJournalID);
+          if (date) journalIdsByDate[date] = mj.ManualJournalID;
+        }
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
@@ -429,15 +542,13 @@ export async function pushManualJournals(
           'Xero rejected the journal. Check account codes, tax types, and tracking in Account_Mappings.';
         const message = parsed.length > 0 ? parsed.join('; ') : fallback;
         errors.push({ date: dates, message });
+        for (const journal of chunk) {
+          if (journal.Date) {
+            rowIssues.push({ date: journal.Date, message });
+          }
+        }
         if (err.response.status === 400) {
-          const details =
-            parsed.length > 0 ? parsed : [fallback];
-          throw new XeroServiceError(
-            'VALIDATION_ERROR',
-            `Xero rejected manual journal(s) for ${dates}.`,
-            undefined,
-            details
-          );
+          continue;
         }
       }
       throw mapXeroError(err);
@@ -447,7 +558,252 @@ export async function pushManualJournals(
   return {
     created: manualJournalIds.length,
     manualJournalIds,
+    journalIdsByDate,
     errors: errors.length > 0 ? errors : undefined,
+    rowIssues: rowIssues.length > 0 ? rowIssues : undefined,
+  };
+}
+
+function resolveXeroContact(
+  contactName: string,
+  contacts: XeroContactOption[]
+): Record<string, string> {
+  const trimmed = contactName.trim();
+  const match = contacts.find(
+    (c) => c.Name === trimmed || c.displayLabel === trimmed
+  );
+  if (match) return { ContactID: match.ContactID };
+  return { Name: trimmed };
+}
+
+function buildBankTransactionPayload(
+  line: XeroBankTransactionInput,
+  contacts: XeroContactOption[]
+): Record<string, unknown> {
+  const lineAmount = Math.abs(line.amount);
+  return {
+    Type: 'RECEIVE',
+    Status: 'AUTHORISED',
+    Contact: resolveXeroContact(line.contactName, contacts),
+    Date: line.date,
+    Reference: line.reference || '',
+    BankAccount: { Code: line.bankAccountCode },
+    LineItems: [
+      {
+        Description: `${BANK_TXN_DESCRIPTION_PREFIX}${formatDateDdMmYyyy(line.date)}`,
+        LineAmount: lineAmount,
+        AccountCode: line.accountCode,
+      },
+    ],
+  };
+}
+
+function parseXeroBankTransactionErrors(data: unknown): string[] {
+  const details: string[] = [];
+  if (!data || typeof data !== 'object') return details;
+
+  const topMessage = (data as { Message?: string }).Message;
+  if (topMessage) details.push(categorizeXeroMessage(topMessage));
+
+  const elements = (data as { Elements?: unknown[] }).Elements;
+  if (!Array.isArray(elements)) return details;
+
+  for (const el of elements) {
+    if (!el || typeof el !== 'object') continue;
+    const record = el as {
+      Reference?: string;
+      Date?: string;
+      ValidationErrors?: Array<{ Message?: string }>;
+      LineItems?: Array<{
+        ValidationErrors?: Array<{ Message?: string }>;
+        Description?: string;
+      }>;
+    };
+
+    const context = [record.Date, record.Reference].filter(Boolean).join(' — ');
+    const prefix = context ? `${context}: ` : '';
+
+    if (Array.isArray(record.ValidationErrors)) {
+      for (const e of record.ValidationErrors) {
+        if (e.Message) details.push(prefix + categorizeXeroMessage(e.Message));
+      }
+    }
+
+    if (Array.isArray(record.LineItems)) {
+      for (const item of record.LineItems) {
+        const itemDesc = item.Description ? `"${item.Description}"` : 'line';
+        if (Array.isArray(item.ValidationErrors)) {
+          for (const e of item.ValidationErrors) {
+            if (e.Message) {
+              details.push(
+                `${prefix}${itemDesc}: ${categorizeXeroMessage(e.Message)}`
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return [...new Set(details)];
+}
+
+function contactMatches(
+  contactName: string,
+  contacts: XeroContactOption[]
+): boolean {
+  const trimmed = contactName.trim();
+  return contacts.some(
+    (c) => c.Name === trimmed || c.displayLabel === trimmed
+  );
+}
+
+async function collectBankTransactionValidationIssues(
+  sessionId: string,
+  lines: XeroBankTransactionInput[],
+  defaultCurrency: string
+): Promise<PushRowIssue[]> {
+  const options = await getMappingOptions(sessionId);
+  const accountByCode = new Map(
+    options.accounts.map((a) => [a.Code, a] as const)
+  );
+  const rowIssues: PushRowIssue[] = [];
+
+  for (const line of lines) {
+    if (line.type.toUpperCase() !== 'RECEIVE') {
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: `Type must be RECEIVE (got "${line.type}").`,
+      });
+    }
+
+    if (!contactMatches(line.contactName, options.contacts)) {
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: `Invalid contact "${line.contactName}". Choose a contact from Account_Mappings (stripe_payout_contact).`,
+      });
+    }
+
+    const bankAccount = accountByCode.get(line.bankAccountCode);
+    if (!bankAccount) {
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: `Invalid bank account code "${line.bankAccountCode}".`,
+      });
+    } else if (!isBankPayoutAccount(bankAccount, defaultCurrency)) {
+      const acctCur = (bankAccount.CurrencyCode || '').trim();
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: acctCur
+          ? `Bank account "${line.bankAccountCode}" must be a BANK account in ${defaultCurrency} (account is ${acctCur}).`
+          : `Bank account "${line.bankAccountCode}" must be a BANK account in ${defaultCurrency}.`,
+      });
+    }
+
+    const lineAccount = accountByCode.get(line.accountCode);
+    if (!lineAccount) {
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: `Invalid account code "${line.accountCode}".`,
+      });
+    } else if (!isJournalMappingAccount(lineAccount)) {
+      const reason =
+        journalAccountExclusionReason(lineAccount) ??
+        'This account cannot be used on the line item.';
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: reason,
+      });
+    }
+
+    if (line.amount === 0) {
+      rowIssues.push({
+        date: line.date,
+        reference: line.reference,
+        message: 'Amount must be non-zero.',
+      });
+    }
+  }
+
+  return rowIssues;
+}
+
+export async function pushBankTransactions(
+  sessionId: string,
+  lines: XeroBankTransactionInput[]
+): Promise<BankTransactionPushResult> {
+  await ensureValidToken(sessionId);
+  const defaultCurrency = getSessionDefaultCurrency(sessionId);
+  const validationIssues = await collectBankTransactionValidationIssues(
+    sessionId,
+    lines,
+    defaultCurrency
+  );
+  if (validationIssues.length > 0) {
+    validationErrorFromRowIssues(
+      validationIssues,
+      'Xero_Bank_Transaction and Account_Mappings'
+    );
+  }
+
+  const options = await getMappingOptions(sessionId);
+  const bankTransactions = lines.map((line) =>
+    buildBankTransactionPayload(line, options.contacts)
+  );
+
+  const bankTransactionIds: string[] = [];
+  const errors: Array<{ reference: string; message: string }> = [];
+  const rowIssues: PushRowIssue[] = [];
+
+  for (let i = 0; i < bankTransactions.length; i += BANK_TRANSACTION_CHUNK) {
+    const chunk = bankTransactions.slice(i, i + BANK_TRANSACTION_CHUNK);
+    const chunkLines = lines.slice(i, i + BANK_TRANSACTION_CHUNK);
+    try {
+      const data = await xeroPost<{
+        BankTransactions?: Array<{ BankTransactionID?: string }>;
+      }>(sessionId, '/api.xro/2.0/BankTransactions', {
+        BankTransactions: chunk,
+      });
+
+      const created = data.BankTransactions ?? [];
+      for (let j = 0; j < created.length; j++) {
+        const bt = created[j];
+        if (bt.BankTransactionID) bankTransactionIds.push(bt.BankTransactionID);
+      }
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data) {
+        const parsed = parseXeroBankTransactionErrors(err.response.data);
+        const refs = chunkLines.map((l) => l.reference || l.date).join(', ');
+        const fallback =
+          'Xero rejected the bank transaction. Check contact, bank account, and account codes in Account_Mappings.';
+        const message = parsed.length > 0 ? parsed.join('; ') : fallback;
+        errors.push({ reference: refs, message });
+        for (const line of chunkLines) {
+          rowIssues.push({
+            date: line.date,
+            reference: line.reference,
+            message,
+          });
+        }
+        if (err.response.status === 400) {
+          continue;
+        }
+      }
+      throw mapXeroError(err);
+    }
+  }
+
+  return {
+    created: bankTransactionIds.length,
+    bankTransactionIds,
+    errors: errors.length > 0 ? errors : undefined,
+    rowIssues: rowIssues.length > 0 ? rowIssues : undefined,
   };
 }
 
@@ -477,12 +833,14 @@ export async function getAccounts(sessionId: string): Promise<XeroAccount[]> {
           Type: string;
           TaxType: string;
           SystemAccount?: string;
+          CurrencyCode?: string;
         }) => ({
           Code: a.Code,
           Name: a.Name,
           Type: a.Type,
           TaxType: a.TaxType || '',
           SystemAccount: a.SystemAccount || undefined,
+          CurrencyCode: a.CurrencyCode || undefined,
         })
       );
   } catch (err) {
@@ -545,13 +903,42 @@ export async function getTrackingCategories(
   }
 }
 
+export async function getContacts(
+  sessionId: string
+): Promise<XeroContactOption[]> {
+  try {
+    const data = await xeroGet<{
+      Contacts?: Array<{
+        ContactID?: string;
+        Name?: string;
+        ContactStatus?: string;
+      }>;
+    }>(sessionId, '/api.xro/2.0/Contacts');
+    const contacts: XeroContactOption[] = [];
+    for (const c of data.Contacts ?? []) {
+      if (!c.ContactID || !c.Name) continue;
+      if ((c.ContactStatus || 'ACTIVE').toUpperCase() === 'ARCHIVED') continue;
+      contacts.push({
+        ContactID: c.ContactID,
+        Name: c.Name,
+        displayLabel: c.Name,
+      });
+    }
+    contacts.sort((a, b) => a.Name.localeCompare(b.Name));
+    return contacts;
+  } catch (err) {
+    throw mapXeroError(err);
+  }
+}
+
 export async function getMappingOptions(
   sessionId: string
 ): Promise<XeroMappingOptions> {
-  const [accounts, taxRates, trackingCategories] = await Promise.all([
+  const [accounts, taxRates, trackingCategories, contacts] = await Promise.all([
     getAccounts(sessionId),
     getTaxRates(sessionId),
     getTrackingCategories(sessionId),
+    getContacts(sessionId),
   ]);
 
   const accountOptions: XeroAccountOption[] = accounts.map((a) => ({
@@ -559,10 +946,11 @@ export async function getMappingOptions(
     Name: a.Name,
     Type: a.Type,
     SystemAccount: a.SystemAccount,
+    CurrencyCode: a.CurrencyCode,
     displayLabel: `${a.Code} — ${a.Name}`,
   }));
 
-  return { accounts: accountOptions, taxRates, trackingCategories };
+  return { accounts: accountOptions, taxRates, trackingCategories, contacts };
 }
 
 function mapXeroError(err: unknown): XeroServiceError {

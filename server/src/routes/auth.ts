@@ -11,6 +11,7 @@ import { exchangeStripeCode } from '../services/stripeService';
 import {
   exchangeXeroCode,
   fetchXeroConnections,
+  getOrganisationBaseCurrency,
 } from '../services/xeroService';
 import { resolveSessionId } from '../utils/sessionId';
 
@@ -189,12 +190,17 @@ router.get('/xero/callback', async (req: Request, res: Response) => {
     }
 
     const tenant = connections[0];
+    const baseCurrency = await getOrganisationBaseCurrency(
+      tokenResponse.access_token,
+      tenant.tenantId
+    );
     tokenStore.setXero(sessionId, {
       access_token: tokenResponse.access_token,
       refresh_token: tokenResponse.refresh_token,
       expires_at: Date.now() + tokenResponse.expires_in * 1000,
       tenantId: tenant.tenantId,
       tenantName: tenant.tenantName,
+      baseCurrency,
     });
 
     res.status(200).send(

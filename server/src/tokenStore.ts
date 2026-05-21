@@ -9,6 +9,8 @@ export interface XeroTokens {
   expires_at: number;
   tenantId: string;
   tenantName: string;
+  /** ISO 4217 org base currency (uppercase), from Xero Organisation API */
+  baseCurrency?: string;
 }
 
 export interface SessionTokens {

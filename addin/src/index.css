@@ -1,14 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --stripe: #635bff;
+  --stripe-light: #eef0ff;
+  --xero: #00b4d8;
+  --xero-dark: #0099bb;
+  --xero-light: #e0f7fc;
+  --success: #12a05c;
+  --success-bg: #e8f8f1;
+  --warn: #e07b39;
+  --warn-bg: #fdf0e7;
+  --text: #0d0f12;
+  --text-2: #5a6072;
+  --text-3: #9aa0b0;
+  --border: #e8eaf0;
+  --bg: #f5f6fa;
+  --surface: #ffffff;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
 }
 
 #root {
   min-width: 300px;
   max-width: 300px;
+}
+
+.font-mono {
+  font-family: 'DM Mono', monospace;
 }
