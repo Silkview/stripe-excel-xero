@@ -1,0 +1,22 @@
+{
+  "name": "stripesync",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "addin",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w addin\" \"npm run dev -w server\"",
+    "dev:addin": "npm run dev -w addin",
+    "dev:server": "npm run dev -w server",
+    "build": "npm run build -w addin && npm run build -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
