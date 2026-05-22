@@ -1,20 +1,35 @@
 import axios from 'axios';
 import type { ApiResponse } from '@stripesync/shared';
-import { appendSessionId } from './session';
+import { getAccessToken, getWorkspaceId } from './session';
+
+const apiBase =
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ||
+  '';
 
 export const api = axios.create({
-  baseURL: '',
+  baseURL: apiBase,
   withCredentials: true,
   timeout: 20000,
+});
+
+api.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  const ws = getWorkspaceId();
+  if (ws) {
+    config.headers['X-Workspace-Id'] = ws;
+  }
+  return config;
 });
 
 export async function apiPost<T, B = unknown>(
   url: string,
   body: B
 ): Promise<ApiResponse<T>> {
-  const requestUrl = appendSessionId(url);
   try {
-    const res = await api.post<ApiResponse<T>>(requestUrl, body);
+    const res = await api.post<ApiResponse<T>>(url, body);
     return res.data;
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.data) {
@@ -25,9 +40,8 @@ export async function apiPost<T, B = unknown>(
 }
 
 export async function apiGet<T>(url: string): Promise<ApiResponse<T>> {
-  const requestUrl = appendSessionId(url);
   try {
-    const res = await api.get<ApiResponse<T>>(requestUrl);
+    const res = await api.get<ApiResponse<T>>(url);
     return res.data;
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.data) {
@@ -45,4 +59,8 @@ export function getApiErrorMessage(
     return response.error.message;
   }
   return fallback;
+}
+
+export function getAppUrl(): string {
+  return apiBase || 'http://localhost:4003';
 }

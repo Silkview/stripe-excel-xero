@@ -33,7 +33,17 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
       { height: 60, width: 50, displayInIframe: false },
       (asyncResult) => {
         if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) {
-          reject(new Error('Could not open the sign-in window. Please try again.'));
+          const err = asyncResult.error;
+          const detail =
+            err?.message ??
+            (err?.code != null ? String(err.code) : undefined);
+          reject(
+            new Error(
+              detail
+                ? `Could not open the sign-in window: ${detail}`
+                : 'Could not open the sign-in window. Please try again.'
+            )
+          );
           return;
         }
 
@@ -52,6 +62,11 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
                       payload.message || 'Connection was cancelled or failed.'
                     )
                   );
+                } else if (
+                  payload.status === 'signed_in' &&
+                  typeof payload.accessToken === 'string'
+                ) {
+                  resolve(payload);
                 } else {
                   resolve(payload);
                 }
@@ -82,10 +97,7 @@ export async function openAuthFlow(
   url: string,
   waitForConnected: () => Promise<boolean>
 ): Promise<void> {
-  // #region agent log
   const usedBrowser = openAuthInSystemBrowser(url);
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',runId:'browser-oauth',location:'dialogAuth.ts:openAuthFlow',message:'auth open method',data:{usedBrowser},timestamp:Date.now(),hypothesisId:'H'})}).catch(()=>{});
-  // #endregion
 
   if (usedBrowser) {
     const connected = await pollUntil(waitForConnected);

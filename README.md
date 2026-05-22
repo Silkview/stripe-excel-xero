@@ -1,21 +1,23 @@
 # Silkview Sync
 
-Microsoft Excel Add-in that connects to **Stripe** (pull financial data) and **Xero** (push accounting entries). Phase 1 provides the framework, OAuth via Office Dialog API, and Stripe pulls (**Payouts**, **Balance Transactions**, **Charges**) to worksheets.
+Microsoft Excel Add-in that connects to **Stripe** (pull financial data) and **Xero** (push accounting entries). The backend is a **Next.js 14** app on Vercel with **Supabase** (auth, Postgres RLS, encrypted OAuth tokens) and **Stripe** subscription billing.
 
 ## Prerequisites
 
 - **Node.js 18+** and npm
 - **Microsoft Excel** (desktop Mac or Windows) for sideloading
-- **Stripe Connect** OAuth app (test mode supported)
+- **Supabase** project ([supabase.com](https://supabase.com))
+- **Stripe** — Connect OAuth app (add-in) + Billing products/webhook (account plans)
 - **Xero** OAuth 2.0 app at [developer.xero.com](https://developer.xero.com)
-- Optional: [ngrok](https://ngrok.com) if you need to test from a remote machine (not required for local dev)
+- Optional: [ngrok](https://ngrok.com) for remote Excel testing
 
 ## Project structure
 
 ```
-addin/     Excel task pane (React + Vite + Office.js) — https://localhost:4000
-server/    Express API + OAuth — http://localhost:4001
-shared/    Shared TypeScript types
+addin/              Excel task pane (React + Vite + Office.js) — https://localhost:4000
+web/                Next.js API + auth + billing — http://localhost:4003
+shared/             Shared TypeScript types and rules
+supabase/migrations/  Postgres schema, RLS, plan limits
 ```
 
 ## Quick start
@@ -26,346 +28,233 @@ shared/    Shared TypeScript types
 npm install
 ```
 
-### 2. Configure environment
+### 2. Supabase
+
+1. Create a Supabase project.
+2. Apply the migration (creates the **`core`** schema — app tables are not in `public`):
+
+   ```bash
+   supabase db push
+   # or run supabase/migrations/001_initial_schema.sql in the SQL editor
+   ```
+
+3. Expose the `core` schema to the API:
+   - **Local:** `supabase/config.toml` already lists `core` under `[api].schemas`.
+   - **Hosted:** Project Settings → API → **Exposed schemas** → add `core`.
+
+4. Configure **Authentication** (Dashboard → Authentication):
+   - **Providers → Email:** enable email sign-in, turn on **Confirm email**, set minimum password length (8+).
+   - **MFA → TOTP:** enable authenticator-app MFA (optional per user in the app).
+   - **URL configuration:** Site URL = `NEXT_PUBLIC_APP_URL` (e.g. `http://localhost:4003`). Add redirect URLs:
+     - `http://localhost:4003/auth/callback` and `http://localhost:4003/auth/callback/**`
+     - `https://localhost:4000/auth/callback` and `https://localhost:4000/auth/callback/**` (Excel add-in dialog via Vite proxy)
+5. Create a **Database Webhook** on `auth.users` **INSERT** → `POST https://<your-api>/api/auth/signup` with header `x-webhook-secret: <SUPABASE_SERVICE_ROLE_KEY>` (see `web/app/api/auth/signup/route.ts`). This creates `core.accounts` + default workspace. A fallback `POST /api/auth/ensure-account` runs after web login if the webhook is delayed.
+
+### 3. Configure environment
 
 ```bash
-cp server/.env.example server/.env
+cp web/.env.example web/.env.local
+cp addin/.env.example addin/.env
 ```
 
-Edit `server/.env` with your Stripe and Xero credentials (see registration sections below).
+Next.js reads **`web/.env.local`** (not `.env.example`). Restart `npm run dev` after creating or changing env files.
 
-### 3. Trust localhost SSL certificate
+Edit `web/.env`:
 
-Office Add-ins require **HTTPS** for the task pane. Install dev certificates:
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin client (webhooks, signup, token storage) |
+| `ENCRYPTION_KEY` | 32-byte hex for AES-256-GCM OAuth tokens (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+| `OAUTH_STATE_SECRET` | Signs OAuth `state` (workspace + user) |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / price IDs | Subscription billing |
+| `STRIPE_CLIENT_ID` / `STRIPE_CONNECT_SECRET` | Stripe Connect (add-in) |
+| `STRIPE_REDIRECT_URI` | `http://localhost:4003/api/stripe/callback` (dev) |
+| `XERO_*` | Xero OAuth; redirect `http://localhost:4003/api/xero/callback` |
+| `NEXT_PUBLIC_APP_URL` | `http://localhost:4003` |
+| `FRONTEND_URL` | `https://localhost:4000` (add-in origin for CORS) |
+
+`addin/.env`: `VITE_API_URL=http://localhost:4003`
+
+### 4. Trust localhost SSL certificate
+
+Office Add-ins require **HTTPS** for the task pane:
 
 ```bash
 npx office-addin-dev-certs install
 ```
 
-Follow the prompts to trust the certificate in your system keychain (macOS) or certificate store (Windows).
+Certificates: `~/.office-addin-dev-certs/` (`localhost.crt` / `localhost.key`). Vite uses these on port 4000.
 
-Certificates are stored at `~/.office-addin-dev-certs/` (`localhost.crt` / `localhost.key`). Vite uses these automatically when present.
-
-> **Screenshot placeholder:** System prompt to trust `Developer CA for Office Add-ins` on macOS.
-
-### 4. Run development servers
-
-From the repo root:
+### 5. Run development servers
 
 ```bash
 npm run dev
 ```
 
-This starts:
-
 | Service | URL |
 |---------|-----|
 | Add-in (Vite) | https://localhost:4000 |
-| API server | http://localhost:4001 |
+| API (Next.js) | http://localhost:4003 |
 
-Individual workspaces:
+Vite proxies `/api` and `/auth` to Next.js. OAuth callbacks hit the API directly (`/api/stripe/callback`, `/api/xero/callback`). Legacy paths `/auth/stripe/*` rewrite to `/api/stripe/*`.
 
 ```bash
 npm run dev:addin
-npm run dev:server
+npm run dev:web
 ```
 
-### 5. Sideload the manifest in Excel
+### 6. Sideload the manifest in Excel
 
-1. Open Excel (desktop).
-2. **Insert** → **Add-ins** → **Upload My Add-in** (or **Get Add-ins** → **Upload My Add-in**).
-3. Select `addin/manifest.xml`.
-4. Open the **Silkview Sync** task pane from the ribbon or **Home** tab if configured.
+1. Open Excel → **Insert** → **Add-ins** → **Upload My Add-in**.
+2. Select `addin/manifest.xml`.
+3. Open **Silkview Sync** from the ribbon.
 
-**macOS:** You may need to allow the add-in under **Excel** → **Preferences** → **Security** → **Trust Center**.
+### 7. Web app and sign-in
 
-**Windows:** File → Options → Trust Center → Trust Center Settings → Trusted Add-in Catalogs (if using a network share).
+| URL | Purpose |
+|-----|---------|
+| `http://localhost:4003/` | Marketing landing page |
+| `http://localhost:4003/auth/signup` | Email + password signup (confirmation email) |
+| `http://localhost:4003/auth/login` | Password sign-in, or Excel magic-link tab |
+| `http://localhost:4003/dashboard` | Account shell after sign-in |
+| `http://localhost:4003/auth/mfa/enroll` | Optional TOTP setup (skippable) |
 
-> **Screenshot placeholder:** Excel “Upload Office Add-in” dialog with `manifest.xml` selected.
+After email confirmation, users are prompted to enroll MFA (can skip), then land on the dashboard.
 
-The task pane is ~300px wide. Use **Insert** → **Add-ins** → **My Add-ins** to reopen it.
+### 8. Excel add-in
+
+1. Click **Sign in** in the task pane — Office dialog opens `https://localhost:4000/auth/excel` (proxied to Next.js; password sign-in, MFA verify if enrolled, or magic link).
+2. After login, the add-in loads your workspace and sends `Authorization: Bearer` + `X-Workspace-Id` on API calls.
+3. **Connect Xero** first (base currency), then **Connect Stripe**, then Pull → Build → Push.
+
+## Deploy (Vercel)
+
+1. Deploy the `web/` app (root `web/vercel.json` builds addin + web).
+2. Set all `web/.env` variables in Vercel.
+3. Point Stripe/Xero redirect URIs to production:
+
+   ```
+   https://<your-domain>/api/stripe/callback
+   https://<your-domain>/api/xero/callback
+   ```
+
+4. Stripe billing webhook: `https://<your-domain>/api/billing/webhook`
+5. Supabase: site URL + redirect URLs for auth; signup webhook to production `/api/auth/signup`
+6. Production add-in: set `VITE_API_URL` to your Vercel URL; update `addin/manifest.xml` `SourceLocation` and `AppDomains`
 
 ## Task pane UI
 
-The task pane uses a **3-step workflow** (Pull → Build → Push) with Stripe/Xero connection pills at the top. Open **Setup** (gear icon) for workbook creation and refreshing Xero dropdowns on the **Account_Mappings** sheet tab.
+3-step workflow (Pull → Build → Push) with Stripe/Xero connection pills. **Setup** (gear) for workbook sheets and Xero mapping dropdowns.
 
 | Step | What you do |
 |------|-------------|
-| **0 Connect Xero** | Connect Xero first — your organisation **base currency** (e.g. AUD) is set automatically and shown in Setup |
-| **1 Pull** | Connect Stripe, choose object and date range, pull to sheet (only rows in org currency) |
-| **2 Build** | Build `Xero_Journals` and/or `Xero_Bank_Transaction` from balance transactions (same currency only) |
-| **3 Push** | Push Manual Journals or Bank Transactions to Xero in org currency; bank payout account must match |
+| **Sign in** | Supabase magic link via Office dialog |
+| **Connect Xero** | Org **base currency** set automatically |
+| **Connect Stripe** | Connect account for this workspace |
+| **Pull** | Stripe objects, date range, org currency filter |
+| **Build** | `Xero_Journals` and/or `Xero_Bank_Transaction` |
+| **Push** | Manual journals or bank transactions to Xero |
 
-**Single currency:** Pull, Build, and Push are disabled until Xero is connected and base currency is known. Stripe pulls filter out other currencies; the status message shows how many rows were excluded. Build skips non-matching balance transactions. Push sets `CurrencyCode` on manual journals and validates that the **stripe_payout_bank** mapping is a BANK account in the org currency.
-
-**Setup** (overlay): view **Default currency** (read-only, from Xero), **Set up workbook sheets**, and **Refresh Xero dropdowns** on the **Account_Mappings** sheet. Bank account dropdowns list only BANK accounts in the org currency. Edit mapping values on that sheet tab in Excel.
-
-**Push read ranges** (saved in browser `localStorage`):
-
-- Journals default: `Xero_Journals!A2:I500`
-- Bank transactions default: `Xero_Bank_Transaction!A2:H500`
-
-Rows with **Xero ID** already set (`✓ pushed` or an existing ID) are **skipped** on push. After push, the **Xero ID** column shows status: light **green** row fill when successful, **red** row fill with an error message when validation or Xero rejects that row.
+**Single currency:** Pull/Build/Push disabled until Xero is connected and base currency is known.
 
 ## Register Stripe Connect OAuth app
 
-1. Go to [Stripe Dashboard → Connect → Settings](https://dashboard.stripe.com/settings/connect).
-2. Enable Connect and create a **Connect** application (or use Settings → Connect applications).
-3. Note your **Client ID** (`ca_...`) and **Secret key** (`sk_...`).
-4. Add redirect URI:
+1. [Stripe Dashboard → Connect → Settings](https://dashboard.stripe.com/settings/connect)
+2. Redirect URI (dev via Vite proxy or direct API):
 
    ```
-   https://localhost:4000/auth/stripe/callback
+   http://localhost:4003/api/stripe/callback
    ```
 
-5. Set in `server/.env`:
+   Production: `https://<domain>/api/stripe/callback`
 
-   ```
-   STRIPE_CLIENT_ID=ca_xxx
-   STRIPE_CLIENT_SECRET=sk_xxx
-   STRIPE_REDIRECT_URI=https://localhost:4000/auth/stripe/callback
-   ```
-
-> **Screenshot placeholder:** Stripe Connect redirect URI settings.
-
-OAuth uses **read_write** scope (required by Stripe Connect for this app type; users connect their own Stripe account).
+3. In `web/.env`: `STRIPE_CLIENT_ID`, `STRIPE_CONNECT_SECRET`, `STRIPE_REDIRECT_URI`
 
 ## Register Xero OAuth 2.0 app
 
-1. Sign in at [developer.xero.com](https://developer.xero.com) → **My apps** → **New app**.
-2. Choose **Web app** (or **Native** with redirect URI).
-3. Add redirect URI (must match **exactly** — copy/paste, no trailing slash):
+1. [developer.xero.com](https://developer.xero.com) → **New app**
+2. Redirect URI:
 
    ```
-   https://localhost:4000/auth/xero/callback
+   http://localhost:4003/api/xero/callback
    ```
 
-   Common mistake: registering `http://localhost:4001/...` or port `3000` while the app uses `https://localhost:4000/...`. Xero returns `Invalid redirect_uri` if they differ.
-
-4. Required scopes:
-
-   - `accounting.transactions`
-   - `accounting.settings`
-   - `accounting.reports.read`
-   - `offline_access`
-
-5. Copy **Client ID** and **Client secret** into `server/.env`:
-
-   ```
-   XERO_CLIENT_ID=xxx
-   XERO_CLIENT_SECRET=xxx
-   XERO_REDIRECT_URI=https://localhost:4000/auth/xero/callback
-   ```
-
-> **Screenshot placeholder:** Xero app redirect URI and scope configuration.
-
-## Set up workbook sheets
-
-Before pulling or pushing data, open **Setup** (gear) and click **Set up workbook sheets**. This creates tabs with header rows only:
-
-| Sheet | Purpose |
-|-------|---------|
-| `Stripe_Payouts` | Stripe payout pulls |
-| `Stripe_Balance_Transactions` | Balance transaction pulls |
-| `Stripe_Charges` | Charge pulls |
-| `Xero_Journals` | Formula-driven manual journal lines (build from balance transactions); **Xero ID** column (I) for push status |
-| `Xero_Bank_Transaction` | Bank transaction lines (build from balance transactions); **Xero ID** column (H) for push status |
-| `Account_Mappings` | Stripe → Xero mapping (dropdowns from Xero) |
-
-**Account_Mappings layout** (created on first setup):
-
-| stripe_object | xero_account_code | xero_tax_type | xero_tracking_name | xero_tracking_option | xero_contact |
-|---------------|-------------------|---------------|--------------------|-----------------------|--------------|
-| charge | dropdown | dropdown | dropdown | dropdown (depends on tracking name) | |
-| refund | | | | | |
-| fee | | | | | |
-| stripe_clearing | | | | | |
-| stripe_payout_bank | BANK only | | | | |
-| stripe_payout_contact | | | | | contact dropdown |
-
-- **Connect Xero** first, then run setup (dropdowns apply automatically) or click **Refresh Xero mapping dropdowns**.
-- Dropdowns use accounts, tax rates, tracking categories, and contacts from your Xero organisation (`GET /api/xero/mapping-options`).
-- **Account code dropdowns (column B):**
-  - `stripe_payout_bank` — **BANK** accounts only.
-  - `charge`, `refund`, `fee`, `stripe_clearing` — any active account **except** BANK, GST, and debtor/system receivable accounts (Xero `Type` or `SystemAccount` such as `DEBTORS` / `GST`). The same `stripe_clearing` account is used for journal clearing lines and bank transaction account code.
-  - `stripe_payout_contact` — no account column; use **xero_contact** (column F).
-- `xero_tracking_option` is a **dependent** dropdown: options change based on the category chosen in the same row.
-
-**Existing sheets are skipped** — if a tab already exists, it is left unchanged. To get the new sheet names, columns, or mapping rows, delete `Xero_Bank_Transfers` / `Account_Mappings` (if present) and run **Set up workbook sheets** again, or adjust tabs manually.
-
-## Pull from Stripe
-
-On the **Pull** tab, after connecting Stripe:
-
-1. Choose **Object**: Payouts, Balance Transactions, or Charges.
-2. Set **From** / **To** dates (`YYYY-MM-DD`).
-3. Confirm **Destination** (defaults to the matching sheet, e.g. `Stripe_Balance_Transactions!A1`).
-4. Click **Pull to sheet**.
-
-**Limits:** Date range cannot exceed **90 days** (inclusive). If Stripe returns more than **2000** rows, the pull fails with an error and **nothing is written** to the sheet. The destination sheet’s existing data rows (from row 2 down) are **cleared** before new data is written.
-
-| Object | Default destination | API |
-|--------|---------------------|-----|
-| Payouts | `Stripe_Payouts!A1` | `GET /api/stripe/payouts?from=&to=` |
-| Balance Transactions | `Stripe_Balance_Transactions!A1` | `GET /api/stripe/balance-transactions?from=&to=` |
-| Charges | `Stripe_Charges!A1` | `GET /api/stripe/charges?from=&to=` |
-
-Rows are written with header row plus data. Amounts are in major currency units (cents ÷ 100). Date filters use Stripe `created` for balance transactions and charges, and `arrival_date` for payouts. Each request returns up to 100 records (no pagination yet).
-
-## Build Xero journals from balance transactions
-
-On the **Build** tab, click **Build journals from balance transactions** after:
-
-1. **Set up workbook sheets** (includes `Xero_Journals` and `Account_Mappings`).
-2. **Pull** data into `Stripe_Balance_Transactions`.
-3. Fill **Account_Mappings** for `charge`, `refund`, `fee`, and `stripe_clearing` (account code and tax type at minimum).
-
-The add-in **clears** existing data on `Xero_Journals` (including column I and row formatting) then writes **formula-driven** rows. For each distinct `created` date:
-
-| Category | Lines per date | Gross Amount formula | Account (from mappings) |
-|----------|----------------|--------------------|-------------------------|
-| Charges | 2 | `SUMIFS` amount (col D) where type = `charge` | `charge` + opposite `stripe_clearing` |
-| Refunds | 2 | `SUMIFS` amount where type = `refund` | `refund` + opposite `stripe_clearing` |
-| Fees | 2 | `-SUMIFS` fee (col E) for that date | `fee` + opposite `stripe_clearing` |
-
-- **Narration** (column B): `Stripe posting - [date]` — one Xero manual journal per date uses this narration.
-- **Description** (column D): line detail (`Stripe - Charges - [date]`, etc.).
-
-Changing balance transaction data recalculates journal amounts on Excel recalc.
-
-## Build Xero bank transactions from balance transactions
-
-On the **Build** tab, click **Build bank transactions from balance transactions** after:
-
-1. **Set up workbook sheets** (includes `Xero_Bank_Transaction` and `Account_Mappings`).
-2. **Pull** data into `Stripe_Balance_Transactions`.
-3. Fill **Account_Mappings** for `stripe_payout_bank`, `stripe_clearing`, and `stripe_payout_contact`.
-
-The add-in **clears** existing data on `Xero_Bank_Transaction` (including column H and row formatting), then writes one row per balance transaction where `type` = `payout`:
-
-| Column | Source |
-|--------|--------|
-| Date | `available_on` |
-| Type | `RECEIVE` |
-| Contact | `stripe_payout_contact` mapping |
-| Bank Account | `stripe_payout_bank` mapping |
-| Reference | `source_id` |
-| Account Code | `stripe_clearing` mapping |
-| Amount | Negated Stripe `amount` (column D): payout rows are usually negative on the balance sheet, shown as positive RECEIVE in Xero |
-
-## Push bank transactions to Xero
-
-On the **Push** tab, choose **Bank Transactions**, set the read range (default `Xero_Bank_Transaction!A2:H500`), then click **Push bank transactions to Xero** after building rows.
-
-- Skips rows that already have **Xero ID** set.
-- Successful rows: light green fill and `✓ pushed` (or short ID) in column H.
-- Failed rows: red fill and error message in column H.
-- Reads calculated values from the sheet (Contact, Bank Account, Account Code from mapping formulas).
-- Creates one Xero bank transaction per row: `Type: RECEIVE`, `Status: AUTHORISED`.
-- Line description: `Stripe Payout - dd/mm/yyyy`.
-- Amounts are sent as written on the sheet (positive RECEIVE after build negates Stripe payout signage).
-
-Pre-push validation (server):
-
-| Issue | What you’ll see |
-|-------|------------------|
-| Type not RECEIVE | Row must have Type = RECEIVE |
-| Invalid contact | Contact must match a Xero contact from `stripe_payout_contact` mapping |
-| Invalid bank account | Must be a BANK account code from Xero |
-| Invalid line account | Clearing account must not be BANK/GST/debtor |
-| Zero amount | Amount must be non-zero |
-
-## Push manual journals to Xero
-
-On the **Push** tab, choose **Manual Journals**:
-
-1. Connect Xero and ensure `Xero_Journals` has lines (build journals first).
-2. Set the read range (default `Xero_Journals!A2:I500`).
-3. Choose **Journal status**: **Draft** (`DRAFT`) or **Posted** (`POSTED`).
-4. Click **Push journals to Xero**.
-
-The add-in reads calculated values from the range, **skips rows with Xero ID already set**, groups remaining lines by **date**, and creates one manual journal per date with narration `Stripe posting - dd/mm/yyyy`. Account codes and tax types are parsed from dropdown labels (`CODE — Name`). Rows without account code or with zero gross amount are skipped.
-
-**Row feedback:** All pushed rows in range are highlighted **light green** with status in column I when everything succeeds. Rows that fail validation or Xero POST are highlighted **red** with the error in column I; other dates may still push successfully.
-
-Before calling Xero, the server validates each date’s journal and returns row-level issues (also shown in the task pane):
-
-| Issue | What you’ll see |
-|-------|------------------|
-| Unbalanced journal | Date and net total — lines for that date must sum to zero |
-| Invalid account code | Account code not in your Xero chart of accounts |
-| Invalid tax type | Tax type not in Xero tax rates |
-| Invalid tracking | Category or option not in Xero tracking categories |
-| Incomplete tracking | Category without option (or the reverse) |
-
-If Xero rejects the POST, messages are categorized the same way where possible.
-
-**GST / tax types:** Each journal line sends the **Tax Type** from column F (from `Account_Mappings` per stripe object: charge, refund, fee, stripe_clearing). Pushes use `LineAmountTypes: Inclusive` so amounts in column E are treated as GST-inclusive.
-
-## Phase 1 verification checklist
-
-- [ ] `npm run dev` — both add-in and server running
-- [ ] Sideload `addin/manifest.xml` — task pane loads
-- [ ] **Set up workbook sheets** — six tabs created (or skipped if already present)
-- [ ] **Connect Stripe** — Office dialog opens → authorize → “Connected as …”
-- [ ] **Connect Xero** — dialog → authorize → tenant name shown
-- [ ] Select **Payouts**, date range, **Pull to sheet** → `Stripe_Payouts` worksheet with data
-- [ ] Select **Balance Transactions** → default `Stripe_Balance_Transactions!A1` → pull populates sheet
-- [ ] Select **Charges** → default `Stripe_Charges!A1` → pull populates sheet
-- [ ] Fill `Account_Mappings`, then **Build journals from balance transactions** → `Xero_Journals` has formula rows per day
-- [ ] **Push journals to Xero** as Draft or Posted → manual journals appear in Xero (one per date)
-- [ ] Errors appear in the task pane status area (friendly messages, not raw API errors)
-- [ ] `GET /api/xero/accounts` returns chart of accounts after Xero connect (optional: curl with session cookie)
+3. Scopes: `accounting.transactions`, `accounting.settings`, `accounting.reports.read`, `offline_access`
+4. `XERO_CLIENT_ID`, `XERO_CLIENT_SECRET`, `XERO_REDIRECT_URI` in `web/.env`
 
 ## OAuth architecture
 
-OAuth **cannot** run inside the task pane iframe. The add-in:
+| Old (Express) | New (Next.js + Supabase) |
+|---------------|--------------------------|
+| `sessionId` query/cookie | Supabase JWT + `X-Workspace-Id` header |
+| In-memory tokens | AES-256-GCM encrypted rows in `stripe_connections` / `xero_connections` |
+| `state=sessionId` | Signed `state` with workspace + user + nonce |
 
-1. Fetches an auth URL from the backend (`/auth/stripe/connect` or `/auth/xero/connect`).
-2. Opens it in the **system browser** via `Office.context.ui.openBrowserWindow()` (Stripe/Google sign-in fail in Office’s dialog WebView).
-3. Provider redirects to the backend callback (`https://localhost:4000/auth/.../callback`).
-4. Tokens are stored keyed by OAuth `state` (task pane session id); the task pane **polls** until connected.
-5. Callback page shows “Return to Excel” (and uses `messageParent` when opened in a dialog fallback).
+Stripe/Xero connect still opens the **system browser** (`Office.context.ui.openBrowserWindow`) and polls status until connected.
 
-Tokens are stored **in memory** on the server, keyed by `express-session` cookie (sent with `withCredentials: true` from the add-in).
-
-## API endpoints (phase 1)
+## API endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/auth/stripe/connect` | Stripe Connect OAuth URL |
-| GET | `/auth/stripe/callback` | OAuth callback (HTML) |
-| GET | `/auth/stripe/status` | Connection status |
-| GET | `/auth/xero/connect` | Xero OAuth URL (PKCE) |
-| GET | `/auth/xero/callback` | OAuth callback (HTML) |
-| GET | `/api/stripe/payouts?from=&to=` | Pull payouts |
-| GET | `/api/stripe/balance-transactions?from=&to=` | Pull balance transactions |
-| GET | `/api/stripe/charges?from=&to=` | Pull charges |
-| GET | `/api/xero/connections` | Xero connection status |
-| GET | `/api/xero/accounts` | Chart of accounts (filtered) |
-| GET | `/api/xero/mapping-options` | Accounts, tax rates, tracking categories, contacts for mapping dropdowns |
-| POST | `/api/xero/manual-journals` | Push manual journals (`status`: `DRAFT` \| `POSTED`, `lines[]`) |
-| POST | `/api/xero/bank-transactions` | Push bank transactions (`transactions[]`, status AUTHORISED in Xero) |
+| POST | `/api/auth/signup` | Create account + default workspace (Supabase webhook) |
+| GET/POST | `/api/workspace` | List / create workspaces |
+| POST | `/api/account/invite` | Invite user (plan limits) |
+| POST | `/api/billing/checkout` | Stripe Checkout |
+| POST | `/api/billing/portal` | Billing portal |
+| POST | `/api/billing/webhook` | Subscription updates |
+| GET | `/api/stripe/connect` | Stripe Connect OAuth URL |
+| GET | `/api/stripe/callback` | OAuth callback (HTML) |
+| GET | `/api/stripe/status` | Connection status |
+| GET | `/api/stripe/payouts` etc. | Pull Stripe data |
+| GET | `/api/xero/connect` | Xero OAuth (PKCE) |
+| GET | `/api/xero/callback` | OAuth callback |
+| GET | `/api/xero/connections` | Xero status + `base_currency` |
+| GET | `/api/xero/mapping-options` | Mapping dropdown data |
+| POST | `/api/xero/manual-journals` | Push journals |
+| POST | `/api/xero/bank-transactions` | Push bank transactions |
+
+Auth pages: `/auth/login`, `/auth/callback` (code exchange; returns token to Excel when `return=excel`).
+
+## Workbook sheets
+
+Run **Set up workbook sheets** in Setup to create:
+
+| Sheet | Purpose |
+|-------|---------|
+| `Stripe_Payouts` | Payout pulls |
+| `Stripe_Balance_Transactions` | Balance transactions |
+| `Stripe_Charges` | Charges |
+| `Xero_Journals` | Manual journal lines (build) |
+| `Xero_Bank_Transaction` | Bank transaction lines (build) |
+| `Account_Mappings` | Stripe → Xero mapping |
+
+See earlier README sections in git history for column layouts, build formulas, and push validation rules — behaviour is unchanged; only the API host and auth model differ.
+
+## Verification checklist
+
+- [ ] Supabase migration applied; signup webhook creates account + workspace
+- [ ] Landing page at `/`; signup → confirm email → MFA enroll (or skip) → dashboard
+- [ ] Password sign-in works; optional MFA verify on next login
+- [ ] `npm run build` — addin + web succeed
+- [ ] `npm run dev` — add-in and Next.js running
+- [ ] Sideload manifest — task pane loads
+- [ ] Sign in → workspace selected
+- [ ] Connect Xero → `base_currency` shown
+- [ ] Connect Stripe → pull payouts/BT/charges
+- [ ] Build journals / bank transactions → push to Xero
+- [ ] Billing webhook updates plan (optional)
 
 ## Troubleshooting
 
 | Issue | Fix |
 |-------|-----|
-| Task pane blank / won’t load | Ensure `npx office-addin-dev-certs install` completed; visit https://localhost:4000/taskpane.html in a browser and accept the cert |
-| Stripe stuck on Google login | Office’s embedded browser is incompatible with Stripe; sign-in opens in your **system browser** — complete it there, then return to Excel |
-| Dialog doesn’t return to task pane | Confirm `AppDomains` in manifest include Stripe/Xero; callback uses `https://localhost:4000` |
-| CORS / session errors | `FRONTEND_URL` in `.env` must be `https://localhost:4000`; restart server after changes |
-| Stripe “not connected” after auth | Check redirect URI matches exactly; use same browser session (cookies) |
-
-## What’s not in phase 1
-
-- Pagination beyond 100 Stripe list results
-- Payout balance transaction drill-down (link payouts → balance transactions)
-- Column mapping UI
-- Bank transaction push
-- Write-back Xero manual journal IDs to the sheet
-- Persistent token storage (Redis/DB)
-- Multi-currency handling
+| Task pane blank | Run `npx office-addin-dev-certs install`; open https://localhost:4000/taskpane.html |
+| API 401 | Sign in again; check `VITE_API_URL` matches Next dev server |
+| CORS errors | `FRONTEND_URL=https://localhost:4000` in `web/.env` |
+| Invalid Xero redirect | Redirect URI must match `XERO_REDIRECT_URI` exactly (port **4003** API, not **4000** add-in) |
+| Stripe Connect fails | Use system browser; redirect URI on Stripe dashboard |
+| OAuth state invalid | `OAUTH_STATE_SECRET` stable across deploys; complete connect in one browser session |
 
 ## License
 

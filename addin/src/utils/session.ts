@@ -1,30 +1,52 @@
-const STORAGE_KEY = 'stripesync_session_id';
+const TOKEN_KEY = 'stripesync_access_token';
+const WORKSPACE_KEY = 'stripesync_workspace_id';
 
-let clientSessionId: string | null = null;
+let accessToken: string | null = null;
+let workspaceId: string | null = null;
 
-export function getClientSessionId(): string | null {
-  if (clientSessionId) return clientSessionId;
+export function getAccessToken(): string | null {
+  if (accessToken) return accessToken;
   try {
-    clientSessionId = sessionStorage.getItem(STORAGE_KEY);
+    accessToken = localStorage.getItem(TOKEN_KEY);
   } catch {
-    clientSessionId = null;
+    accessToken = null;
   }
-  return clientSessionId;
+  return accessToken;
 }
 
-export function setClientSessionId(id: string): void {
-  clientSessionId = id;
+export function setAccessToken(token: string): void {
+  accessToken = token;
   try {
-    sessionStorage.setItem(STORAGE_KEY, id);
+    localStorage.setItem(TOKEN_KEY, token);
   } catch {
-    // sessionStorage unavailable in some hosts
+    // ignore
   }
 }
 
-export function appendSessionId(url: string): string {
-  const sid = getClientSessionId();
-  if (!sid) return url;
-  if (!url.startsWith('/auth') && !url.startsWith('/api')) return url;
-  const sep = url.includes('?') ? '&' : '?';
-  return `${url}${sep}sessionId=${encodeURIComponent(sid)}`;
+export function clearAccessToken(): void {
+  accessToken = null;
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function getWorkspaceId(): string | null {
+  if (workspaceId) return workspaceId;
+  try {
+    workspaceId = localStorage.getItem(WORKSPACE_KEY);
+  } catch {
+    workspaceId = null;
+  }
+  return workspaceId;
+}
+
+export function setWorkspaceId(id: string): void {
+  workspaceId = id;
+  try {
+    localStorage.setItem(WORKSPACE_KEY, id);
+  } catch {
+    // ignore
+  }
 }

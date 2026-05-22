@@ -3,17 +3,8 @@ import type { XeroConnectionStatus } from '@stripesync/shared';
 import { apiGet } from '../utils/api';
 import { openAuthFlow } from '../utils/dialogAuth';
 import { friendlyError } from '../utils/errorMessages';
-import { getClientSessionId, setClientSessionId } from '../utils/session';
 
-async function ensureClientSession(): Promise<void> {
-  if (getClientSessionId()) return;
-  const res = await apiGet<{ sessionId: string }>('/auth/session');
-  if (res.success && res.data?.sessionId) {
-    setClientSessionId(res.data.sessionId);
-  }
-}
-
-export function useXeroAuth() {
+export function useXeroAuth(enabled: boolean) {
   const [status, setStatus] = useState<XeroConnectionStatus>({
     connected: false,
   });
@@ -22,8 +13,8 @@ export function useXeroAuth() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     try {
-      await ensureClientSession();
       const res = await apiGet<XeroConnectionStatus>('/api/xero/connections');
       if (res.success && res.data) {
         setStatus(res.data);
@@ -31,7 +22,7 @@ export function useXeroAuth() {
     } catch {
       // ignore on initial load
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     refresh();
@@ -42,16 +33,10 @@ export function useXeroAuth() {
     setError(null);
     setWaitingForBrowser(false);
     try {
-      await ensureClientSession();
-      const connectRes = await apiGet<{ url: string; sessionId: string }>(
-        '/auth/xero/connect'
-      );
+      const connectRes = await apiGet<{ url: string }>('/auth/xero/connect');
       if (!connectRes.success || !connectRes.data?.url) {
         setError(friendlyError(connectRes));
         return;
-      }
-      if (connectRes.data.sessionId) {
-        setClientSessionId(connectRes.data.sessionId);
       }
       setLoading(false);
       setWaitingForBrowser(true);
@@ -61,9 +46,7 @@ export function useXeroAuth() {
       });
       await refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to connect Xero.'
-      );
+      setError(err instanceof Error ? err.message : 'Failed to connect Xero.');
     } finally {
       setLoading(false);
       setWaitingForBrowser(false);

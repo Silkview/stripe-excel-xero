@@ -1,0 +1,9 @@
+{
+  "/api/auth/session/route": "app/api/auth/session/route.js",
+  "/api/auth/ensure-account/route": "app/api/auth/ensure-account/route.js",
+  "/api/auth/signin-hint/route": "app/api/auth/signin-hint/route.js",
+  "/api/workspace/route": "app/api/workspace/route.js",
+  "/auth/excel/page": "app/auth/excel/page.js",
+  "/auth/mfa/verify/page": "app/auth/mfa/verify/page.js",
+  "/auth/excel-complete/page": "app/auth/excel-complete/page.js"
+}

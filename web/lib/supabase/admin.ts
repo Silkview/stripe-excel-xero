@@ -1,0 +1,18 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database.types';
+import { getSupabasePublicEnv } from './env';
+
+export function createSupabaseAdmin(): SupabaseClient<Database> {
+  const { url } = getSupabasePublicEnv();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error(
+      'Missing SUPABASE_SERVICE_ROLE_KEY in web/.env.local. Restart the dev server after adding it.'
+    );
+  }
+  return createClient<Database>(
+    url,
+    serviceKey,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+}

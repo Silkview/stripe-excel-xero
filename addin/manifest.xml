@@ -13,7 +13,7 @@
   <SupportUrl DefaultValue="https://github.com"/>
   <AppDomains>
     <AppDomain>https://localhost:4000</AppDomain>
-    <AppDomain>http://localhost:4001</AppDomain>
+    <AppDomain>http://localhost:4003</AppDomain>
     <AppDomain>https://connect.stripe.com</AppDomain>
     <AppDomain>https://login.xero.com</AppDomain>
   </AppDomains>

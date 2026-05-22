@@ -4,14 +4,14 @@
   "private": true,
   "workspaces": [
     "addin",
-    "server",
+    "web",
     "shared"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w addin\" \"npm run dev -w server\"",
+    "dev": "concurrently \"npm run dev -w addin\" \"npm run dev -w web\"",
     "dev:addin": "npm run dev -w addin",
-    "dev:server": "npm run dev -w server",
-    "build": "npm run build -w addin && npm run build -w server"
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w addin && npm run build -w web"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

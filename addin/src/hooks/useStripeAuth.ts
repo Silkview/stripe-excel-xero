@@ -3,17 +3,8 @@ import type { StripeConnectionStatus } from '@stripesync/shared';
 import { apiGet } from '../utils/api';
 import { openAuthFlow } from '../utils/dialogAuth';
 import { friendlyError } from '../utils/errorMessages';
-import { getClientSessionId, setClientSessionId } from '../utils/session';
 
-async function ensureClientSession(): Promise<void> {
-  if (getClientSessionId()) return;
-  const res = await apiGet<{ sessionId: string }>('/auth/session');
-  if (res.success && res.data?.sessionId) {
-    setClientSessionId(res.data.sessionId);
-  }
-}
-
-export function useStripeAuth() {
+export function useStripeAuth(enabled: boolean) {
   const [status, setStatus] = useState<StripeConnectionStatus>({
     connected: false,
   });
@@ -22,8 +13,8 @@ export function useStripeAuth() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!enabled) return;
     try {
-      await ensureClientSession();
       const res = await apiGet<StripeConnectionStatus>('/auth/stripe/status');
       if (res.success && res.data) {
         setStatus(res.data);
@@ -31,7 +22,7 @@ export function useStripeAuth() {
     } catch {
       // ignore on initial load
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     refresh();
@@ -42,16 +33,10 @@ export function useStripeAuth() {
     setError(null);
     setWaitingForBrowser(false);
     try {
-      await ensureClientSession();
-      const connectRes = await apiGet<{ url: string; sessionId: string }>(
-        '/auth/stripe/connect'
-      );
+      const connectRes = await apiGet<{ url: string }>('/auth/stripe/connect');
       if (!connectRes.success || !connectRes.data?.url) {
         setError(friendlyError(connectRes));
         return;
-      }
-      if (connectRes.data.sessionId) {
-        setClientSessionId(connectRes.data.sessionId);
       }
       setLoading(false);
       setWaitingForBrowser(true);
@@ -61,10 +46,6 @@ export function useStripeAuth() {
       });
       await refresh();
     } catch (err) {
-      // #region agent log
-      const ax = err as { code?: string; message?: string; isAxiosError?: boolean };
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useStripeAuth.ts:connect',message:'connect catch',data:{code:ax?.code,message:ax?.message,isAxiosError:ax?.isAxiosError},timestamp:Date.now(),hypothesisId:'A,B,C'})}).catch(()=>{});
-      // #endregion
       setError(
         err instanceof Error ? err.message : 'Failed to connect Stripe.'
       );

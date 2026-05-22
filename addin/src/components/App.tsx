@@ -6,13 +6,19 @@ import StripePanel from './StripePanel';
 import BuildPanel from './BuildPanel';
 import PushPanel from './PushPanel';
 import SetupPanel from './SetupPanel';
+import Button from './ui/Button';
+import { useAuth } from '../hooks/useAuth';
+import { useWorkspace } from '../hooks/useWorkspace';
 import { useStripeAuth } from '../hooks/useStripeAuth';
 import { useXeroAuth } from '../hooks/useXeroAuth';
 import { useDefaultCurrency } from '../hooks/useDefaultCurrency';
 
 export default function App() {
-  const stripeAuth = useStripeAuth();
-  const xeroAuth = useXeroAuth();
+  const auth = useAuth();
+  const workspace = useWorkspace(auth.signedIn);
+  const apiReady = auth.signedIn && workspace.ready;
+  const stripeAuth = useStripeAuth(apiReady);
+  const xeroAuth = useXeroAuth(apiReady);
   const { currency, ready: currencyReady } = useDefaultCurrency(xeroAuth.status);
   const [activeTab, setActiveTab] = useState<StepTabId>('pull');
   const [showSetup, setShowSetup] = useState(false);
@@ -29,9 +35,56 @@ export default function App() {
     setActiveTab(tabBeforeSetup);
   };
 
+  if (!auth.signedIn) {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
+        <Header onOpenSetup={() => {}} />
+        <p className="text-sm text-text-2 mb-3">
+          Sign in to sync Stripe and Xero data in this workbook.
+        </p>
+        <Button variant="primary" onClick={auth.signIn} disabled={auth.loading}>
+          {auth.loading ? 'Signing in…' : 'Sign in'}
+        </Button>
+        {auth.error && (
+          <p className="text-xs text-warn-text mt-2">{auth.error}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (!workspace.ready) {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
+        <Header onOpenSetup={() => {}} />
+        <p className="text-sm text-text-2">
+          {workspace.loading ? 'Loading workspace…' : workspace.error ?? 'No workspace available.'}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-bg flex flex-col font-sans text-text">
       <Header onOpenSetup={openSetup} />
+
+      {workspace.workspaces.length > 1 && (
+        <div className="px-3 py-1.5 border-b border-border bg-surface">
+          <label className="text-[10px] font-semibold text-text-2 uppercase">
+            Workspace
+          </label>
+          <select
+            value={workspace.workspaceId ?? ''}
+            onChange={(e) => workspace.selectWorkspace(e.target.value)}
+            className="w-full mt-0.5 text-xs border border-border rounded-sm px-2 py-1 bg-bg"
+          >
+            {workspace.workspaces.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <ConnectionPills
         stripe={stripeAuth.status}

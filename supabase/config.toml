@@ -1,0 +1,4 @@
+# Expose the `core` schema via PostgREST (required for supabase-js .schema('core')).
+[api]
+schemas = ["public", "core"]
+extra_search_path = ["public", "core"]

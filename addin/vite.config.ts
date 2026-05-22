@@ -34,8 +34,9 @@ export default defineConfig({
     port: 4000,
     https: getHttpsConfig(),
     proxy: {
-      '/auth': { target: 'http://localhost:4001', changeOrigin: true },
-      '/api': { target: 'http://localhost:4001', changeOrigin: true },
+      '/auth': { target: 'http://localhost:4003', changeOrigin: true },
+      '/api': { target: 'http://localhost:4003', changeOrigin: true },
+      '/_next': { target: 'http://localhost:4003', changeOrigin: true },
     },
   },
 });
