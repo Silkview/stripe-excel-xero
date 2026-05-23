@@ -8,6 +8,7 @@ import {
   needsMfaEnrollmentSetup,
 } from '@/lib/auth/mfa-enrollment';
 import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
+import { navigateExcelFinish } from '@/lib/auth/excel-handoff-client';
 import {
   signInWithPassword,
   syncBrowserSessionToServer,
@@ -84,7 +85,7 @@ async function continueExcelAuth(source: string, handoff: string | null) {
     data: { source },
     runId: 'post-fix-inline-mfa',
   });
-  navigateExcelAuth('/api/auth/excel-finish', handoff);
+  await navigateExcelFinish(handoff);
   return 'done' as const;
 }
 
@@ -171,7 +172,7 @@ function ExcelAuthInner() {
   };
 
   const finishMfa = useCallback(() => {
-    navigateExcelAuth('/api/auth/excel-finish', handoff);
+    void navigateExcelFinish(handoff);
   }, [handoff]);
 
   if (screen === 'checking') {

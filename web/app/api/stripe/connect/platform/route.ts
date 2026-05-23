@@ -10,24 +10,9 @@ export async function OPTIONS(request: Request) {
   return handleOptions(request);
 }
 
-function platformSelfConnectAllowed(): boolean {
-  return process.env.STRIPE_ALLOW_PLATFORM_SELF_CONNECT === 'true';
-}
-
-/** Dev-only: link workspace to platform STRIPE_SECRET_KEY account. Use OAuth in production. */
+/** Link workspace to the Stripe account behind STRIPE_SECRET_KEY (no Connect OAuth). */
 export async function POST(request: Request) {
   try {
-    if (!platformSelfConnectAllowed()) {
-      return withCors(
-        request,
-        jsonError(
-          'FORBIDDEN',
-          'Connect Stripe via OAuth (GET /api/stripe/connect). Platform self-connect is disabled.',
-          403
-        )
-      );
-    }
-
     const { user, workspaceId } = await requireWorkspace(request);
     const membership = await getAccountMembership(user.id);
     if (!membership) {
@@ -53,7 +38,7 @@ export async function POST(request: Request) {
       connected: true,
       stripeAccountId: result.stripeAccountId,
       displayName: result.displayName,
-      connectionType: 'platform_self',
+      connectionType: 'platform',
     });
   } catch (err) {
     return handleRouteError(request, err);

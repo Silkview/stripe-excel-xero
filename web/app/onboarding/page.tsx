@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 import { needsMfaEnrollmentSetup } from '@/lib/auth/mfa-enrollment';
-import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
+import { navigateExcelAuthWithHandoff, navigateExcelFinish } from '@/lib/auth/excel-handoff-client';
 import type { PlanCode } from '@/lib/plans/types';
 import PlanPricingGrid from '@/components/plans/PlanPricingGrid';
 import AuthCard from '@/components/ui/AuthCard';
@@ -106,7 +106,7 @@ function OnboardingInner() {
 
   useEffect(() => {
     if (step === 'ready' && excelReturn) {
-      navigateExcelAuth('/api/auth/excel-finish', handoff);
+      void navigateExcelFinish(handoff);
     }
   }, [step, excelReturn, handoff]);
 
@@ -153,7 +153,7 @@ function OnboardingInner() {
             return;
           }
           if (excelReturn) {
-            navigateExcelAuth('/api/auth/excel-finish', handoff);
+            void navigateExcelFinish(handoff);
           } else {
             router.replace('/dashboard');
           }
@@ -321,7 +321,7 @@ function OnboardingInner() {
             type="button"
             variant="primary"
             className="w-full mt-6"
-            onClick={() => navigateExcelAuth('/api/auth/excel-finish', handoff)}
+            onClick={() => void navigateExcelFinish(handoff)}
           >
             Return to Excel
           </Button>

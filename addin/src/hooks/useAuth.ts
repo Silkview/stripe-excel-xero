@@ -145,6 +145,16 @@ export function useAuth() {
       setAccessToken(token);
       setSignedIn(true);
 
+      const verifyRes = await fetch(`${origin}/api/onboarding/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const verifyJson = await verifyRes.json().catch(() => null);
+      if (verifyJson?.error?.code === 'AUTH_REQUIRED') {
+        throw new Error(
+          'Sign-in token was rejected by the server. Try signing in again.'
+        );
+      }
+
       // #region agent log
       fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'signed in',data:{via,hasToken:!!token},timestamp:Date.now(),hypothesisId:'H8',runId:'post-fix-v4'})}).catch(()=>{});
       // #endregion

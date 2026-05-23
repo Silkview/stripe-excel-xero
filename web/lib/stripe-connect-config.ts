@@ -73,14 +73,18 @@ export async function isStripeConnectApiEnabled(): Promise<boolean> {
   }
 }
 
+/** Stripe Connect OAuth cannot attach the platform account to itself; use direct API link instead. */
+export function isStripePlatformSelfConnectError(message: string): boolean {
+  return message.includes('does not belong to you');
+}
+
 export function formatStripeConnectConfigError(
   message: string,
   _context?: { platformAccountId?: string | null }
 ): string {
-  if (message.includes('does not belong to you')) {
+  if (isStripePlatformSelfConnectError(message)) {
     return (
-      'That Stripe account is the same one that owns this Connect application, so it cannot be linked as a connected account. ' +
-      'When Stripe asks you to sign in, choose the client business Stripe account you want to sync (or sign out of Stripe first and sign in with a different account).'
+      'Could not link this Stripe account via OAuth. Try Connect again — your platform account will be linked automatically.'
     );
   }
   if (message.includes('redirect_uri')) {
