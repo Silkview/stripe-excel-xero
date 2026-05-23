@@ -23,10 +23,10 @@ const JOURNAL_FIRST_DATA_ROW = 2;
 const JOURNAL_COL_COUNT = 8;
 const JOURNAL_SHEET_COL_COUNT = 9;
 
-/** BT columns: A=transaction_id, B=created, ... H=type, ... */
-const BT_IDX_CREATED = 1;
-const BT_IDX_FEE = 4;
-const BT_IDX_TYPE = 7;
+/** BT columns: A–B=account, C=transaction_id, D=created, … J=type */
+const BT_IDX_CREATED = 3;
+const BT_IDX_FEE = 6;
+const BT_IDX_TYPE = 9;
 
 export interface BuildJournalsResult {
   lineCount: number;

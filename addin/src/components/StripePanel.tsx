@@ -15,15 +15,7 @@ import Badge from './ui/Badge';
 import InfoRow from './ui/InfoRow';
 import { apiGetWithStripeAccount } from '../utils/api';
 import { friendlyError } from '../utils/errorMessages';
-import {
-  PAYOUT_HEADERS,
-  BALANCE_TRANSACTION_HEADERS,
-  PAYOUT_BALANCE_TRANSACTION_HEADERS,
-  CHARGE_HEADERS,
-  STRIPE_ACCOUNT_HEADERS,
-  STRIPE_PULL_OBJECTS,
-  type StripePullObjectType,
-} from '../config/workbookSheets';
+import { STRIPE_PULL_OBJECTS, type StripePullObjectType } from '../config/workbookSheets';
 import {
   MAX_STRIPE_PULL_DAYS,
   MAX_STRIPE_PULL_ROWS,
@@ -65,39 +57,74 @@ type AccountMeta = {
 type TaggedRow = {
   row: PullRow;
   account: AccountMeta;
-  sortKey: string;
 };
 
-function sortKeyForRow(objectType: StripePullObjectType, row: PullRow): string {
+function compareTaggedRows(
+  objectType: StripePullObjectType,
+  a: TaggedRow,
+  b: TaggedRow
+): number {
+  const byAccount = a.account.stripeAccountId.localeCompare(
+    b.account.stripeAccountId
+  );
+  if (byAccount !== 0) return byAccount;
+
+  let dateA: string;
+  let dateB: string;
+  let tertiaryA: string;
+  let tertiaryB: string;
+
   switch (objectType) {
-    case 'payouts':
-      return (row as StripePayoutRow).arrival_date;
+    case 'payouts': {
+      const ra = a.row as StripePayoutRow;
+      const rb = b.row as StripePayoutRow;
+      dateA = ra.arrival_date;
+      dateB = rb.arrival_date;
+      tertiaryA = ra.payout_id;
+      tertiaryB = rb.payout_id;
+      break;
+    }
+    case 'charges': {
+      const ra = a.row as StripeChargeRow;
+      const rb = b.row as StripeChargeRow;
+      dateA = ra.created;
+      dateB = rb.created;
+      tertiaryA = ra.status;
+      tertiaryB = rb.status;
+      break;
+    }
     case 'balance_transactions':
     case 'balance_trx_payouts':
-    case 'charges':
-      return (row as StripeBalanceTransactionRow).created;
+    default: {
+      const ra = a.row as StripeBalanceTransactionRow;
+      const rb = b.row as StripeBalanceTransactionRow;
+      dateA = ra.created;
+      dateB = rb.created;
+      tertiaryA = ra.type;
+      tertiaryB = rb.type;
+      break;
+    }
   }
+
+  const byDate = dateA.localeCompare(dateB);
+  if (byDate !== 0) return byDate;
+  return tertiaryA.localeCompare(tertiaryB);
+}
+
+function accountPrefix(account: AccountMeta): [string, string] {
+  return [account.stripeAccountId, account.stripeAccountName];
 }
 
 function mapRowsToSheetData(
   objectType: StripePullObjectType,
-  tagged: TaggedRow[],
-  includeAccountColumns: boolean
+  tagged: TaggedRow[]
 ): { headers: string[]; data: unknown[][] } {
-  const accountPrefix = (account: AccountMeta): unknown[] =>
-    includeAccountColumns
-      ? [account.stripeAccountId, account.stripeAccountName]
-      : [];
-
-  const baseHeaders = (headers: string[]) =>
-    includeAccountColumns
-      ? [...STRIPE_ACCOUNT_HEADERS, ...headers]
-      : headers;
+  const pullMeta = STRIPE_PULL_OBJECTS[objectType];
 
   switch (objectType) {
     case 'payouts':
       return {
-        headers: baseHeaders(PAYOUT_HEADERS),
+        headers: pullMeta.displayHeaders,
         data: tagged.map(({ row, account }) => [
           ...accountPrefix(account),
           (row as StripePayoutRow).payout_id,
@@ -113,7 +140,7 @@ function mapRowsToSheetData(
       };
     case 'balance_transactions':
       return {
-        headers: baseHeaders(BALANCE_TRANSACTION_HEADERS),
+        headers: pullMeta.displayHeaders,
         data: tagged.map(({ row, account }) => [
           ...accountPrefix(account),
           (row as StripeBalanceTransactionRow).transaction_id,
@@ -129,13 +156,13 @@ function mapRowsToSheetData(
           (row as StripeBalanceTransactionRow).source_id,
         ]),
       };
-    case 'balance_trx_payouts': {
-      const headers = baseHeaders(PAYOUT_BALANCE_TRANSACTION_HEADERS);
+    case 'balance_trx_payouts':
       return {
-        headers,
+        headers: pullMeta.displayHeaders,
         data: tagged.map(({ row, account }) => {
           const r = row as StripePayoutBalanceTransactionRow;
-          const cells = [
+          return [
+            ...accountPrefix(account),
             r.payout_id,
             r.payout_arrival_date,
             r.payout_gross_amount,
@@ -157,15 +184,11 @@ function mapRowsToSheetData(
             r.description,
             r.source_id,
           ];
-          return includeAccountColumns
-            ? [...accountPrefix(account), ...cells]
-            : cells;
         }),
       };
-    }
     case 'charges':
       return {
-        headers: baseHeaders(CHARGE_HEADERS),
+        headers: pullMeta.displayHeaders,
         data: tagged.map(({ row, account }) => [
           ...accountPrefix(account),
           (row as StripeChargeRow).charge_id,
@@ -241,7 +264,6 @@ export default function StripePanel({
   const selectedList = stripeConnections.filter((c) =>
     selectedAccountIds.has(c.stripeAccountId)
   );
-  const multiAccount = selectedList.length > 1;
 
   const toggleAccount = (stripeAccountId: string) => {
     setSelectedAccountIds((prev) => {
@@ -302,9 +324,7 @@ export default function StripePanel({
         );
 
         if (!res.success || !res.data) {
-          setStatusMessage(
-            `Failed for ${label}: ${friendlyError(res)}`
-          );
+          setStatusMessage(`Failed for ${label}: ${friendlyError(res)}`);
           setStatusError(true);
           return;
         }
@@ -315,11 +335,7 @@ export default function StripePanel({
         };
 
         for (const row of res.data.rows) {
-          allTagged.push({
-            row,
-            account: accountMeta,
-            sortKey: sortKeyForRow(objectType, row),
-          });
+          allTagged.push({ row, account: accountMeta });
         }
 
         totalExcluded += res.data.excludedByCurrency;
@@ -335,12 +351,17 @@ export default function StripePanel({
         selectedList.length === 1 &&
         allTagged.length > 0
       ) {
+        const conn = selectedList[0];
         const payoutRows = allTagged.map(
           (t) => t.row as StripePayoutBalanceTransactionRow
         );
-        const colCount = PAYOUT_BALANCE_TRANSACTION_HEADERS.length;
-        data = formatBalanceTrxPayoutsForSheet(payoutRows, colCount);
-        headers = PAYOUT_BALANCE_TRANSACTION_HEADERS;
+        const colCount = pullConfig.sheetKeys.length;
+        const prefix: [string, string] = [
+          conn.stripeAccountId,
+          conn.displayName ?? conn.stripeAccountId,
+        ];
+        data = formatBalanceTrxPayoutsForSheet(payoutRows, colCount, prefix);
+        headers = pullConfig.displayHeaders;
         const rowError = stripePullRowCountError(data.length);
         if (rowError) {
           setStatusMessage(rowError);
@@ -348,7 +369,7 @@ export default function StripePanel({
           return;
         }
       } else {
-        allTagged.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+        allTagged.sort((a, b) => compareTaggedRows(objectType, a, b));
         const sheetRowCount = allTagged.length;
         const rowError = stripePullRowCountError(sheetRowCount);
         if (rowError) {
@@ -356,11 +377,7 @@ export default function StripePanel({
           setStatusError(true);
           return;
         }
-        const mapped = mapRowsToSheetData(
-          objectType,
-          allTagged,
-          multiAccount
-        );
+        const mapped = mapRowsToSheetData(objectType, allTagged);
         headers = mapped.headers;
         data = mapped.data;
       }
@@ -502,7 +519,7 @@ export default function StripePanel({
 
         <InfoRow className="mt-2 mb-0">
           Max {MAX_STRIPE_PULL_DAYS} days per pull and {MAX_STRIPE_PULL_ROWS.toLocaleString()}{' '}
-          rows total on the sheet. Each selected account is pulled separately, then merged and sorted by date.
+          rows total on the sheet. Each selected account is pulled separately, then merged and sorted by Stripe account, date, and type.
         </InfoRow>
 
         <Field label="Destination" className="mt-2">

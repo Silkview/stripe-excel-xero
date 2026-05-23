@@ -8,7 +8,8 @@ function blankRow(columnCount: number): unknown[] {
 
 function rowToSheetCells(
   row: StripePayoutBalanceTransactionRow,
-  includePayoutColumns: boolean
+  includePayoutColumns: boolean,
+  accountPrefix: [string, string] | null
 ): unknown[] {
   const payoutCells = includePayoutColumns
     ? [
@@ -24,8 +25,7 @@ function rowToSheetCells(
       ]
     : Array.from({ length: PAYOUT_COLUMN_COUNT }, () => '');
 
-  return [
-    ...payoutCells,
+  const trxCells = [
     row.transaction_id,
     row.created,
     row.available_on,
@@ -38,12 +38,17 @@ function rowToSheetCells(
     row.description,
     row.source_id,
   ];
+
+  return accountPrefix
+    ? [...accountPrefix, ...payoutCells, ...trxCells]
+    : [...payoutCells, ...trxCells];
 }
 
 /** Groups by payout_id in first-seen order, with separators and payout cols on first row only. */
 export function formatBalanceTrxPayoutsForSheet(
   rows: StripePayoutBalanceTransactionRow[],
-  columnCount: number
+  columnCount: number,
+  accountPrefix: [string, string] | null = null
 ): unknown[][] {
   const out: unknown[][] = [];
   const groups = new Map<string, StripePayoutBalanceTransactionRow[]>();
@@ -65,7 +70,7 @@ export function formatBalanceTrxPayoutsForSheet(
     isFirstGroup = false;
 
     groupRows.forEach((row, index) => {
-      out.push(rowToSheetCells(row, index === 0));
+      out.push(rowToSheetCells(row, index === 0, accountPrefix));
     });
   }
 

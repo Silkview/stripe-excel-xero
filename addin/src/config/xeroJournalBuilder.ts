@@ -4,10 +4,10 @@ export const BT_SHEET = 'Stripe_Balance_Transactions';
 export const MAPPING_SHEET = 'Account_Mappings';
 export const JOURNAL_SHEET = 'Xero_Journals';
 
-export const BT_COL_CREATED = 'B';
-export const BT_COL_AMOUNT = 'D';
-export const BT_COL_FEE = 'E';
-export const BT_COL_TYPE = 'H';
+export const BT_COL_CREATED = 'D';
+export const BT_COL_AMOUNT = 'F';
+export const BT_COL_FEE = 'G';
+export const BT_COL_TYPE = 'J';
 
 export const MAPPING_FIRST_ROW = 2;
 export const MAPPING_LAST_ROW =

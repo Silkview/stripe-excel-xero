@@ -10,12 +10,12 @@ export const MAPPING_STRIPE_CLEARING = 'stripe_clearing';
 
 export const BANK_TXN_CLEAR_ROWS = 500;
 
-/** BT column indices (0-based) aligned with BALANCE_TRANSACTION_HEADERS. */
-export const BT_IDX_AVAILABLE_ON = 2;
-export const BT_IDX_AMOUNT = 3;
-export const BT_IDX_CURRENCY = 6;
-export const BT_IDX_TYPE = 7;
-export const BT_IDX_SOURCE_ID = 10;
+/** BT column indices (0-based) aligned with BALANCE_TRANSACTION_SHEET_KEYS. */
+export const BT_IDX_AVAILABLE_ON = 4;
+export const BT_IDX_AMOUNT = 5;
+export const BT_IDX_CURRENCY = 8;
+export const BT_IDX_TYPE = 9;
+export const BT_IDX_SOURCE_ID = 12;
 
 /** Legacy sheet names from earlier setup. */
 export const BANK_TXN_SHEET_ALIASES = [

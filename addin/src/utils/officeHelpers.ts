@@ -1,5 +1,5 @@
 import { WORKBOOK_SHEETS } from '../config/workbookSheets';
-import { clearSheetDataArea } from './sheetClear';
+import { clearEntireSheetUsedRange } from './sheetClear';
 
 export interface SetupSheetsResult {
   created: string[];
@@ -24,7 +24,7 @@ export async function writeDataToSheet(
   headers: string[]
 ): Promise<void> {
   const lastCol = colLetter(headers.length);
-  await clearSheetDataArea(sheetName, 2, lastCol);
+  await clearEntireSheetUsedRange(sheetName);
 
   await Excel.run(async (context) => {
     let sheet = context.workbook.worksheets.getItemOrNullObject(sheetName);
