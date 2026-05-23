@@ -191,8 +191,6 @@ export default function App() {
             : undefined
         }
         canAddAnotherStripe={stripeAuth.canAddAnother}
-        selectedStripeAccountId={stripeAuth.selectedStripeAccountId}
-        onSelectStripeAccount={stripeAuth.selectStripeAccount}
         onConnectXero={() => void xeroAuth.connect()}
         xeroNeedsReconnect={xeroAuth.needsReconnect}
         dimmed={showSetup}
@@ -227,6 +225,8 @@ export default function App() {
             {activeTab === 'pull' && (
               <StripePanel
                 stripeConnected={stripeAuth.status.connected}
+                stripeConnections={stripeAuth.status.connections ?? []}
+                defaultStripeAccountId={stripeAuth.status.defaultStripeAccountId}
                 currencyReady={currencyReady}
                 defaultCurrency={currency}
                 onPulled={() => setDone((d) => ({ ...d, pull: true }))}

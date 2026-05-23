@@ -76,6 +76,32 @@ export async function apiGet<T>(url: string): Promise<ApiResponse<T>> {
   }
 }
 
+/** Pull from a specific Stripe account; query param overrides session header on server. */
+export async function apiGetWithStripeAccount<T>(
+  url: string,
+  stripeAccountId: string
+): Promise<ApiResponse<T>> {
+  const separator = url.includes('?') ? '&' : '?';
+  const fullUrl = `${url}${separator}stripeAccountId=${encodeURIComponent(stripeAccountId)}`;
+  try {
+    const token = getAccessToken();
+    const ws = getWorkspaceId();
+    const res = await api.get<ApiResponse<T>>(fullUrl, {
+      timeout: 60_000,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(ws ? { 'X-Workspace-Id': ws } : {}),
+      },
+    });
+    return res.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      return err.response.data as ApiResponse<T>;
+    }
+    rethrowApiError(err);
+  }
+}
+
 export function getApiErrorMessage(
   response: ApiResponse,
   fallback = 'Something went wrong. Please try again.'

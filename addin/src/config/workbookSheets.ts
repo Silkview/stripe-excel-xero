@@ -1,3 +1,8 @@
+export const STRIPE_ACCOUNT_HEADERS = [
+  'stripe_account_id',
+  'stripe_account_name',
+] as const;
+
 export const PAYOUT_HEADERS = [
   'payout_id',
   'arrival_date',

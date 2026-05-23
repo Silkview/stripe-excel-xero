@@ -22,10 +22,13 @@ type FetchFn = (
 ) => Promise<Array<{ currency: string }>>;
 
 function resolveStripeAccountId(request: Request): string | null {
+  const url = new URL(request.url);
+  const fromQuery = url.searchParams.get('stripeAccountId');
+  if (fromQuery) return fromQuery;
   return (
     request.headers.get('x-stripe-account-id') ||
     request.headers.get('X-Stripe-Account-Id') ||
-    new URL(request.url).searchParams.get('stripeAccountId')
+    null
   );
 }
 

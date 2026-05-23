@@ -13,8 +13,6 @@ interface ConnectionPillsProps {
   onConnectStripe: () => void;
   onConnectAnotherStripe?: () => void;
   canAddAnotherStripe?: boolean;
-  selectedStripeAccountId?: string | null;
-  onSelectStripeAccount?: (stripeAccountId: string) => void;
   onConnectXero: () => void;
   xeroNeedsReconnect?: boolean;
   dimmed?: boolean;
@@ -116,8 +114,6 @@ export default function ConnectionPills({
   onConnectStripe,
   onConnectAnotherStripe,
   canAddAnotherStripe = false,
-  selectedStripeAccountId,
-  onSelectStripeAccount,
   onConnectXero,
   xeroNeedsReconnect = false,
   dimmed,
@@ -127,15 +123,14 @@ export default function ConnectionPills({
   const stripeConnected = stripe.connected;
   const xeroConnected = xero.connected && !xeroNeedsReconnect;
 
-  const selectedStripe =
-    stripeConnections.find(
-      (c) => c.stripeAccountId === selectedStripeAccountId
-    ) ?? stripeConnections[0];
-
   const stripeDetail = stripeWaiting
     ? 'Finish sign-in in browser…'
-    : stripeConnected && selectedStripe
-      ? selectedStripe.displayName ?? selectedStripe.stripeAccountId
+    : stripeConnected
+      ? stripeConnections.length > 1
+        ? `${stripeConnections.length} accounts — choose on Pull tab`
+        : stripeConnections[0]?.displayName ??
+          stripeConnections[0]?.stripeAccountId ??
+          'Connected'
       : 'Not connected';
 
   const xeroDetail = xeroWaiting
@@ -148,22 +143,6 @@ export default function ConnectionPills({
 
   const stripeLogo = <StripeMark size={14} />;
   const xeroLogo = <XeroMark size={14} />;
-
-  const stripeSelector =
-    stripeConnections.length > 1 && onSelectStripeAccount ? (
-      <select
-        className="text-[10px] border border-border rounded-sm px-1 py-0.5 max-w-[120px] shrink-0"
-        value={selectedStripeAccountId ?? ''}
-        onChange={(e) => onSelectStripeAccount(e.target.value)}
-        aria-label="Select Stripe account"
-      >
-        {stripeConnections.map((c) => (
-          <option key={c.id} value={c.stripeAccountId}>
-            {c.displayName ?? c.stripeAccountId}
-          </option>
-        ))}
-      </select>
-    ) : null;
 
   const stripeExtra =
     stripeConnected && canAddAnotherStripe && onConnectAnotherStripe ? (
@@ -201,12 +180,7 @@ export default function ConnectionPills({
         loading={stripeLoading}
         detail={stripeDetail}
         onConnect={onConnectStripe}
-        extraAction={
-          <>
-            {stripeSelector}
-            {stripeExtra}
-          </>
-        }
+        extraAction={stripeExtra}
       />
       <ProviderPill
         label="Xero"
