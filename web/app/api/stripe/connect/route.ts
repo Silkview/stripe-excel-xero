@@ -7,7 +7,10 @@ import {
 } from '@/lib/oauth-state';
 import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
 import { buildStripeAuthorizeUrl } from '@/lib/stripe-authorize-url';
-import { getStripeConnectClientId } from '@/lib/stripe-connect-config';
+import {
+  getStripeConnectClientId,
+  verifyStripeConnectClientPaired,
+} from '@/lib/stripe-connect-config';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
@@ -50,6 +53,14 @@ export async function GET(request: Request) {
       );
     }
     const redirectUri = getOAuthRedirectUri('stripe');
+
+    const pairing = await verifyStripeConnectClientPaired(redirectUri);
+    if (!pairing.paired) {
+      return withCors(
+        request,
+        jsonError('CONFIG_ERROR', pairing.hint, 503)
+      );
+    }
 
     const payload: OAuthStatePayload = {
       workspaceId,

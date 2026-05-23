@@ -7,7 +7,11 @@ import {
   authCallbackErrorHtml,
   authCallbackHtml,
 } from '@/lib/api-response';
-import { formatStripeConnectConfigError } from '@/lib/stripe-connect-config';
+import {
+  formatStripeConnectConfigError,
+  getStripePlatformAccountId,
+  verifyStripeConnectClientPaired,
+} from '@/lib/stripe-connect-config';
 import { exchangeStripeCode } from '@/lib/services/stripe-data';
 import { NextResponse } from 'next/server';
 
@@ -61,13 +65,26 @@ export async function GET(request: Request) {
       );
     }
 
+    const redirectUri = payload.stripeRedirectUri;
+    const pairing = await verifyStripeConnectClientPaired(redirectUri);
+    if (!pairing.paired) {
+      throw new Error(pairing.hint);
+    }
+
     const tokens = await exchangeStripeCode(code, {
       clientId: payload.stripeClientId,
-      redirectUri: payload.stripeRedirectUri,
+      redirectUri,
     });
 
     if (!tokens.stripe_user_id || !tokens.access_token) {
       throw new Error('Stripe did not return account credentials. Try connecting again.');
+    }
+
+    const platformAccountId = await getStripePlatformAccountId();
+    if (platformAccountId && tokens.stripe_user_id === platformAccountId) {
+      throw new Error(
+        'This workspace cannot use the Silkview platform Stripe account. Connect a different Standard Stripe account (not the account that owns the Connect application).'
+      );
     }
 
     if (ws?.account_id) {
@@ -98,7 +115,9 @@ export async function GET(request: Request) {
     );
   } catch (err) {
     const raw = err instanceof Error ? err.message : 'Failed to connect Stripe.';
-    const message = formatStripeConnectConfigError(raw);
+    const redirectUri =
+      payload?.stripeRedirectUri ?? undefined;
+    const message = formatStripeConnectConfigError(raw, { redirectUri });
     return new NextResponse(authCallbackErrorHtml('stripe', message), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
