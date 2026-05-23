@@ -5,14 +5,13 @@ import {
   clearSession,
 } from '../utils/session';
 import { openAuthDialog } from '../utils/dialogAuth';
-import { getOfficeAuthOrigin } from '../utils/officeAuthUrl';
+import {
+  getOfficeAuthOrigin,
+  isMisconfiguredAuthOrigin,
+} from '../utils/officeAuthUrl';
 
 const HANDOFF_TIMEOUT_MS = 90_000;
 const HANDOFF_POLL_MS = 800;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function auditDialogAuth(data: Record<string, unknown>) {
   try {
@@ -39,16 +38,15 @@ function tokenFromDialogPayload(payload: Record<string, unknown>): string | null
 
 type HandoffPollResult =
   | { ok: true; token: string }
-  | { ok: false; status: number; ready: boolean };
+  | { ok: false; status: number; ready: boolean; errorCode?: string };
 
 async function fetchHandoffToken(
   handoff: string,
   origin: string
 ): Promise<HandoffPollResult> {
+  const url = `${origin}/api/auth/excel-handoff?nonce=${encodeURIComponent(handoff)}`;
   try {
-    const res = await fetch(
-      `${origin}/api/auth/excel-handoff?nonce=${encodeURIComponent(handoff)}`
-    );
+    const res = await fetch(url);
     const data = await res.json().catch(() => null);
     if (
       data?.success &&
@@ -61,6 +59,7 @@ async function fetchHandoffToken(
       ok: false,
       status: res.status,
       ready: Boolean(data?.data?.ready),
+      errorCode: data?.error?.code,
     };
   } catch {
     return { ok: false, status: 0, ready: false };
@@ -70,16 +69,28 @@ async function fetchHandoffToken(
 type HandoffPoller = {
   promise: Promise<string>;
   wake: () => void;
+  pollNow: () => Promise<string | null>;
 };
 
 function startExcelHandoffPoll(
   handoff: string,
+  origin: string,
   maxMs = HANDOFF_TIMEOUT_MS,
   intervalMs = HANDOFF_POLL_MS
 ): HandoffPoller {
-  const origin = getOfficeAuthOrigin();
   let lastPoll: HandoffPollResult = { ok: false, status: 0, ready: false };
   let cancelWait: (() => void) | null = null;
+  let pollCount = 0;
+
+  const pollNow = async (): Promise<string | null> => {
+    const result = await fetchHandoffToken(handoff, origin);
+    lastPoll = result;
+  // #region agent log
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:poll',message:'handoff poll',data:{pollCount,status:result.ok?200:result.status,ready:result.ok||result.ready,originHost:origin.replace(/^https?:\/\//,'')},timestamp:Date.now(),hypothesisId:'H1-H2'})}).catch(()=>{});
+  // #endregion
+    pollCount += 1;
+    return result.ok ? result.token : null;
+  };
 
   const promise = new Promise<string>((resolve, reject) => {
     const deadline = Date.now() + maxMs;
@@ -101,22 +112,24 @@ function startExcelHandoffPoll(
           data: {
             origin,
             handoff,
+            pollCount,
             lastStatus: lastPoll.ok ? 200 : lastPoll.status,
             lastReady: lastPoll.ok ? true : lastPoll.ready,
+            lastErrorCode: lastPoll.ok ? undefined : lastPoll.errorCode,
           },
         });
         reject(
           new Error(
-            'Sign-in timed out. Wait for “Signed in to Excel” in the dialog, then try again.'
+            'Sign-in timed out. The task pane could not read your session from the server. ' +
+              'Confirm migration 008_excel_auth_handoffs is applied and the add-in was built with VITE_API_URL=https://www.silkview.org.'
           )
         );
         return;
       }
 
-      const result = await fetchHandoffToken(handoff, origin);
-      lastPoll = result;
-      if (result.ok) {
-        resolve(result.token);
+      const token = await pollNow();
+      if (token) {
+        resolve(token);
         return;
       }
 
@@ -133,34 +146,58 @@ function startExcelHandoffPoll(
     wake: () => {
       cancelWait?.();
     },
+    pollNow,
   };
 }
 
 /**
- * Excel sign-in: race server handoff (reliable) vs messageParent (fast when it works).
+ * Excel sign-in: handoff poll (reliable) + messageParent (fast when it works).
  */
 async function acquireExcelSessionToken(
   loginUrl: string,
-  handoff: string
+  handoff: string,
+  origin: string
 ): Promise<{ token: string; via: 'dialog' | 'handoff'; authDialog: { close: () => void } }> {
-  const handoffPoll = startExcelHandoffPoll(handoff);
+  const handoffPoll = startExcelHandoffPoll(handoff, origin);
+  let settled = false;
 
-  const authDialog = openAuthDialog(loginUrl, {
-    onHandoffReady: () => handoffPoll.wake(),
+  let resolveExternal: (v: { token: string; via: 'dialog' | 'handoff' }) => void;
+  const externalPromise = new Promise<{ token: string; via: 'dialog' | 'handoff' }>(
+    (resolve) => {
+      resolveExternal = resolve;
+    }
+  );
+
+  let authDialog: { close: () => void };
+
+  authDialog = openAuthDialog(loginUrl, {
+    onHandoffReady: () => {
+      handoffPoll.wake();
+      void (async () => {
+        const token = await handoffPoll.pollNow();
+        if (token && !settled) {
+          settled = true;
+          resolveExternal({ token, via: 'handoff' });
+          authDialog.close();
+        }
+      })();
+    },
+    onDialogMessage: (payload) => {
+      const token = tokenFromDialogPayload(payload);
+      if (token && !settled) {
+        settled = true;
+        resolveExternal({ token, via: 'dialog' });
+        authDialog.close();
+      }
+    },
   });
 
-  const handoffTask = handoffPoll.promise.then((token) => ({
-    token,
-    via: 'handoff' as const,
-  }));
-
-  const dialogTask = authDialog.closed.then((payload) => {
-    const token = tokenFromDialogPayload(payload);
-    if (token) return { token, via: 'dialog' as const };
-    throw new Error('Dialog closed without a session token.');
+  const handoffTask = handoffPoll.promise.then((token) => {
+    if (!settled) settled = true;
+    return { token, via: 'handoff' as const };
   });
 
-  const result = await Promise.race([handoffTask, dialogTask]);
+  const result = await Promise.race([handoffTask, externalPromise]);
   return { ...result, authDialog };
 }
 
@@ -176,10 +213,22 @@ export function useAuth() {
     const origin = getOfficeAuthOrigin();
     const loginUrl = `${origin}/auth/excel?handoff=${encodeURIComponent(handoff)}`;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'start',data:{origin,handoff,taskpaneOrigin:typeof window!=='undefined'?window.location?.origin:null,misconfigured:isMisconfiguredAuthOrigin()},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
+
+    if (isMisconfiguredAuthOrigin()) {
+      setError(
+        'Add-in is not configured for sign-in. Rebuild with VITE_API_URL=https://www.silkview.org and redeploy the add-in on Vercel.'
+      );
+      setLoading(false);
+      return;
+    }
+
     let authDialog: { close: () => void } | null = null;
 
     try {
-      const acquired = await acquireExcelSessionToken(loginUrl, handoff);
+      const acquired = await acquireExcelSessionToken(loginUrl, handoff, origin);
       authDialog = acquired.authDialog;
       const { token, via } = acquired;
 

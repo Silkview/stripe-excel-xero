@@ -104,15 +104,12 @@ export function authExcelSignInHtml(accessToken: string): string {
       return false;
     }
     function retry() {
-      var sentSignedIn = sendToParent(signedInPayload);
+      sendToParent(signedInPayload);
       sendToParent(handoffReadyPayload);
-      if (sentSignedIn) {
-        var el = document.getElementById('status');
-        if (el) el.textContent = 'Returning to Excel…';
-        return;
-      }
+      var el = document.getElementById('status');
+      if (el) el.textContent = 'Returning to Excel…';
       attempts += 1;
-      if (attempts < 8) setTimeout(retry, 200);
+      if (attempts < 25) setTimeout(retry, 200);
     }
     retry();
   });

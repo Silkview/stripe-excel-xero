@@ -1,3 +1,5 @@
+const WEB_APP_ORIGIN = 'https://www.silkview.org';
+
 /** Origin for Office auth dialog (`/auth/excel`). Prefer web API URL in production. */
 export function getOfficeAuthOrigin(): string {
   const fromEnv =
@@ -8,30 +10,31 @@ export function getOfficeAuthOrigin(): string {
     (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '');
 
   if (fromEnv) {
-    warnIfAddinHostUsedAsAuthOrigin(fromEnv);
     return fromEnv;
   }
 
   if (typeof window !== 'undefined' && window.location?.origin) {
-    warnIfAddinHostUsedAsAuthOrigin(window.location.origin);
-    return window.location.origin;
+    const origin = window.location.origin;
+    if (isAddinOnlyHost(origin)) {
+      // Production add-in builds must set VITE_API_URL; fall back to known web host.
+      return WEB_APP_ORIGIN;
+    }
+    return origin;
   }
 
   return 'https://localhost:4000';
 }
 
-function warnIfAddinHostUsedAsAuthOrigin(origin: string): void {
-  if (typeof console === 'undefined') return;
+function isAddinOnlyHost(origin: string): boolean {
   const host = origin.replace(/^https?:\/\//, '').toLowerCase();
-  const looksLikeAddinOnly =
+  return (
     host.startsWith('addin.') ||
     host.includes('addin.silkview') ||
-    (host.includes('localhost') && !import.meta.env.VITE_API_URL);
-  if (looksLikeAddinOnly) {
-    console.warn(
-      '[Silkview] Auth is pointing at the add-in host (' +
-        origin +
-        '). Set VITE_API_URL to your web app (e.g. https://www.silkview.org) and rebuild the add-in.'
-    );
-  }
+    (host.includes('localhost:4000') && !import.meta.env.VITE_API_URL)
+  );
+}
+
+/** True when auth APIs would be called on the add-in host (no web app). */
+export function isMisconfiguredAuthOrigin(): boolean {
+  return isAddinOnlyHost(getOfficeAuthOrigin());
 }

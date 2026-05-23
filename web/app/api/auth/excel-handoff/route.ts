@@ -21,6 +21,18 @@ export async function GET(request: Request) {
   }
 
   const peeked = await peekExcelAuthHandoff(nonce);
+  // #region agent log
+  console.log(
+    '[excel-auth-audit]',
+    JSON.stringify({
+      sessionId: '49b4e5',
+      location: 'excel-handoff/GET',
+      message: 'peek',
+      hypothesisId: 'H2',
+      data: { hasPeek: !!peeked, nonceLen: nonce.length },
+    })
+  );
+  // #endregion
   if (!peeked) {
     return withPublicHandoffCors(jsonSuccess({ ready: false }));
   }
