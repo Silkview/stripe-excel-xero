@@ -10,10 +10,12 @@ import {
 import {
   formatStripeConnectConfigError,
   getStripePlatformAccountId,
+  getStripeSecretKeyMode,
   verifyStripeConnectClientPaired,
 } from '@/lib/stripe-connect-config';
 import { exchangeStripeCode } from '@/lib/services/stripe-data';
 import { NextResponse } from 'next/server';
+import { debugStripeConnectLog } from '@/lib/debug-stripe-connect-log';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -71,6 +73,24 @@ export async function GET(request: Request) {
       throw new Error(pairing.hint);
     }
 
+    // #region agent log
+    debugStripeConnectLog({
+      hypothesisId: 'B',
+      location: 'stripe/callback:GET',
+      message: 'before_token_exchange',
+      data: {
+        workspaceId: payload.workspaceId,
+        redirectUri,
+        clientIdSuffix: payload.stripeClientId?.slice(-8) ?? null,
+        secretMode: getStripeSecretKeyMode(),
+        paired: pairing.paired,
+        hasCode: !!code,
+        stateHasClientId: !!payload.stripeClientId,
+        stateHasRedirectUri: !!payload.stripeRedirectUri,
+      },
+    });
+    // #endregion
+
     const tokens = await exchangeStripeCode(code, {
       clientId: payload.stripeClientId,
       redirectUri,
@@ -117,6 +137,24 @@ export async function GET(request: Request) {
     const raw = err instanceof Error ? err.message : 'Failed to connect Stripe.';
     const redirectUri =
       payload?.stripeRedirectUri ?? undefined;
+
+    // #region agent log
+    debugStripeConnectLog({
+      hypothesisId: 'C',
+      location: 'stripe/callback:GET',
+      message: 'token_exchange_failed',
+      data: {
+        rawError: raw.slice(0, 300),
+        redirectUri: redirectUri ?? null,
+        clientIdSuffix: payload?.stripeClientId?.slice(-8) ?? null,
+        secretMode: getStripeSecretKeyMode(),
+        isBelongError:
+          raw.toLowerCase().includes('does not belong') ||
+          raw.toLowerCase().includes('authorization code'),
+      },
+    });
+    // #endregion
+
     const message = formatStripeConnectConfigError(raw, { redirectUri });
     return new NextResponse(authCallbackErrorHtml('stripe', message), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },

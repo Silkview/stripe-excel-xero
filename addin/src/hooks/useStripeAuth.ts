@@ -33,9 +33,14 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
     setError(null);
     setWaitingForBrowser(false);
     try {
-      const connectRes = await apiGet<{ url: string }>(
-        `/api/stripe/connect?flow=${flow}`
-      );
+      const connectRes = await apiGet<{
+        url: string;
+        redirectUri?: string;
+        flow?: string;
+      }>(`/api/stripe/connect?flow=${flow}`);
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'useStripeAuth:connect',message:'connect_api_response',data:{success:connectRes.success,code:connectRes.error?.code,redirectUri:connectRes.data?.redirectUri,flow:connectRes.data?.flow,hasUrl:!!connectRes.data?.url},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
       if (!connectRes.success || !connectRes.data?.url) {
         const msg = friendlyError(connectRes);
         setError(
@@ -57,9 +62,11 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
       });
       await refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to connect Stripe.'
-      );
+      const msg = err instanceof Error ? err.message : 'Failed to connect Stripe.';
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'useStripeAuth:connect',message:'connect_failed',data:{error:msg.slice(0,400)},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      // #endregion
+      setError(msg);
     } finally {
       setLoading(false);
       setWaitingForBrowser(false);

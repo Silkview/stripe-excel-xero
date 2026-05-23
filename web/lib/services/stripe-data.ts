@@ -11,6 +11,7 @@ import {
   getStripeConnectClientId,
   getStripePlatformSecretKey,
 } from '../stripe-connect-config';
+import { debugStripeConnectLog } from '../debug-stripe-connect-log';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -290,8 +291,24 @@ export async function exchangeStripeCode(
     };
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.data) {
-      const body = err.response.data as { error_description?: string; error?: string };
+      const body = err.response.data as {
+        error_description?: string;
+        error?: string;
+      };
       const detail = body.error_description ?? body.error;
+      // #region agent log
+      debugStripeConnectLog({
+        hypothesisId: 'D',
+        location: 'stripe-data:exchangeStripeCode',
+        message: 'stripe_oauth_token_error',
+        data: {
+          stripeError: body.error ?? null,
+          detail: detail?.slice(0, 300) ?? null,
+          redirectUri,
+          clientIdSuffix: clientId.slice(-8),
+        },
+      });
+      // #endregion
       if (detail) {
         throw new StripeServiceError('STRIPE_ERROR', detail);
       }
