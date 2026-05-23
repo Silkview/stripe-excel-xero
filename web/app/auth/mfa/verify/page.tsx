@@ -48,9 +48,6 @@ function MfaVerifyInner() {
         const next = await resolvePostAuthRedirect(supabase, {
           excelMode: excelReturn,
         });
-        // #region agent log
-        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'mfa-verify:auto-redirect',message:'already verified redirect',data:{excelReturn,next,hasVerifiedTotp:status.hasVerifiedTotp,currentLevel:status.currentLevel},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
-        // #endregion
         if (excelReturn) await navigateExcelAuthWithHandoff(next, handoff);
         else router.replace(next);
         return;

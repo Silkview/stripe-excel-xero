@@ -14,7 +14,8 @@ export async function saveExcelAuthHandoff(
     .upsert({ nonce, access_token: accessToken, expires_at: expiresAt });
 }
 
-export async function takeExcelAuthHandoff(
+/** Read handoff without consuming (safe for polling). */
+export async function peekExcelAuthHandoff(
   nonce: string
 ): Promise<string | null> {
   const admin = createSupabaseAdmin();
@@ -24,9 +25,19 @@ export async function takeExcelAuthHandoff(
     .eq('nonce', nonce)
     .maybeSingle();
 
-  await core(admin).from('excel_auth_handoffs').delete().eq('nonce', nonce);
-
   if (error || !data?.access_token) return null;
   if (new Date(data.expires_at).getTime() < Date.now()) return null;
   return data.access_token;
+}
+
+/** Consume handoff once (delete only when a valid token is returned). */
+export async function takeExcelAuthHandoff(
+  nonce: string
+): Promise<string | null> {
+  const token = await peekExcelAuthHandoff(nonce);
+  if (!token) return null;
+
+  const admin = createSupabaseAdmin();
+  await core(admin).from('excel_auth_handoffs').delete().eq('nonce', nonce);
+  return token;
 }

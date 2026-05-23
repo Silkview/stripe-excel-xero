@@ -87,11 +87,23 @@ export function authExcelSignInHtml(accessToken: string): string {
 <p>You can close this window and return to Excel.</p>
 <script>
   Office.onReady(function() {
-    try {
-      if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
-        Office.context.ui.messageParent(${json});
-      }
-    } catch (e) { }
+    var payload = ${json};
+    var attempts = 0;
+    function sendToParent() {
+      try {
+        if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
+          Office.context.ui.messageParent(payload);
+          return true;
+        }
+      } catch (e) { }
+      return false;
+    }
+    function retry() {
+      if (sendToParent()) return;
+      attempts += 1;
+      if (attempts < 8) setTimeout(retry, 200);
+    }
+    retry();
   });
 </script>
 </body>

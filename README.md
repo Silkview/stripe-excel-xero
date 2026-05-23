@@ -145,7 +145,11 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
 
 4. Stripe billing webhook: `https://<your-domain>/api/billing/webhook`
 5. Supabase: site URL + redirect URLs for auth; signup webhook to production `/api/auth/signup`
-6. Production add-in: set `VITE_API_URL` to your Vercel URL; update `addin/manifest.xml` `SourceLocation` and `AppDomains`
+6. **Production add-in** (separate Vercel project, root `addin`):
+   - Set `VITE_API_URL=https://www.silkview.org` (web app URL — required; the add-in host has no `/auth/excel` or handoff API).
+   - Optional `VITE_OFFICE_AUTH_ORIGIN` if it differs from `VITE_API_URL`.
+   - Update `addin/manifest.xml` `SourceLocation` and `AppDomains` for your add-in host.
+7. **Supabase migrations:** apply `supabase/migrations/008_excel_auth_handoffs.sql` (Excel sign-in handoff table). Without it, the task pane can stay on “Signing in…” after the dialog shows success.
 
 ## Task pane UI
 

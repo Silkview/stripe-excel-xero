@@ -7,6 +7,9 @@ import {
 import { openAuthDialog } from '../utils/dialogAuth';
 import { getOfficeAuthOrigin } from '../utils/officeAuthUrl';
 
+const HANDOFF_TIMEOUT_MS = 90_000;
+const HANDOFF_POLL_MS = 800;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -34,10 +37,14 @@ function tokenFromDialogPayload(payload: Record<string, unknown>): string | null
   return null;
 }
 
+type HandoffPollResult =
+  | { ok: true; token: string }
+  | { ok: false; status: number; ready: boolean };
+
 async function fetchHandoffToken(
   handoff: string,
   origin: string
-): Promise<string | null> {
+): Promise<HandoffPollResult> {
   try {
     const res = await fetch(
       `${origin}/api/auth/excel-handoff?nonce=${encodeURIComponent(handoff)}`
@@ -48,36 +55,60 @@ async function fetchHandoffToken(
       data.data?.ready &&
       typeof data.data.accessToken === 'string'
     ) {
-      return data.data.accessToken;
+      return { ok: true, token: data.data.accessToken };
     }
+    return {
+      ok: false,
+      status: res.status,
+      ready: Boolean(data?.data?.ready),
+    };
   } catch {
-    // keep polling
+    return { ok: false, status: 0, ready: false };
   }
-  return null;
 }
 
-/** Poll handoff until token or deadline. Resolves as soon as excel-finish stores the token. */
+/** Poll server handoff until token is ready or deadline (primary Excel sign-in path). */
 function pollExcelHandoff(
   handoff: string,
-  maxMs = 120000,
-  intervalMs = 800
+  maxMs = HANDOFF_TIMEOUT_MS,
+  intervalMs = HANDOFF_POLL_MS
 ): Promise<string> {
   const origin = getOfficeAuthOrigin();
+  let lastPoll: HandoffPollResult = { ok: false, status: 0, ready: false };
+
   return new Promise((resolve, reject) => {
     const deadline = Date.now() + maxMs;
+
     const tick = async () => {
       if (Date.now() >= deadline) {
-        reject(new Error('Sign-in timed out waiting for the server handoff.'));
+        await auditDialogAuth({
+          location: 'useAuth:handoff',
+          message: 'handoff timeout',
+          data: {
+            origin,
+            lastStatus: lastPoll.ok ? 200 : lastPoll.status,
+            lastReady: lastPoll.ok ? true : lastPoll.ready,
+          },
+        });
+        reject(
+          new Error(
+            'Sign-in timed out. Wait for “Signed in to Excel” in the dialog, then try again.'
+          )
+        );
         return;
       }
-      const token = await fetchHandoffToken(handoff, origin);
-      if (token) {
-        resolve(token);
+
+      const result = await fetchHandoffToken(handoff, origin);
+      lastPoll = result;
+      if (result.ok) {
+        resolve(result.token);
         return;
       }
+
       await sleep(intervalMs);
       void tick();
     };
+
     void tick();
   });
 }
@@ -91,36 +122,23 @@ function dialogTokenPromise(loginUrl: string): Promise<string> {
 }
 
 /**
- * Excel sign-in: race Office messageParent vs server handoff so we do not depend
- * on the dialog closing (messageParent can fail while the web page shows success).
+ * Excel sign-in: race server handoff (reliable) vs messageParent (fast when it works).
+ * Closing the dialog (12006) does not reject — handoff polling continues until success or timeout.
  */
 async function acquireExcelSessionToken(
   loginUrl: string,
   handoff: string
 ): Promise<{ token: string; via: 'dialog' | 'handoff' }> {
-  const handoffTask = pollExcelHandoff(handoff).then((token) => ({
-    token,
-    via: 'handoff' as const,
-  }));
-  const dialogTask = dialogTokenPromise(loginUrl).then((token) => ({
-    token,
-    via: 'dialog' as const,
-  }));
-
-  try {
-    return await Promise.race([handoffTask, dialogTask]);
-  } catch {
-    const results = await Promise.allSettled([handoffTask, dialogTask]);
-    for (const result of results) {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      }
-    }
-    const reason = results.find((r) => r.status === 'rejected') as
-      | PromiseRejectedResult
-      | undefined;
-    throw reason?.reason ?? new Error('Sign-in did not complete.');
-  }
+  return Promise.race([
+    pollExcelHandoff(handoff).then((token) => ({
+      token,
+      via: 'handoff' as const,
+    })),
+    dialogTokenPromise(loginUrl).then((token) => ({
+      token,
+      via: 'dialog' as const,
+    })),
+  ]);
 }
 
 export function useAuth() {
@@ -136,10 +154,6 @@ export function useAuth() {
     const loginUrl = `${origin}/auth/excel?handoff=${encodeURIComponent(handoff)}`;
 
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'opening auth dialog',data:{loginUrl,handoff},timestamp:Date.now(),hypothesisId:'H8',runId:'post-fix-v4'})}).catch(()=>{});
-      // #endregion
-
       const { token, via } = await acquireExcelSessionToken(loginUrl, handoff);
 
       setAccessToken(token);
@@ -155,16 +169,10 @@ export function useAuth() {
         );
       }
 
-      // #region agent log
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'signed in',data:{via,hasToken:!!token},timestamp:Date.now(),hypothesisId:'H8',runId:'post-fix-v4'})}).catch(()=>{});
-      // #endregion
-
       await auditDialogAuth({
         location: 'useAuth:signIn',
         message: 'success',
         data: { via },
-        hypothesisId: 'H8',
-        runId: 'post-fix-v4',
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Sign in failed.';
@@ -172,8 +180,6 @@ export function useAuth() {
         location: 'useAuth:signIn',
         message: 'error',
         data: { msg },
-        hypothesisId: 'H8',
-        runId: 'post-fix-v4',
       });
       setError(
         msg.includes('cancelled') || msg.includes('timed out')

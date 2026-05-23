@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   saveExcelAuthHandoff,
+  peekExcelAuthHandoff,
   takeExcelAuthHandoff,
 } from '@/lib/auth/excel-handoff';
 import { jsonError, jsonSuccess } from '@/lib/api-response';
@@ -18,6 +19,11 @@ export async function GET(request: Request) {
       request,
       jsonError('INVALID_REQUEST', 'Missing handoff nonce.', 400)
     );
+  }
+
+  const peeked = await peekExcelAuthHandoff(nonce);
+  if (!peeked) {
+    return withCors(request, jsonSuccess({ ready: false }));
   }
 
   const token = await takeExcelAuthHandoff(nonce);
