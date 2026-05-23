@@ -58,7 +58,8 @@ export function prefillFromUserMetadata(
 
 export async function getOnboardingStatusForUser(
   userId: string,
-  userMetadata?: Record<string, unknown>
+  userMetadata?: Record<string, unknown>,
+  preferredWorkspaceId?: string | null
 ): Promise<OnboardingStatus> {
   const prefill = prefillFromUserMetadata(userMetadata);
   const admin = createSupabaseAdmin();
@@ -97,7 +98,14 @@ export async function getOnboardingStatusForUser(
     .eq('account_id', membership.account_id)
     .order('created_at', { ascending: true });
 
-  const workspaceId = workspaces?.[0]?.id ?? null;
+  const workspaceIds = (workspaces ?? []).map((w) => w.id);
+  let workspaceId: string | null = workspaces?.[0]?.id ?? null;
+  if (
+    preferredWorkspaceId &&
+    workspaceIds.includes(preferredWorkspaceId)
+  ) {
+    workspaceId = preferredWorkspaceId;
+  }
 
   let hasXero = false;
   let hasStripe = false;
@@ -111,7 +119,13 @@ export async function getOnboardingStatusForUser(
       .maybeSingle();
     hasXero = !!xero;
 
-    hasStripe = (await countAccountStripeConnections(membership.account_id)) > 0;
+    const { data: stripe } = await core(admin)
+      .from('stripe_connections')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('is_active', true)
+      .maybeSingle();
+    hasStripe = !!stripe;
   }
 
   const needsAccountSetup = !workspaceId;

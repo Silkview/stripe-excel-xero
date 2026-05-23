@@ -1,6 +1,9 @@
 import { requireWorkspace } from '@/lib/api-auth';
 import { ensureXeroBaseCurrency } from '@/lib/services/xero';
-import { getXeroConnection } from '@/lib/connections/store';
+import {
+  disconnectXeroForWorkspace,
+  getXeroConnection,
+} from '@/lib/connections/store';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
@@ -35,6 +38,16 @@ export async function GET(request: Request) {
         jsonError('XERO_ERROR', 'Failed to load Xero connection.', 502)
       );
     }
+  } catch (err) {
+    return handleRouteError(request, err);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { workspaceId } = await requireWorkspace(request);
+    await disconnectXeroForWorkspace(workspaceId);
+    return ok(request, { disconnected: true });
   } catch (err) {
     return handleRouteError(request, err);
   }

@@ -89,9 +89,6 @@ function startExcelHandoffPoll(
   const pollNow = async (): Promise<string | null> => {
     const result = await fetchHandoffToken(handoff, pollOrigin);
     lastPoll = result;
-  // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:poll',message:'handoff poll',data:{pollCount,status:result.ok?200:result.status,ready:result.ok||result.ready,pollOrigin:pollOrigin.replace(/^https?:\/\//,'')},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
-  // #endregion
     pollCount += 1;
     return result.ok ? result.token : null;
   };
@@ -221,10 +218,6 @@ export function useAuth() {
     const origin = getOfficeAuthOrigin();
     const pollOrigin = getHandoffPollOrigin();
     const loginUrl = `${origin}/auth/excel?handoff=${encodeURIComponent(handoff)}`;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'start',data:{origin,pollOrigin,handoff,taskpaneOrigin:typeof window!=='undefined'?window.location?.origin:null},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
-    // #endregion
 
     if (isMisconfiguredAuthOrigin()) {
       setError(

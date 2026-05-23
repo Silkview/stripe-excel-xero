@@ -21,40 +21,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-function logApiNetworkFailure(
-  method: string,
-  url: string,
-  err: unknown
-): void {
-  if (!axios.isAxiosError(err) || err.message !== 'Network Error') return;
-  // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '49b4e5',
-    },
-    body: JSON.stringify({
-      sessionId: '49b4e5',
-      location: 'api.ts:network',
-      message: 'axios network error',
-      data: {
-        method,
-        url,
-        apiBase: getApiBase().replace(/^https?:\/\//, ''),
-        taskpaneOrigin:
-          typeof window !== 'undefined'
-            ? window.location?.origin?.replace(/^https?:\/\//, '')
-            : null,
-      },
-      timestamp: Date.now(),
-      hypothesisId: 'H7',
-      runId: 'post-fix-v3',
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 function rethrowApiError(err: unknown): never {
   if (axios.isAxiosError(err) && err.message === 'Network Error') {
     throw new Error(
@@ -75,7 +41,6 @@ export async function apiPost<T, B = unknown>(
     if (axios.isAxiosError(err) && err.response?.data) {
       return err.response.data as ApiResponse<T>;
     }
-    logApiNetworkFailure('POST', url, err);
     rethrowApiError(err);
   }
 }
@@ -91,7 +56,6 @@ export async function apiPatch<T, B = unknown>(
     if (axios.isAxiosError(err) && err.response?.data) {
       return err.response.data as ApiResponse<T>;
     }
-    logApiNetworkFailure('PATCH', url, err);
     rethrowApiError(err);
   }
 }
@@ -104,7 +68,6 @@ export async function apiGet<T>(url: string): Promise<ApiResponse<T>> {
     if (axios.isAxiosError(err) && err.response?.data) {
       return err.response.data as ApiResponse<T>;
     }
-    logApiNetworkFailure('GET', url, err);
     rethrowApiError(err);
   }
 }

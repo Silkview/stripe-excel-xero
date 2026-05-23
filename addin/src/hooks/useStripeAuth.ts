@@ -37,7 +37,12 @@ export function useStripeAuth(enabled: boolean) {
         `/api/stripe/connect?flow=${flow}`
       );
       if (!connectRes.success || !connectRes.data?.url) {
-        setError(friendlyError(connectRes));
+        const msg = friendlyError(connectRes);
+        setError(
+          connectRes.error?.code === 'CONFIG_ERROR'
+            ? `${msg} Check dashboard Settings → Stripe Connect (platform) or contact your admin.`
+            : msg
+        );
         return;
       }
       setLoading(false);

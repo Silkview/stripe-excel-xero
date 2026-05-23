@@ -88,9 +88,6 @@ export function openAuthDialog(
                   string,
                   unknown
                 >;
-                // #region agent log
-                fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:message',message:'dialog message',data:{status:payload.status},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-                // #endregion
                 if (payload.status === 'handoff_ready') {
                   options?.onHandoffReady?.();
                   return;

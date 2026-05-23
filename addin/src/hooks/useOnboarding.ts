@@ -86,9 +86,6 @@ export function useOnboarding(enabled: boolean): OnboardingState {
         provisionError =
           completeRes.error?.message ?? 'Could not create your account.';
         setError(provisionError);
-        // #region agent log
-        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useOnboarding.ts:complete',message:'auto-provision failed',data:{code:completeRes.error?.code,msgPrefix:provisionError.slice(0,120)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
       }
     }
 

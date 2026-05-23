@@ -7,17 +7,19 @@ import {
   verifyStripeConnectClientPaired,
 } from '@/lib/stripe-connect-config';
 import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
-import { handleOptions, ok } from '@/lib/route-handler';
-import { jsonError } from '@/lib/api-response';
+import { requireAccountAdmin } from '@/lib/api-auth';
+import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { withCors } from '@/lib/cors';
 
-/** Dev helper: confirms platform secret key works and is paired with STRIPE_CLIENT_ID. */
+/** Operator diagnostic: Stripe Connect env pairing (owners/admins only). */
 export async function OPTIONS(request: Request) {
   return handleOptions(request);
 }
 
 export async function GET(request: Request) {
   try {
+    await requireAccountAdmin(request);
+
     const clientId = getStripeConnectClientId();
     const secret = getStripePlatformSecretKey();
     const redirectUri = getOAuthRedirectUri('stripe');
@@ -35,25 +37,16 @@ export async function GET(request: Request) {
 
     return ok(request, {
       paired,
-      platformAccountId: platform.id,
-      platformEmail: platform.email,
       connectApiEnabled,
       secretMode: getStripeSecretKeyMode(),
       apiLivemode: balance.livemode ?? null,
       clientIdSuffix: clientId.slice(-8),
       redirectUri,
-      hint: paired
-        ? pairingHint
-        : pairingHint,
+      hint: pairingHint,
+      note:
+        'Customers connect their own Stripe accounts via OAuth. These values are for your Connect platform app only.',
     });
   } catch (err) {
-    return withCors(
-      request,
-      jsonError(
-        'CONFIG_ERROR',
-        err instanceof Error ? err.message : 'Stripe Connect config invalid.',
-        503
-      )
-    );
+    return handleRouteError(request, err);
   }
 }

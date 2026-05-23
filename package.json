@@ -12,7 +12,8 @@
     "dev:addin": "npm run dev -w addin",
     "dev:web": "npm run dev -w web",
     "build": "npm run build -w addin && npm run build -w web",
-    "verify:addin-deploy": "node addin/scripts/verify-deploy.mjs"
+    "verify:addin-deploy": "node addin/scripts/verify-deploy.mjs",
+    "verify:oauth-config": "node web/scripts/verify-oauth-config.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

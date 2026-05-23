@@ -191,16 +191,6 @@ export async function readXeroJournalsForPush(
 
     const lines = candidates.map((c) => c.line);
     enrichClearingLines(lines, clearingMapping);
-
-    // #region agent log
-    for (let i = 0; i < candidates.length; i++) {
-      const rawTax = candidates[i].excelRow
-        ? (rows[candidates[i].excelRow - parsed.startRow] ?? [])[COL_TAX]
-        : undefined;
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'readXeroJournals.ts:post-enrich',message:'journal line tax read',data:{excelRow:candidates[i].excelRow,rawTaxCell:rawTax==null?null:String(rawTax).slice(0,80),lineTaxType:candidates[i].line.taxType??null,accountCode:candidates[i].line.accountCode,description:candidates[i].line.description?.slice(0,40)},timestamp:Date.now(),hypothesisId:'H1-H3'})}).catch(()=>{});
-    }
-    // #endregion
-
     const valid = candidates.filter((c) => Boolean(c.line.accountCode));
     skippedCount += candidates.length - valid.length;
 

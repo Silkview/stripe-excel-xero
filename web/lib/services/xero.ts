@@ -394,13 +394,6 @@ async function collectManualJournalValidationIssues(
 
   for (const [date, groupLines] of groups) {
     const grossTotal = groupLines.reduce((sum, l) => sum + l.netAmount, 0);
-
-    // #region agent log
-    if (Math.abs(grossTotal) > BALANCE_EPSILON) {
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:balance-check',message:'journal gross balance',data:{date,grossTotal,lines:groupLines.map((l)=>({account:l.accountCode,tax:l.taxType??null,amount:l.netAmount}))},timestamp:Date.now(),hypothesisId:'H-gross-balance'})}).catch(()=>{});
-    }
-    // #endregion
-
     if (Math.abs(grossTotal) > BALANCE_EPSILON) {
       rowIssues.push({
         date,
@@ -733,11 +726,6 @@ async function collectPostedManualJournalTaxMismatches(
   }>(workspaceId, `/api.xro/2.0/ManualJournals/${manualJournalId}`);
 
   const xeroLines = (fetched.ManualJournals ?? [])[0]?.JournalLines ?? [];
-
-  // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:post-xero-get',message:'xero stored tax vs expected',data:{manualJournalId,date,expectedLines:linesWithTax.map((l)=>({accountCode:l.accountCode,taxType:l.taxType??null,netAmount:l.netAmount})),xeroLines:xeroLines.map((xl)=>({accountCode:xl.AccountCode,taxType:xl.TaxType??null,lineAmount:xl.LineAmount}))},timestamp:Date.now(),hypothesisId:'H4-H5',runId:'post-fix'})}).catch(()=>{});
-  // #endregion
-
   for (const line of linesWithTax) {
     const xeroLine = xeroLines.find(
       (xl) =>
@@ -788,14 +776,6 @@ export async function pushManualJournals(
   const defaultCurrency = await getWorkspaceDefaultCurrency(workspaceId);
   const mappingOptions = await getMappingOptions(workspaceId);
   enrichLineTaxFromAccounts(lines, mappingOptions.accounts);
-
-  // #region agent log
-  for (const [date, groupLines] of groupLinesByDate(lines)) {
-    const grossTotal = groupLines.reduce((s, l) => s + l.netAmount, 0);
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:pre-push-lines',message:'journal lines sent to validation',data:{date,grossTotal,lines:groupLines.map((l)=>({account:l.accountCode,tax:l.taxType??null,amount:l.netAmount}))},timestamp:Date.now(),hypothesisId:'H-gross-balance',runId:'post-fix-v2'})}).catch(()=>{});
-  }
-  // #endregion
-
   const validationIssues = await collectManualJournalValidationIssues(
     workspaceId,
     lines,
@@ -825,18 +805,6 @@ export async function pushManualJournals(
     status,
     defaultCurrency
   );
-
-  // #region agent log
-  for (const journal of manualJournals) {
-    const taxSummary = journal.JournalLines.map((jl) => ({
-      account: jl.AccountCode,
-      taxType: (jl as { TaxType?: string }).TaxType ?? null,
-      amount: jl.LineAmount,
-    }));
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:pre-post',message:'manual journal payload tax',data:{date:journal.Date,taxSummary},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
-  }
-  // #endregion
-
   const manualJournalIds: string[] = [];
   const journalIdsByDate: Record<string, string> = {};
 

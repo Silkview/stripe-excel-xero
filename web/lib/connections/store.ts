@@ -164,3 +164,23 @@ export async function saveXeroConnection(
     throw new Error(error.message);
   }
 }
+
+export async function disconnectStripeForWorkspace(
+  workspaceId: string
+): Promise<void> {
+  const admin = createSupabaseAdmin();
+  await core(admin)
+    .from('stripe_connections')
+    .update({ is_active: false })
+    .eq('workspace_id', workspaceId);
+}
+
+export async function disconnectXeroForWorkspace(
+  workspaceId: string
+): Promise<void> {
+  const admin = createSupabaseAdmin();
+  await core(admin)
+    .from('xero_connections')
+    .update({ is_active: false })
+    .eq('workspace_id', workspaceId);
+}

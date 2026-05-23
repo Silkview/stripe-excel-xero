@@ -31,9 +31,6 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
     wasStripeConnected.current = stripeNow;
 
     if (xeroJustConnected || stripeJustConnected) {
-      // #region agent log
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'OnboardingPanel.tsx:connection',message:'sync onboarding after connect',data:{xeroJustConnected,stripeJustConnected},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       void refreshOnboarding({ silent: true });
     }
   }, [
@@ -63,8 +60,9 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
       <Header onOpenSetup={() => {}} />
       <h2 className="text-lg font-semibold mt-2">Connect your accounts</h2>
       <p className="text-sm text-text-2 mt-1 mb-4">
-        Your workspace is ready. Connect Xero and Stripe to use Pull, Build, and
-        Push in Excel.
+        Your workspace is ready. Connect <strong>your</strong> Xero organisation
+        and <strong>your</strong> Stripe account — Silkview only uses them for
+        this workspace, not for other customers.
       </p>
 
       {onboarding.error && (
@@ -105,8 +103,8 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
           {maxStripe > 1 ? 's' : ''} on your plan (account-wide).
         </p>
         <p className="text-xs text-text-3 mb-2">
-          Opens Stripe so you can sign in and authorize the account you want to
-          connect.
+          Opens Stripe so you sign in with the account you want to sync (use the
+          same test/live mode as your Silkview environment).
         </p>
         {stripeAuth.status.connected ? (
           <p className="text-xs text-success-text mb-2">

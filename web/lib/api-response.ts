@@ -21,6 +21,23 @@ export function jsonError(
   return NextResponse.json(body, { status });
 }
 
+function callbackProviderTitle(
+  payload: object,
+  isSuccess: boolean
+): string {
+  if (isSuccess) return 'Silkview Sync connected';
+  const provider =
+    typeof payload === 'object' &&
+    payload !== null &&
+    'provider' in payload &&
+    typeof (payload as { provider: unknown }).provider === 'string'
+      ? (payload as { provider: string }).provider.toLowerCase()
+      : '';
+  if (provider === 'xero') return 'Xero not connected';
+  if (provider === 'stripe') return 'Stripe not connected';
+  return 'Connection failed';
+}
+
 export function authCallbackHtml(payload: object): string {
   const json = JSON.stringify(payload).replace(/</g, '\\u003c');
   const isSuccess =
@@ -35,7 +52,7 @@ export function authCallbackHtml(payload: object): string {
     typeof (payload as { message: unknown }).message === 'string'
       ? (payload as { message: string }).message
       : null;
-  const title = isSuccess ? 'Silkview Sync connected' : 'Stripe not connected';
+  const title = callbackProviderTitle(payload, isSuccess);
   const message = isSuccess
     ? 'You can close this tab and return to Excel.'
     : errorMessage ??

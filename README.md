@@ -2,6 +2,8 @@
 
 Microsoft Excel Add-in that connects to **Stripe** (pull financial data) and **Xero** (push accounting entries). The backend is a **Next.js 14** app on Vercel with **Supabase** (auth, Postgres RLS, encrypted OAuth tokens) and **Stripe** subscription billing.
 
+**Multi-tenant model:** You operate one Stripe Connect app and one Xero OAuth app (env vars on the `web` project). Each customer signs up and connects **their own** Stripe and Xero accounts to **their workspace** via OAuth. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for operator vs end-user setup and staging vs production.
+
 ## Prerequisites
 
 - **Node.js 18+** and npm
@@ -31,11 +33,11 @@ npm install
 ### 2. Supabase
 
 1. Create a Supabase project.
-2. Apply the migration (creates the **`core`** schema — app tables are not in `public`):
+2. Apply **all** migrations `001`–`008` (creates the **`core`** schema — app tables are not in `public`):
 
    ```bash
    supabase db push
-   # or run supabase/migrations/001_initial_schema.sql in the SQL editor
+   # or run each file in supabase/migrations/ in order in the SQL editor
    ```
 
 3. Expose the `core` schema to the API:
@@ -59,22 +61,23 @@ cp addin/.env.example addin/.env
 
 Next.js reads **`web/.env.local`** (not `.env.example`). Restart `npm run dev` after creating or changing env files.
 
-Edit `web/.env`:
+**Operator env** (`web/.env.local`) — see [web/.env.example](web/.env.example) and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md):
 
 | Variable | Purpose |
 |----------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase client |
-| `SUPABASE_SERVICE_ROLE_KEY` | Admin client (webhooks, signup, token storage) |
-| `ENCRYPTION_KEY` | 32-byte hex for AES-256-GCM OAuth tokens (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Admin client (webhooks, token storage) |
+| `ENCRYPTION_KEY` | 32-byte hex for AES-256-GCM OAuth tokens |
 | `OAUTH_STATE_SECRET` | Signs OAuth `state` (workspace + user) |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / price IDs | Subscription billing |
-| `STRIPE_CLIENT_ID` / `STRIPE_CONNECT_SECRET` | Stripe Connect (add-in) |
-| `STRIPE_REDIRECT_URI` | `http://localhost:4003/api/stripe/callback` (dev) |
-| `XERO_*` | Xero OAuth; redirect `http://localhost:4003/api/xero/callback` |
+| `STRIPE_SECRET_KEY` | Platform secret — Connect OAuth **and** billing (same Stripe account) |
+| `STRIPE_CLIENT_ID` | Connect client ID (`ca_…`) — must match `STRIPE_SECRET_KEY` account/mode |
+| `STRIPE_WEBHOOK_SECRET` / price IDs | Subscription billing |
+| `STRIPE_REDIRECT_URI` | Optional; `http://localhost:4003/api/stripe/callback` (dev) |
+| `XERO_CLIENT_ID` / `XERO_CLIENT_SECRET` | Xero OAuth app |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:4003` |
 | `FRONTEND_URL` | `https://localhost:4000` (add-in origin for CORS) |
 
-`addin/.env`: `VITE_API_URL=http://localhost:4003`
+**Add-in env** (`addin/.env`): `VITE_API_URL=http://localhost:4003` only — no Stripe/Xero secrets on the add-in.
 
 ### 4. Trust localhost SSL certificate
 
@@ -126,7 +129,7 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
 
 1. Click **Sign in** in the task pane — Office dialog opens `https://localhost:4000/auth/excel` (proxied to Next.js; password sign-in, MFA verify if enrolled, or magic link).
 2. After login, the add-in loads your workspace and sends `Authorization: Bearer` + `X-Workspace-Id` on API calls.
-3. **Connect Xero** first (base currency), then **Connect Stripe**, then Pull → Build → Push.
+3. **Connect Xero** first (base currency), then **Connect Stripe** (you sign into **your** Stripe account — not the Silkview operator account), then Pull → Build → Push.
 
 ## Deploy (Vercel)
 
@@ -151,7 +154,9 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
    - Optional `VITE_OFFICE_AUTH_ORIGIN` if it differs from `VITE_API_URL`.
    - Update `addin/manifest.xml` `SourceLocation` and `AppDomains` for your add-in host.
    - **Smoke test after deploy:** `https://addin.silkview.org/api/auth/excel-handoff?nonce=test` must return JSON (`{"success":true,...}`), not a Vercel 404 page. The `addin/api/` proxy forwards `/api/*` to `www.silkview.org`.
-7. **Supabase migrations:** apply `supabase/migrations/008_excel_auth_handoffs.sql` (Excel sign-in handoff table). Without it, the task pane can stay on “Signing in…” after the dialog shows success.
+7. **Supabase migrations:** apply **all** `supabase/migrations/001`–`008` (including `008_excel_auth_handoffs.sql` for Excel sign-in). Without `008`, the task pane can stay on “Signing in…” after the dialog shows success.
+
+Full operator checklist: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Task pane UI
 
@@ -179,7 +184,7 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
 
    Production: `https://<domain>/api/stripe/callback`
 
-3. In `web/.env`: `STRIPE_CLIENT_ID`, `STRIPE_CONNECT_SECRET`, `STRIPE_REDIRECT_URI`
+3. In `web/.env`: `STRIPE_CLIENT_ID`, `STRIPE_SECRET_KEY` (platform secret — used as Connect `client_secret`), optional `STRIPE_REDIRECT_URI`
 
 ## Register Xero OAuth 2.0 app
 
@@ -244,7 +249,8 @@ See earlier README sections in git history for column layouts, build formulas, a
 
 ## Verification checklist
 
-- [ ] Supabase migration applied; signup webhook creates account + workspace
+- [ ] Supabase migrations `001`–`008` applied; `core` schema exposed
+- [ ] Signup → confirm email → `/onboarding` → `POST /api/onboarding/complete` creates account + workspace
 - [ ] Landing page at `/`; signup → confirm email → MFA enroll (or skip) → dashboard
 - [ ] Password sign-in works; optional MFA verify on next login
 - [ ] `npm run build` — addin + web succeed
@@ -264,7 +270,8 @@ See earlier README sections in git history for column layouts, build formulas, a
 | API 401 | Sign in again; check `VITE_API_URL` matches Next dev server |
 | CORS errors | `FRONTEND_URL=https://localhost:4000` in `web/.env` |
 | Invalid Xero redirect | Register `https://<web-host>/api/xero/callback` in Xero (not `/api/auth/xero`). Check `/api/oauth/redirect-uris` |
-| Stripe Connect fails | Register `https://<web-host>/api/stripe/callback` on Stripe Connect (must be `https` in production) |
+| Stripe Connect fails | Register `https://<web-host>/api/stripe/callback`; `STRIPE_CLIENT_ID` + `STRIPE_SECRET_KEY` from same account/mode; user signs in with matching test/live mode. See `/api/stripe/connect/verify` |
+| Wrong Stripe account linked | Reconnect via OAuth; platform account is blocked. Set `STRIPE_ALLOW_PLATFORM_SELF_CONNECT=false` |
 | OAuth “No authorization code” | You opened the callback URL directly; start from **Connect** in dashboard or Excel |
 | OAuth state invalid | `OAUTH_STATE_SECRET` stable across deploys; complete connect in one browser session |
 

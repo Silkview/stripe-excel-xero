@@ -4,7 +4,6 @@ import {
   newNonce,
   setPkceVerifier,
   signOAuthState,
-  type OAuthStatePayload,
 } from '@/lib/oauth-state';
 import { generatePkcePair } from '@/lib/pkce';
 import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
@@ -42,7 +41,7 @@ export async function GET(request: Request) {
     }
 
     const { codeVerifier, codeChallenge } = generatePkcePair();
-    const payload: OAuthStatePayload = {
+    const payload = {
       workspaceId,
       userId: user.id,
       nonce: newNonce(),
@@ -69,10 +68,6 @@ export async function GET(request: Request) {
     });
 
     const url = `https://login.xero.com/identity/connect/authorize?${params.toString()}`;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero/connect/route.ts',message:'xero authorize url built',data:{redirectUri,hasClientId:!!clientId},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-    // #endregion
 
     return ok(request, { url, workspaceId, redirectUri });
   } catch (err) {

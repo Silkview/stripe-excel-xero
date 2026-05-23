@@ -42,6 +42,23 @@ export async function requireUser(req?: Request) {
   return { supabase, user };
 }
 
+/** Owners and admins only (platform diagnostics, billing settings). */
+export async function requireAccountAdmin(req: Request) {
+  const { supabase, user } = await requireUser(req);
+  const membership = await getPrimaryAccountMembership(user.id);
+  if (!membership) {
+    throw new ApiAuthError('ACCOUNT_REQUIRED', 'No account found for this user.', 403);
+  }
+  if (membership.role === 'member') {
+    throw new ApiAuthError(
+      'FORBIDDEN',
+      'Only account owners and admins can access this resource.',
+      403
+    );
+  }
+  return { supabase, user, membership };
+}
+
 export async function requireWorkspace(req: Request) {
   const { supabase, user } = await requireUser(req);
   const workspaceId =
@@ -79,7 +96,45 @@ export async function requireWorkspace(req: Request) {
     );
   }
 
-  return { supabase, user, workspaceId, accountId: membership.account_id };
+  if (membership.role === 'member') {
+    const { data: accountUser } = await core(admin)
+      .from('account_users')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('account_id', membership.account_id)
+      .maybeSingle();
+
+    if (!accountUser?.id) {
+      throw new ApiAuthError(
+        'WORKSPACE_FORBIDDEN',
+        'You do not have access to this workspace.',
+        403
+      );
+    }
+
+    const { data: allowed } = await core(admin)
+      .from('account_user_workspaces')
+      .select('workspace_id')
+      .eq('account_user_id', accountUser.id)
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+
+    if (!allowed) {
+      throw new ApiAuthError(
+        'WORKSPACE_FORBIDDEN',
+        'You do not have access to this workspace.',
+        403
+      );
+    }
+  }
+
+  return {
+    supabase,
+    user,
+    workspaceId,
+    accountId: membership.account_id,
+    role: membership.role,
+  };
 }
 
 export async function getAccountMembership(

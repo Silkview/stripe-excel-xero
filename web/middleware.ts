@@ -19,6 +19,8 @@ const PUBLIC_PREFIXES = [
   '/api/billing/webhook',
   '/api/stripe/callback',
   '/api/xero/callback',
+  '/api/xero/complete-tenant',
+  '/api/xero/tenant-pick-preview',
   '/_next',
   '/favicon.ico',
 ];
@@ -40,7 +42,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (
-    pathname.startsWith('/api/stripe/connect') ||
+    pathname === '/api/stripe/connect' ||
+    pathname.startsWith('/api/stripe/connect/platform') ||
     pathname.startsWith('/api/stripe/status') ||
     pathname.startsWith('/api/stripe/connections') ||
     pathname.startsWith('/api/onboarding/') ||

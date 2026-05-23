@@ -3,7 +3,6 @@ import { enforceStripeConnect } from '@/lib/plan-limits';
 import {
   newNonce,
   signOAuthState,
-  type OAuthStatePayload,
 } from '@/lib/oauth-state';
 import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
 import { buildStripeAuthorizeUrl } from '@/lib/stripe-authorize-url';
@@ -62,15 +61,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const payload: OAuthStatePayload = {
+    const state = signOAuthState({
       workspaceId,
       userId: user.id,
       nonce: newNonce(),
       stripeClientId: clientId,
       stripeRedirectUri: redirectUri,
       stripeConnectFlow: flow,
-    };
-    const state = signOAuthState(payload);
+    });
 
     const authorizeUrl = buildStripeAuthorizeUrl({
       clientId,

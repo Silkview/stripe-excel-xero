@@ -9,9 +9,14 @@ export async function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   try {
     const { user } = await requireUser(request);
+    const workspaceHeader =
+      request.headers.get('x-workspace-id') ||
+      request.headers.get('X-Workspace-Id') ||
+      null;
     const status = await getOnboardingStatusForUser(
       user.id,
-      user.user_metadata as Record<string, unknown>
+      user.user_metadata as Record<string, unknown>,
+      workspaceHeader
     );
     return ok(request, status);
   } catch (err) {
