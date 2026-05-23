@@ -1,21 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 import { prepareTotpEnrollment, getMfaStatus, verifyTotpEnrollment } from '@/lib/auth/mfa';
 import {
   markMfaEnrollmentSkipped,
   needsMfaEnrollmentSetup,
 } from '@/lib/auth/mfa-enrollment';
-import { resolvePostAuthRedirect } from '@/lib/auth/client-post-auth-redirect';
+import {
+  resolvePostAuthRedirect,
+  safeReturnPath,
+} from '@/lib/auth/client-post-auth-redirect';
 import AuthCard from '@/components/ui/AuthCard';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 
-export default function MfaEnrollPage() {
+function MfaEnrollInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnPath = safeReturnPath(searchParams.get('return'));
   const [factorId, setFactorId] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -38,7 +43,9 @@ export default function MfaEnrollPage() {
       const status = await getMfaStatus(supabase);
 
       if (!(await needsMfaEnrollmentSetup(supabase))) {
-        router.replace(await resolvePostAuthRedirect(supabase));
+        router.replace(
+          await resolvePostAuthRedirect(supabase, { returnPath })
+        );
         return;
       }
 
@@ -57,7 +64,7 @@ export default function MfaEnrollPage() {
         setLoading(false);
       }
     })();
-  }, [router]);
+  }, [router, returnPath]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +75,7 @@ export default function MfaEnrollPage() {
     try {
       const supabase = createSupabaseBrowser();
       await verifyTotpEnrollment(supabase, factorId, code.trim());
-      router.push(await resolvePostAuthRedirect(supabase));
+      router.push(await resolvePostAuthRedirect(supabase, { returnPath }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code. Try again.');
     } finally {
@@ -79,7 +86,7 @@ export default function MfaEnrollPage() {
   const handleSkip = async () => {
     const supabase = createSupabaseBrowser();
     await markMfaEnrollmentSkipped(supabase);
-    router.push(await resolvePostAuthRedirect(supabase));
+    router.push(await resolvePostAuthRedirect(supabase, { returnPath }));
   };
 
   return (
@@ -126,5 +133,19 @@ export default function MfaEnrollPage() {
         </form>
       )}
     </AuthCard>
+  );
+}
+
+export default function MfaEnrollPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Secure your account" subtitle="Loading…">
+          <p className="text-sm text-text-2">Loading…</p>
+        </AuthCard>
+      }
+    >
+      <MfaEnrollInner />
+    </Suspense>
   );
 }

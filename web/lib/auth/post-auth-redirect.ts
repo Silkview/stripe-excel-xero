@@ -5,16 +5,31 @@ import {
   needsMfaEnrollmentSetup,
 } from './mfa-enrollment';
 import { getOnboardingStatusForUser } from './onboarding-status';
+import { acceptPendingInviteForSession } from './accept-pending-invite-server';
+import { safeReturnPath } from './client-post-auth-redirect';
 
 export type PostAuthRedirectOptions = {
   excelMode?: boolean;
+  returnPath?: string | null;
 };
+
+function mfaPathWithReturn(
+  basePath: string,
+  returnPath: string | null
+): string {
+  if (!returnPath) return basePath;
+  const sep = basePath.includes('?') ? '&' : '?';
+  return `${basePath}${sep}return=${encodeURIComponent(returnPath)}`;
+}
 
 export async function getPostAuthRedirectPath(
   supabase: SupabaseClient,
   options?: PostAuthRedirectOptions
 ): Promise<string> {
   const excelMode = options?.excelMode ?? false;
+  const returnPath = safeReturnPath(options?.returnPath ?? null);
+
+  await acceptPendingInviteForSession(supabase, returnPath);
 
   const {
     data: { user },
@@ -33,16 +48,18 @@ export async function getPostAuthRedirectPath(
   const status = await getMfaStatus(supabase);
 
   if (status.needsVerification) {
-    return excelMode ? '/auth/mfa/verify?return=excel' : '/auth/mfa/verify';
+    const base = excelMode ? '/auth/mfa/verify?return=excel' : '/auth/mfa/verify';
+    return mfaPathWithReturn(base, returnPath);
   }
 
   if (await needsMfaEnrollmentSetup(supabase)) {
-    return mfaEnrollPath(excelMode);
+    const base = mfaEnrollPath(excelMode);
+    return mfaPathWithReturn(base, returnPath);
   }
 
   if (excelMode) {
     return '/api/auth/excel-finish';
   }
 
-  return '/dashboard';
+  return returnPath ?? '/dashboard';
 }

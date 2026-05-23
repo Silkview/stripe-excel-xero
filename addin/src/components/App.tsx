@@ -26,8 +26,8 @@ export default function App() {
     }
   );
   const apiReady = auth.signedIn && !onboarding.needsSetup && workspace.ready;
-  const stripeAuth = useStripeAuth(apiReady);
-  const xeroAuth = useXeroAuth(apiReady);
+  const stripeAuth = useStripeAuth(apiReady, workspace.workspaceId);
+  const xeroAuth = useXeroAuth(apiReady, workspace.workspaceId);
   const { currency, ready: currencyReady } = useDefaultCurrency(xeroAuth.status);
   const [activeTab, setActiveTab] = useState<StepTabId>('pull');
   const [showSetup, setShowSetup] = useState(false);
@@ -44,12 +44,30 @@ export default function App() {
     setActiveTab(tabBeforeSetup);
   };
 
+  const handleWorkspaceChange = (id: string) => {
+    workspace.selectWorkspace(id);
+    stripeAuth.setError(null);
+    xeroAuth.setError(null);
+    void stripeAuth.refresh();
+    void xeroAuth.refresh();
+  };
+
+  const headerWorkspaceProps =
+    workspace.ready && workspace.workspaces.length > 0
+      ? {
+          workspaces: workspace.workspaces,
+          workspaceId: workspace.workspaceId,
+          onWorkspaceChange: handleWorkspaceChange,
+          workspaceLoading: workspace.loading,
+        }
+      : {};
+
   const needsSignIn = !auth.signedIn || workspace.sessionExpired;
 
   if (needsSignIn) {
     return (
       <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
-        <Header onOpenSetup={() => {}} />
+        <Header onOpenSetup={() => {}} {...headerWorkspaceProps} />
         <p className="text-sm text-text-2 mb-3">
           {workspace.sessionExpired
             ? 'Your session expired. Sign in again to sync Stripe and Xero data.'
@@ -68,7 +86,7 @@ export default function App() {
   if (onboarding.loading || onboarding.provisioning) {
     return (
       <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
-        <Header onOpenSetup={() => {}} />
+        <Header onOpenSetup={() => {}} {...headerWorkspaceProps} />
         <p className="text-sm text-text-2">
           {onboarding.provisioning
             ? 'Creating your account…'
@@ -86,7 +104,7 @@ export default function App() {
       onboarding.error?.includes('Invalid schema');
     return (
       <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
-        <Header onOpenSetup={() => {}} />
+        <Header onOpenSetup={() => {}} {...headerWorkspaceProps} />
         <h2 className="text-lg font-semibold mt-2">
           {isSupabaseSchemaConfig
             ? 'Supabase configuration required'
@@ -136,7 +154,7 @@ export default function App() {
   if (!workspace.ready) {
     return (
       <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
-        <Header onOpenSetup={() => {}} />
+        <Header onOpenSetup={() => {}} {...headerWorkspaceProps} />
         <p className="text-sm text-text-2 mb-3">
           {workspace.loading ? 'Loading workspace…' : workspace.error ?? 'No workspace available.'}
         </p>
@@ -151,26 +169,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col font-sans text-text">
-      <Header onOpenSetup={openSetup} />
-
-      {workspace.workspaces.length > 1 && (
-        <div className="px-3 py-1.5 border-b border-border bg-surface">
-          <label className="text-[10px] font-semibold text-text-2 uppercase">
-            Workspace
-          </label>
-          <select
-            value={workspace.workspaceId ?? ''}
-            onChange={(e) => workspace.selectWorkspace(e.target.value)}
-            className="w-full mt-0.5 text-xs border border-border rounded-sm px-2 py-1 bg-bg"
-          >
-            {workspace.workspaces.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <Header onOpenSetup={openSetup} {...headerWorkspaceProps} />
 
       <ConnectionPills
         stripe={stripeAuth.status}

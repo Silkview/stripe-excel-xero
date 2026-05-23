@@ -4,7 +4,7 @@ import { apiGet } from '../utils/api';
 import { openAuthFlow } from '../utils/dialogAuth';
 import { friendlyError } from '../utils/errorMessages';
 
-export function useStripeAuth(enabled: boolean) {
+export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
   const [status, setStatus] = useState<StripeConnectionStatus>({
     connected: false,
   });
@@ -26,7 +26,7 @@ export function useStripeAuth(enabled: boolean) {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, workspaceId]);
 
   const connect = useCallback(async (flow: 'register' | 'login' = 'login') => {
     setLoading(true);

@@ -4,6 +4,12 @@ import {
   mfaEnrollPath,
   needsMfaEnrollmentSetup,
 } from './mfa-enrollment';
+import {
+  clearInviteTokenMetadata,
+  resolveInviteToken,
+  tryAcceptPendingInvite,
+} from './pending-invite';
+import { extractInviteTokenFromReturnPath } from './invite-token';
 
 export type PostAuthRedirectOptions = {
   excelMode?: boolean;
@@ -17,15 +23,36 @@ export function safeReturnPath(raw: string | null): string | null {
   return raw;
 }
 
+function mfaPathWithReturn(
+  basePath: string,
+  returnPath: string | null
+): string {
+  if (!returnPath) return basePath;
+  const sep = basePath.includes('?') ? '&' : '?';
+  return `${basePath}${sep}return=${encodeURIComponent(returnPath)}`;
+}
+
 /**
  * Client-side post-auth routing (mirrors server getPostAuthRedirectPath).
- * Onboarding (workspace provision) before MFA; connections gated in Excel.
+ * Pending invite acceptance before onboarding; MFA optional with skip.
  */
 export async function resolvePostAuthRedirect(
   supabase: SupabaseClient,
   options?: PostAuthRedirectOptions
 ): Promise<string> {
   const excelMode = options?.excelMode ?? false;
+  const returnPath = safeReturnPath(options?.returnPath ?? null);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const metadata = user?.user_metadata as Record<string, unknown> | undefined;
+
+  const inviteToken = resolveInviteToken(returnPath, metadata);
+  if (inviteToken) {
+    await tryAcceptPendingInvite(inviteToken);
+    await clearInviteTokenMetadata(supabase);
+  }
 
   const res = await fetch('/api/onboarding/status', { credentials: 'include' });
   const json = await res.json().catch(() => null);
@@ -37,15 +64,22 @@ export async function resolvePostAuthRedirect(
   const mfa = await getMfaStatus(supabase);
 
   if (mfa.needsVerification) {
-    return excelMode ? '/auth/mfa/verify?return=excel' : '/auth/mfa/verify';
+    const base = excelMode ? '/auth/mfa/verify?return=excel' : '/auth/mfa/verify';
+    return mfaPathWithReturn(base, returnPath);
   }
 
   if (await needsMfaEnrollmentSetup(supabase)) {
-    return mfaEnrollPath(excelMode);
+    const base = mfaEnrollPath(excelMode);
+    return mfaPathWithReturn(base, returnPath);
   }
 
-  const returnPath = safeReturnPath(options?.returnPath ?? null);
-  if (returnPath) return returnPath;
+  if (returnPath) {
+    const stillInvite = extractInviteTokenFromReturnPath(returnPath);
+    if (stillInvite) {
+      return '/dashboard';
+    }
+    return returnPath;
+  }
 
   return excelMode ? '/api/auth/excel-finish' : '/dashboard';
 }

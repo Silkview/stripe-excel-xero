@@ -4,7 +4,10 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 import { getMfaStatus, verifyMfaLogin } from '@/lib/auth/mfa';
-import { resolvePostAuthRedirect } from '@/lib/auth/client-post-auth-redirect';
+import {
+  resolvePostAuthRedirect,
+  safeReturnPath,
+} from '@/lib/auth/client-post-auth-redirect';
 import { syncBrowserSessionToServer } from '@/lib/auth/credentials';
 import { navigateExcelAuthWithHandoff } from '@/lib/auth/excel-handoff-client';
 import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
@@ -16,7 +19,9 @@ import Alert from '@/components/ui/Alert';
 function MfaVerifyInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const excelReturn = searchParams.get('return') === 'excel';
+  const rawReturn = searchParams.get('return');
+  const excelReturn = rawReturn === 'excel';
+  const returnPath = excelReturn ? null : safeReturnPath(rawReturn);
   const handoff = searchParams.get('handoff');
 
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -47,6 +52,7 @@ function MfaVerifyInner() {
       if (!status.needsVerification) {
         const next = await resolvePostAuthRedirect(supabase, {
           excelMode: excelReturn,
+          returnPath,
         });
         if (excelReturn) await navigateExcelAuthWithHandoff(next, handoff);
         else router.replace(next);
@@ -56,7 +62,7 @@ function MfaVerifyInner() {
       setFactorId(status.totpFactorId);
       setLoading(false);
     })();
-  }, [router, excelReturn, handoff]);
+  }, [router, excelReturn, handoff, returnPath]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +85,7 @@ function MfaVerifyInner() {
 
       const next = await resolvePostAuthRedirect(supabase, {
         excelMode: excelReturn,
+        returnPath,
       });
       if (excelReturn) await navigateExcelAuthWithHandoff(next, handoff);
       else router.push(next);

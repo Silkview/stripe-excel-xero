@@ -4,7 +4,7 @@ import { apiGet } from '../utils/api';
 import { openAuthFlow } from '../utils/dialogAuth';
 import { friendlyError } from '../utils/errorMessages';
 
-export function useXeroAuth(enabled: boolean) {
+export function useXeroAuth(enabled: boolean, workspaceId?: string | null) {
   const [status, setStatus] = useState<XeroConnectionStatus>({
     connected: false,
   });
@@ -26,7 +26,7 @@ export function useXeroAuth(enabled: boolean) {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, workspaceId]);
 
   const connect = useCallback(async () => {
     setLoading(true);

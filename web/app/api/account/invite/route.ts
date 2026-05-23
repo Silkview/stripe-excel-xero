@@ -5,13 +5,8 @@ import { core } from '@/lib/supabase/core';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
-
-function inviteUrl(token: string): string {
-  const base = (
-    process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:4003'
-  ).replace(/\/$/, '');
-  return `${base}/auth/invite?token=${encodeURIComponent(token)}`;
-}
+import { sendInviteEmail } from '@/lib/email/send-invite-email';
+import { inviteUrl } from '@/lib/dashboard/invite-preview';
 
 export async function OPTIONS(request: Request) {
   return handleOptions(request);
@@ -59,7 +54,7 @@ export async function POST(request: Request) {
 
     const { data: validWs } = await core(admin)
       .from('workspaces')
-      .select('id')
+      .select('id, name')
       .eq('account_id', membership.account_id)
       .in('id', workspaceIds);
 
@@ -69,6 +64,15 @@ export async function POST(request: Request) {
         jsonError('VALIDATION_ERROR', 'Invalid workspace selection.', 400)
       );
     }
+
+    const { data: account } = await core(admin)
+      .from('accounts')
+      .select('name')
+      .eq('id', membership.account_id)
+      .single();
+
+    const inviterEmail = user.email ?? '';
+    const inviterName = inviterEmail.split('@')[0] || 'A team member';
 
     const { data: inv, error } = await core(admin)
       .from('account_invitations')
@@ -96,10 +100,34 @@ export async function POST(request: Request) {
     );
 
     const link = inviteUrl(inv.token);
+    const workspaceNames = validWs.map((w) => w.name);
+
+    const emailResult = await sendInviteEmail({
+      to: email,
+      inviteUrl: link,
+      accountName: account?.name ?? 'your team',
+      inviterName,
+      workspaceNames,
+      role,
+    });
+
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd && !emailResult.sent) {
+      return withCors(
+        request,
+        jsonError(
+          'EMAIL_ERROR',
+          emailResult.reason === 'not_configured'
+            ? 'Email is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.'
+            : emailResult.message ?? 'Failed to send invitation email.',
+          500
+        )
+      );
+    }
 
     return ok(request, {
       inviteId: inv.id,
-      token: inv.token,
+      emailSent: emailResult.sent,
       inviteLink: link,
     });
   } catch (err) {

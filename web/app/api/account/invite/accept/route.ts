@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/api-auth';
 import { acceptInvitation } from '@/lib/dashboard/team';
+import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
@@ -26,6 +27,15 @@ export async function POST(request: Request) {
       user.email ?? '',
       token
     );
+
+    const admin = createSupabaseAdmin();
+    const meta = { ...(user.user_metadata as Record<string, unknown>) };
+    if (meta.invite_token) {
+      delete meta.invite_token;
+      await admin.auth.admin.updateUserById(user.id, {
+        user_metadata: meta,
+      });
+    }
 
     return ok(request, result);
   } catch (err) {

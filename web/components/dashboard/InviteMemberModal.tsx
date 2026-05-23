@@ -26,10 +26,12 @@ export default function InviteMemberModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
     if (open) {
       setInviteLink(null);
+      setEmailSent(false);
       setError(null);
       if (preselectedWorkspaceId) {
         setSelected([preselectedWorkspaceId]);
@@ -72,8 +74,14 @@ export default function InviteMemberModal({
         return;
       }
       const link = data.data?.inviteLink as string | undefined;
+      const sent = data.data?.emailSent === true;
       if (link) setInviteLink(link);
-      toast('Invitation created — copy the link below');
+      setEmailSent(sent);
+      toast(
+        sent
+          ? `Invitation email sent to ${email.trim()}`
+          : `Invitation created for ${email.trim()}`
+      );
       onInvited();
     } catch {
       setError('Could not send invite.');
@@ -88,6 +96,13 @@ export default function InviteMemberModal({
     toast('Invite link copied');
   };
 
+  const resetForm = () => {
+    setInviteLink(null);
+    setEmailSent(false);
+    setEmail('');
+    setSelected(preselectedWorkspaceId ? [preselectedWorkspaceId] : []);
+  };
+
   return (
     <DashboardModal
       open={open}
@@ -95,9 +110,14 @@ export default function InviteMemberModal({
       onClose={onClose}
       footer={
         inviteLink ? (
-          <Button variant="primary" className="!bg-accent" onClick={onClose}>
-            Done
-          </Button>
+          <>
+            <Button variant="secondary" onClick={resetForm}>
+              Invite another
+            </Button>
+            <Button variant="primary" className="!bg-accent" onClick={onClose}>
+              Done
+            </Button>
+          </>
         ) : (
           <>
             <Button variant="secondary" onClick={onClose}>
@@ -118,8 +138,17 @@ export default function InviteMemberModal({
       {inviteLink ? (
         <div>
           <p className="text-sm text-text-2">
-            Share this link with <strong>{email}</strong>. They must sign in with
-            that email to accept.
+            {emailSent ? (
+              <>
+                We emailed <strong>{email}</strong> a link to create their account
+                and join your team.
+              </>
+            ) : (
+              <>
+                Email could not be sent (check Resend configuration). Share this
+                link with <strong>{email}</strong> manually.
+              </>
+            )}
           </p>
           <div className="mt-3 flex gap-2">
             <input
@@ -128,7 +157,7 @@ export default function InviteMemberModal({
               className="flex-1 rounded-sm border border-border bg-bg px-3 py-2 font-mono text-xs"
             />
             <Button variant="secondary" onClick={copyLink}>
-              Copy
+              Copy link
             </Button>
           </div>
         </div>
