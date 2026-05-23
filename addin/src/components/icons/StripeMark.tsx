@@ -3,7 +3,7 @@ interface StripeMarkProps {
   className?: string;
 }
 
-/** Stripe square icon from public assets. */
+/** Official Stripe square icon (purple tile + white mark) from public assets. */
 export default function StripeMark({ size = 26, className = '' }: StripeMarkProps) {
   return (
     <img
@@ -11,7 +11,8 @@ export default function StripeMark({ size = 26, className = '' }: StripeMarkProp
       alt=""
       width={size}
       height={size}
-      className={`shrink-0 rounded-sm object-contain ${className}`}
+      className={`shrink-0 block rounded-[6px] ${className}`}
+      style={{ width: size, height: size }}
       aria-hidden
     />
   );

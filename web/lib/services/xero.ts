@@ -216,6 +216,17 @@ export async function ensureValidToken(workspaceId: string): Promise<XeroTokens>
   }
 
   if (Date.now() < xero.expires_at - 60_000) {
+    // #region agent log
+    try {
+      const { appendFileSync } = await import('fs');
+      appendFileSync(
+        '/Users/ruvanfernando/stripe-excel-xero/.cursor/debug-4702f2.log',
+        `${JSON.stringify({ sessionId: '4702f2', timestamp: Date.now(), location: 'xero.ts:ensureValidToken:earlyReturn', message: 'token still valid, skip refresh', hypothesisId: 'B', data: { workspaceId, expiresInMs: xero.expires_at - Date.now() } })}\n`
+      );
+    } catch {
+      // ignore
+    }
+    // #endregion
     return xero;
   }
 

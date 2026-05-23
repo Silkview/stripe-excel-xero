@@ -117,9 +117,7 @@ export default function ConnectionsSection({
         {stripeConnected && stripeConnections.length > 0 ? (
           <>
             <div className="px-3 py-2 bg-stripe-light flex items-center gap-2">
-              <div className="w-[26px] h-[26px] rounded-sm bg-stripe flex items-center justify-center shrink-0 p-0.5">
-                <StripeMark size={18} className="rounded-none brightness-0 invert" />
-              </div>
+              <StripeMark size={26} className="shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-[12.5px] font-semibold text-ink">Stripe</div>
                 <div className="text-[11px] text-ink-2">
@@ -177,7 +175,7 @@ export default function ConnectionsSection({
             disabled={stripeLoading}
             className="flex items-center justify-center gap-2 w-full py-2.5 bg-stripe border-none rounded text-[13px] font-semibold text-white cursor-pointer hover:bg-stripe-hover disabled:opacity-50"
           >
-            <StripeMark size={18} className="brightness-0 invert" />
+            <StripeMark size={22} />
             {stripeLoading ? 'Connecting…' : 'Connect Stripe'}
           </button>
         )}
