@@ -7,10 +7,7 @@ import {
 } from '@/lib/oauth-state';
 import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
 import { buildStripeAuthorizeUrl } from '@/lib/stripe-authorize-url';
-import {
-  getStripeConnectClientId,
-  getStripePlatformAccount,
-} from '@/lib/stripe-connect-config';
+import { getStripeConnectClientId } from '@/lib/stripe-connect-config';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
@@ -23,8 +20,9 @@ export async function GET(request: Request) {
   try {
     const { user, workspaceId } = await requireWorkspace(request);
     const url = new URL(request.url);
-    // register = create a new Stripe account (avoids connecting the platform account)
-    const flow = url.searchParams.get('flow') === 'login' ? 'login' : 'register';
+    // Default: sign in to an existing Stripe account (Standard Connect OAuth).
+    // Use flow=register only when explicitly creating a new connected account.
+    const flow = url.searchParams.get('flow') === 'register' ? 'register' : 'login';
     const membership = await getAccountMembership(user.id);
     if (!membership) {
       return withCors(request, jsonError('ACCOUNT_REQUIRED', 'No account.', 403));
@@ -52,12 +50,6 @@ export async function GET(request: Request) {
     }
     const redirectUri = getOAuthRedirectUri('stripe');
 
-    const platform = await getStripePlatformAccount();
-    const emailMatchesPlatform =
-      !!user.email &&
-      !!platform.email &&
-      user.email.toLowerCase() === platform.email.toLowerCase();
-
     const payload: OAuthStatePayload = {
       workspaceId,
       userId: user.id,
@@ -68,13 +60,11 @@ export async function GET(request: Request) {
     };
     const state = signOAuthState(payload);
 
-    const forceFreshLogin = emailMatchesPlatform || flow === 'register';
     const authorizeUrl = buildStripeAuthorizeUrl({
       clientId,
       redirectUri,
       state,
       flow,
-      forceFreshLogin,
     });
 
     return ok(request, {
@@ -82,7 +72,6 @@ export async function GET(request: Request) {
       workspaceId,
       redirectUri,
       flow,
-      needsIncognito: emailMatchesPlatform,
     });
   } catch (err) {
     return handleRouteError(request, err);

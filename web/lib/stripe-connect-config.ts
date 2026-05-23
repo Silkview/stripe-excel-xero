@@ -79,9 +79,8 @@ export function formatStripeConnectConfigError(
 ): string {
   if (message.includes('does not belong to you')) {
     return (
-      'Your browser is still signed into the Stripe account that owns this app. ' +
-      'Close this tab, open a private/incognito window, click Create test Stripe account in Excel again, ' +
-      'and complete signup with a new email (not your Stripe Dashboard login).'
+      'That Stripe account is the same one that owns this Connect application, so it cannot be linked as a connected account. ' +
+      'When Stripe asks you to sign in, choose the client business Stripe account you want to sync (or sign out of Stripe first and sign in with a different account).'
     );
   }
   if (message.includes('redirect_uri')) {

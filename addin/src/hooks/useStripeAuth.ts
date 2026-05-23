@@ -33,18 +33,12 @@ export function useStripeAuth(enabled: boolean) {
     setError(null);
     setWaitingForBrowser(false);
     try {
-      const connectRes = await apiGet<{
-        url: string;
-        needsIncognito?: boolean;
-      }>(`/auth/stripe/connect?flow=${flow}`);
+      const connectRes = await apiGet<{ url: string }>(
+        `/auth/stripe/connect?flow=${flow}`
+      );
       if (!connectRes.success || !connectRes.data?.url) {
         setError(friendlyError(connectRes));
         return;
-      }
-      if (connectRes.data.needsIncognito) {
-        setError(
-          'Your Silkview email matches your Stripe Dashboard login. When the browser opens, sign out of Stripe or use a private/incognito window, then create a new test account with a different email.'
-        );
       }
       setLoading(false);
       setWaitingForBrowser(true);
