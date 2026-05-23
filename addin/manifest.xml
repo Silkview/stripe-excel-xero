@@ -13,6 +13,7 @@
   <SupportUrl DefaultValue="https://github.com"/>
   <AppDomains>
     <AppDomain>https://addin.silkview.org</AppDomain>
+    <AppDomain>https://www.silkview.org</AppDomain>
     <AppDomain>https://silkview.org</AppDomain>
     <AppDomain>https://connect.stripe.com</AppDomain>
     <AppDomain>https://login.xero.com</AppDomain>
