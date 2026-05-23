@@ -23,6 +23,13 @@ export async function POST(req: Request) {
       return jsonError(err.code, err.message, err.status);
     }
     const message = err instanceof Error ? err.message : 'Failed to provision account.';
+    if (message === 'ONBOARDING_REQUIRED') {
+      return jsonSuccess({
+        accountId: '',
+        created: false,
+        needsOnboarding: true,
+      });
+    }
     return jsonError('PROVISION_ERROR', message, 500);
   }
 }

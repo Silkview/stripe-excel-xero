@@ -20,6 +20,49 @@ export interface XeroTokens {
   baseCurrency?: string;
 }
 
+export type StripeConnectionRow = {
+  id: string;
+  stripe_account_id: string;
+  display_name: string | null;
+  workspace_id: string;
+};
+
+export async function listStripeConnections(
+  workspaceId: string
+): Promise<StripeConnectionRow[]> {
+  const admin = createSupabaseAdmin();
+  const { data } = await core(admin)
+    .from('stripe_connections')
+    .select('id, stripe_account_id, display_name, workspace_id')
+    .eq('workspace_id', workspaceId)
+    .eq('is_active', true)
+    .order('connected_at', { ascending: true });
+
+  return (data ?? []) as StripeConnectionRow[];
+}
+
+export async function listStripeConnectionsForAccount(
+  accountId: string
+): Promise<StripeConnectionRow[]> {
+  const admin = createSupabaseAdmin();
+  const { data: workspaces } = await core(admin)
+    .from('workspaces')
+    .select('id')
+    .eq('account_id', accountId);
+
+  if (!workspaces?.length) return [];
+
+  const ids = workspaces.map((w) => w.id);
+  const { data } = await core(admin)
+    .from('stripe_connections')
+    .select('id, stripe_account_id, display_name, workspace_id')
+    .in('workspace_id', ids)
+    .eq('is_active', true)
+    .order('connected_at', { ascending: true });
+
+  return (data ?? []) as StripeConnectionRow[];
+}
+
 export async function getStripeConnection(
   workspaceId: string
 ): Promise<StripeTokens | undefined> {
@@ -43,20 +86,27 @@ export async function getStripeConnection(
 export async function saveStripeConnection(
   workspaceId: string,
   tokens: StripeTokens,
-  userId?: string
+  userId?: string,
+  options?: { scope?: string; displayName?: string }
 ): Promise<void> {
   const admin = createSupabaseAdmin();
   const stripeRow: StripeInsert = {
     workspace_id: workspaceId,
     stripe_account_id: tokens.stripe_user_id,
-    display_name: tokens.stripe_user_id,
+    display_name: options?.displayName ?? tokens.stripe_user_id,
     access_token_encrypted: encrypt(tokens.access_token),
+    scope: options?.scope ?? 'read_write',
     connected_by: userId ?? null,
     is_active: true,
   };
-  await core(admin)
+  const { error } = await core(admin)
     .from('stripe_connections')
     .upsert(stripeRow, { onConflict: 'workspace_id,stripe_account_id' });
+
+  if (error) {
+    console.error('saveStripeConnection:', error);
+    throw new Error(error.message);
+  }
 }
 
 export async function getXeroConnection(
@@ -99,7 +149,12 @@ export async function saveXeroConnection(
     last_refreshed_at: new Date().toISOString(),
     is_active: true,
   };
-  await core(admin).from('xero_connections').upsert(row, {
+  const { error } = await core(admin).from('xero_connections').upsert(row, {
     onConflict: 'workspace_id',
   });
+
+  if (error) {
+    console.error('saveXeroConnection:', error);
+    throw new Error(error.message);
+  }
 }

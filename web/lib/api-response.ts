@@ -28,10 +28,18 @@ export function authCallbackHtml(payload: object): string {
     payload !== null &&
     'status' in payload &&
     String((payload as { status: string }).status).includes('connected');
-  const title = isSuccess ? 'Silkview Sync connected' : 'Connection issue';
+  const errorMessage =
+    typeof payload === 'object' &&
+    payload !== null &&
+    'message' in payload &&
+    typeof (payload as { message: unknown }).message === 'string'
+      ? (payload as { message: string }).message
+      : null;
+  const title = isSuccess ? 'Silkview Sync connected' : 'Stripe not connected';
   const message = isSuccess
     ? 'You can close this tab and return to Excel.'
-    : 'Please close this tab and try again from the add-in.';
+    : errorMessage ??
+      'Please close this tab and try again from the add-in.';
   return `<!DOCTYPE html>
 <html>
 <head>

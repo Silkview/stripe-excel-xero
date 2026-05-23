@@ -1,21 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
-import { normalizeAuthEmail, syncBrowserSessionToServer } from '@/lib/auth/credentials';
+import { resolvePostAuthRedirect } from '@/lib/auth/client-post-auth-redirect';
+import {
+  formatAuthError,
+  normalizeAuthEmail,
+  syncBrowserSessionToServer,
+} from '@/lib/auth/credentials';
+import type { PlanCode } from '@/lib/plans/types';
+import PlanPricingGrid from '@/components/plans/PlanPricingGrid';
 import AuthCard from '@/components/ui/AuthCard';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 
-export default function SignupPage() {
+const VALID_PLANS: PlanCode[] = ['free', 'pro', 'firm'];
+
+function SignupInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialPlan = (searchParams.get('plan') as PlanCode) || 'free';
+  const [step, setStep] = useState<'plan' | 'account'>('plan');
+  const [selectedPlan, setSelectedPlan] = useState<PlanCode>(
+    VALID_PLANS.includes(initialPlan) ? initialPlan : 'free'
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +50,11 @@ export default function SignupPage() {
       return;
     }
 
+    if (!workspaceName.trim()) {
+      setError('Workspace name is required.');
+      return;
+    }
+
     setLoading(true);
     const supabase = createSupabaseBrowser();
     const redirectTo = `${window.location.origin}/auth/callback`;
@@ -45,32 +66,47 @@ export default function SignupPage() {
       password,
       options: {
         emailRedirectTo: redirectTo,
-        data: accountName.trim()
-          ? { account_name: accountName.trim() }
-          : undefined,
+        data: {
+          plan_code: selectedPlan,
+          account_name: accountName.trim() || undefined,
+          workspace_name: workspaceName.trim(),
+        },
       },
     });
 
     setLoading(false);
 
     if (err) {
-      setError(err.message);
+      setError(formatAuthError(err));
       return;
     }
 
     if (data.user && data.user.identities?.length === 0) {
       setError(
-        'An account with this email already exists. Sign in or use “Forgot password” in Supabase if needed.'
+        'An account with this email already exists. Sign in instead.'
       );
       return;
     }
 
     if (data.session) {
       await syncBrowserSessionToServer(data.session);
-      router.push('/auth/mfa/enroll');
+      sessionStorage.setItem('signup_plan_code', selectedPlan);
+      await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planCode: selectedPlan,
+          accountName: accountName.trim(),
+          workspaceName: workspaceName.trim(),
+        }),
+      });
+      const path = await resolvePostAuthRedirect(supabase);
+      router.push(path);
       return;
     }
 
+    sessionStorage.setItem('signup_plan_code', selectedPlan);
     setSent(true);
   };
 
@@ -81,9 +117,12 @@ export default function SignupPage() {
         subtitle="We sent a confirmation link to complete your signup."
       >
         <Alert variant="success">
-          Open the link in <strong>{email}</strong> to activate your account, then
-          you&apos;ll be guided to set up optional two-factor authentication.
+          Open the link in <strong>{email}</strong>, then finish setup with your{' '}
+          <strong>{selectedPlan}</strong> plan.
         </Alert>
+        <p className="mt-3 text-sm text-text-2">
+          Already tried signing up? Check spam before submitting again.
+        </p>
         <p className="mt-4 text-sm text-text-2">
           <Link href="/auth/login" className="text-stripe font-medium hover:underline">
             Back to sign in
@@ -93,13 +132,46 @@ export default function SignupPage() {
     );
   }
 
+  if (step === 'plan') {
+    return (
+      <AuthCard
+        wide
+        title="Choose your plan"
+        subtitle="Pick the tier that fits how you work. You can change billing later for paid plans."
+        footer={
+          <>
+            Already have an account?{' '}
+            <Link href="/auth/login" className="text-stripe font-medium hover:underline">
+              Sign in
+            </Link>
+          </>
+        }
+      >
+        <PlanPricingGrid
+          mode="select"
+          selectedPlan={selectedPlan}
+          onSelect={setSelectedPlan}
+          onContinue={() => setStep('account')}
+          continueLabel={`Continue with ${selectedPlan}`}
+        />
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard
       title="Create your account"
-      subtitle="Start your 14-day trial. Connect Stripe and Xero from Excel."
+      subtitle={`Signing up on the ${selectedPlan} plan.`}
       footer={
         <>
-          Already have an account?{' '}
+          <button
+            type="button"
+            onClick={() => setStep('plan')}
+            className="text-stripe font-medium hover:underline text-sm"
+          >
+            Change plan
+          </button>
+          {' · '}
           <Link href="/auth/login" className="text-stripe font-medium hover:underline">
             Sign in
           </Link>
@@ -116,11 +188,20 @@ export default function SignupPage() {
           onChange={(e) => setEmail(e.target.value)}
         />
         <Input
-          label="Company or account name (optional)"
+          label="Company or account name"
           type="text"
+          required
           autoComplete="organization"
           value={accountName}
           onChange={(e) => setAccountName(e.target.value)}
+        />
+        <Input
+          label="First workspace name"
+          type="text"
+          required
+          placeholder="e.g. Main client books"
+          value={workspaceName}
+          onChange={(e) => setWorkspaceName(e.target.value)}
         />
         <Input
           label="Password"
@@ -144,5 +225,19 @@ export default function SignupPage() {
         </Button>
       </form>
     </AuthCard>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Create your account" subtitle="Loading…">
+          <p className="text-sm text-text-2">Loading…</p>
+        </AuthCard>
+      }
+    >
+      <SignupInner />
+    </Suspense>
   );
 }

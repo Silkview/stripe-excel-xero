@@ -1,6 +1,7 @@
 import { createSupabaseServer } from './supabase/server';
 import { createSupabaseAdmin } from './supabase/admin';
 import { core } from './supabase/core';
+import { getPrimaryAccountMembership } from './auth/account-membership';
 
 export class ApiAuthError extends Error {
   constructor(
@@ -57,11 +58,7 @@ export async function requireWorkspace(req: Request) {
   }
 
   const admin = createSupabaseAdmin();
-  const { data: membership } = await core(admin)
-    .from('account_users')
-    .select('account_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const membership = await getPrimaryAccountMembership(user.id, admin);
 
   if (!membership) {
     throw new ApiAuthError('ACCOUNT_REQUIRED', 'No account found for this user.', 403);
@@ -88,11 +85,5 @@ export async function requireWorkspace(req: Request) {
 export async function getAccountMembership(
   userId: string
 ): Promise<{ account_id: string; role: string } | null> {
-  const admin = createSupabaseAdmin();
-  const { data } = await core(admin)
-    .from('account_users')
-    .select('account_id, role')
-    .eq('user_id', userId)
-    .maybeSingle();
-  return data as { account_id: string; role: string } | null;
+  return getPrimaryAccountMembership(userId);
 }

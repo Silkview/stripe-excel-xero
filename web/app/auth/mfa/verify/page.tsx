@@ -4,7 +4,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 import { getMfaStatus, verifyMfaLogin } from '@/lib/auth/mfa';
-import { ensureAccountProvisioned } from '@/lib/auth/excel-auth-flow';
+import { resolvePostAuthRedirect } from '@/lib/auth/client-post-auth-redirect';
+import { syncBrowserSessionToServer } from '@/lib/auth/credentials';
 import AuthShell from '@/components/auth/AuthShell';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -24,15 +25,30 @@ function MfaVerifyInner() {
   useEffect(() => {
     (async () => {
       const supabase = createSupabaseBrowser();
+      const { data: refreshData, error: refreshErr } =
+        await supabase.auth.refreshSession();
+      if (!refreshErr && refreshData.session) {
+        await syncBrowserSessionToServer(refreshData.session);
+      }
       const status = await getMfaStatus(supabase);
 
       if (!status.hasVerifiedTotp) {
-        router.replace(excelReturn ? '/auth/excel' : '/auth/mfa/enroll');
+        router.replace(
+          excelReturn
+            ? '/auth/excel?step=mfa'
+            : '/auth/mfa/enroll'
+        );
         return;
       }
 
       if (!status.needsVerification) {
-        router.replace(excelReturn ? '/auth/excel-complete' : '/dashboard');
+        const next = await resolvePostAuthRedirect(supabase, {
+          excelMode: excelReturn,
+        });
+        // #region agent log
+        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'mfa-verify:auto-redirect',message:'already verified redirect',data:{excelReturn,next,hasVerifiedTotp:status.hasVerifiedTotp,currentLevel:status.currentLevel},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
+        // #endregion
+        router.replace(next);
         return;
       }
 
@@ -51,16 +67,18 @@ function MfaVerifyInner() {
       const supabase = createSupabaseBrowser();
       await verifyMfaLogin(supabase, factorId, code.trim());
 
-      if (excelReturn) {
-        try {
-          await ensureAccountProvisioned();
-        } catch {
-          // Non-fatal
-        }
-        router.push('/auth/excel-complete');
-      } else {
-        router.push('/dashboard');
+      const { data: refreshData, error: refreshErr } =
+        await supabase.auth.refreshSession();
+      if (refreshErr) throw refreshErr;
+
+      const session = refreshData.session;
+      if (session) {
+        await syncBrowserSessionToServer(session);
       }
+
+      router.push(
+        await resolvePostAuthRedirect(supabase, { excelMode: excelReturn })
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code. Try again.');
     } finally {

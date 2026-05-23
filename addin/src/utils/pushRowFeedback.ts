@@ -17,7 +17,7 @@ export async function resetPushFeedback(
     const range = sheet.getRange(
       `A${parsed.startRow}:${lastCol}${parsed.endRow}`
     );
-    range.clear(Excel.ClearApplyTo.formats);
+    range.format.fill.clear();
     const statusRange = sheet.getRange(
       `${statusCol}${parsed.startRow}:${statusCol}${parsed.endRow}`
     );

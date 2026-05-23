@@ -8,9 +8,17 @@ import {
   ACCOUNT_MAPPING_HEADERS,
 } from '../config/workbookSheets';
 import { colLetter } from './officeHelpers';
+import {
+  LISTS_SHEET,
+  NAMED_ACCOUNT_TAX_LOOKUP,
+  NAMED_TAX,
+  applyAccountMappingsTaxValidation,
+  applyXeroJournalsTaxDropdowns,
+  deleteAccountTaxNamedRanges,
+  setupAccountTaxDropdowns,
+} from './xeroAccountTaxDropdowns';
 
 const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
-const LISTS_SHEET = '_StripeSync_Lists';
 const MAPPING_ROW_COUNT = ACCOUNT_MAPPING_STRIPE_OBJECTS.length;
 const FIRST_DATA_ROW = 2;
 const LAST_DATA_ROW = FIRST_DATA_ROW + MAPPING_ROW_COUNT - 1;
@@ -20,7 +28,6 @@ const NAMED_BANK_ACCOUNTS = 'XeroBankAccounts';
 const BANK_LIST_COL = 'H';
 const NAMED_CONTACTS = 'XeroContacts';
 const CONTACT_LIST_COL = 'I';
-const NAMED_TAX = 'XeroTaxTypes';
 const NAMED_TRACKING = 'XeroTrackingNames';
 const NAMED_TRACK_PREFIX = 'XeroTrack_';
 const NAMED_CATEGORY_LOOKUP = 'XeroCategoryLookup';
@@ -117,6 +124,8 @@ export async function applyAccountMappingsDropdowns(
     await context.sync();
 
     const names = context.workbook.names;
+    await deleteAccountTaxNamedRanges(context, names);
+
     const toDelete = [
       NAMED_JOURNAL_ACCOUNTS,
       NAMED_BANK_ACCOUNTS,
@@ -125,6 +134,7 @@ export async function applyAccountMappingsDropdowns(
       NAMED_TAX,
       NAMED_TRACKING,
       NAMED_CATEGORY_LOOKUP,
+      NAMED_ACCOUNT_TAX_LOOKUP,
       ...options.trackingCategories.map((c) => trackingRangeName(c.Name)),
     ];
     for (const name of toDelete) {
@@ -192,8 +202,18 @@ export async function applyAccountMappingsDropdowns(
           NAMED_CATEGORY_LOOKUP,
           `='${LISTS_SHEET}'!$${lookupCol}$2:$${lookupCol2}$${lookupRows.length + 1}`
         );
+        colIndex += 2;
       }
     }
+
+    colIndex = await setupAccountTaxDropdowns(
+      context,
+      listsSheet,
+      names,
+      options,
+      defaultCurrency,
+      colIndex
+    );
 
     await context.sync();
 
@@ -220,11 +240,15 @@ export async function applyAccountMappingsDropdowns(
           listValidation(accountSource);
       }
     }
-    if (taxLabels.length > 0) {
-      mappingsSheet
-        .getRange(`C${FIRST_DATA_ROW}:C${LAST_DATA_ROW}`)
-        .dataValidation.rule = listValidation(`=${NAMED_TAX}`);
-    }
+    const contactRow =
+      FIRST_DATA_ROW +
+      ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_contact');
+    await applyAccountMappingsTaxValidation(
+      mappingsSheet,
+      FIRST_DATA_ROW,
+      LAST_DATA_ROW,
+      [contactRow]
+    );
     if (categoryNames.length > 0) {
       mappingsSheet
         .getRange(`D${FIRST_DATA_ROW}:D${LAST_DATA_ROW}`)
@@ -245,6 +269,9 @@ export async function applyAccountMappingsDropdowns(
     }
 
     mappingsSheet.getRange(`A1:${colLetter(ACCOUNT_MAPPING_HEADERS.length)}1`).format.autofitColumns();
+
+    await applyXeroJournalsTaxDropdowns(context);
+
     await context.sync();
   });
 }

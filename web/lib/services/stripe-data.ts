@@ -2,9 +2,15 @@ import axios, { AxiosError } from 'axios';
 import type {
   StripeBalanceTransactionRow,
   StripeChargeRow,
+  StripePayoutBalanceTransactionRow,
   StripePayoutRow,
 } from '@stripesync/shared';
 import { REQUEST_TIMEOUT_MS } from '../api-response';
+import { getOAuthRedirectUri } from '../oauth-redirect';
+import {
+  getStripeConnectClientId,
+  getStripePlatformSecretKey,
+} from '../stripe-connect-config';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -65,6 +71,98 @@ function mapBalanceTransaction(
     description: (txn.description as string) || '',
     source_id: stripeId(txn.source),
   };
+}
+
+const EMPTY_BALANCE_TXN: StripeBalanceTransactionRow = {
+  transaction_id: '',
+  created: '',
+  available_on: '',
+  amount: 0,
+  fee: 0,
+  net: 0,
+  currency: '',
+  type: '',
+  reporting_category: '',
+  description: '',
+  source_id: '',
+};
+
+function mapPayoutBalanceTransactionRow(
+  payout: StripePayoutRow,
+  txn?: StripeBalanceTransactionRow
+): StripePayoutBalanceTransactionRow {
+  const bt = txn ?? EMPTY_BALANCE_TXN;
+  return {
+    payout_id: payout.payout_id,
+    payout_arrival_date: payout.arrival_date,
+    payout_gross_amount: payout.gross_amount,
+    payout_fee_amount: payout.fee_amount,
+    payout_net_amount: payout.net_amount,
+    payout_currency: payout.currency,
+    payout_status: payout.status,
+    payout_description: payout.description,
+    payout_bank_account_last4: payout.bank_account_last4,
+    transaction_id: bt.transaction_id,
+    created: bt.created,
+    available_on: bt.available_on,
+    amount: bt.amount,
+    fee: bt.fee,
+    net: bt.net,
+    currency: bt.currency || payout.currency,
+    type: bt.type,
+    reporting_category: bt.reporting_category,
+    description: bt.description,
+    source_id: bt.source_id,
+  };
+}
+
+async function listBalanceTransactionsForPayout(
+  accessToken: string,
+  payoutId: string
+): Promise<StripeBalanceTransactionRow[]> {
+  const data = await stripeListGet(accessToken, '/balance_transactions', {
+    payout: payoutId,
+    limit: 100,
+  });
+  return data.map((t) => mapBalanceTransaction(t));
+}
+
+const PAYOUT_BT_BATCH_SIZE = 5;
+
+export async function getPayoutLinkedBalanceTransactions(
+  accessToken: string,
+  from: string,
+  to: string
+): Promise<StripePayoutBalanceTransactionRow[]> {
+  try {
+    const payouts = await getPayouts(accessToken, from, to);
+    const combined: StripePayoutBalanceTransactionRow[] = [];
+
+    for (let i = 0; i < payouts.length; i += PAYOUT_BT_BATCH_SIZE) {
+      const batch = payouts.slice(i, i + PAYOUT_BT_BATCH_SIZE);
+      const batchResults = await Promise.all(
+        batch.map(async (payout) => {
+          const txns = (
+            await listBalanceTransactionsForPayout(
+              accessToken,
+              payout.payout_id
+            )
+          ).filter((t) => t.type.toLowerCase() !== 'payout');
+          if (txns.length === 0) {
+            return [mapPayoutBalanceTransactionRow(payout)];
+          }
+          return txns.map((txn) => mapPayoutBalanceTransactionRow(payout, txn));
+        })
+      );
+      for (const rows of batchResults) {
+        combined.push(...rows);
+      }
+    }
+
+    return combined;
+  } catch (err) {
+    throw mapStripeError(err);
+  }
 }
 
 function mapCharge(charge: Record<string, unknown>): StripeChargeRow {
@@ -161,24 +259,25 @@ export async function getCharges(
   }
 }
 
-export async function exchangeStripeCode(code: string): Promise<{
+export async function exchangeStripeCode(
+  code: string,
+  options?: { clientId?: string; redirectUri?: string }
+): Promise<{
   access_token: string;
   stripe_user_id: string;
 }> {
+  const clientId = options?.clientId ?? getStripeConnectClientId();
+  const redirectUri = options?.redirectUri ?? getOAuthRedirectUri('stripe');
+
   try {
     const response = await axios.post(
       'https://connect.stripe.com/oauth/token',
       new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: process.env.STRIPE_CLIENT_ID || '',
-        client_secret:
-          process.env.STRIPE_CONNECT_SECRET ||
-          process.env.STRIPE_SECRET_KEY ||
-          '',
+        client_id: clientId,
+        client_secret: getStripePlatformSecretKey(),
         code,
-        redirect_uri:
-          process.env.STRIPE_REDIRECT_URI ||
-          'http://localhost:4003/api/stripe/callback',
+        redirect_uri: redirectUri,
       }),
       {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -190,6 +289,13 @@ export async function exchangeStripeCode(code: string): Promise<{
       stripe_user_id: response.data.stripe_user_id,
     };
   } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      const body = err.response.data as { error_description?: string; error?: string };
+      const detail = body.error_description ?? body.error;
+      if (detail) {
+        throw new StripeServiceError('STRIPE_ERROR', detail);
+      }
+    }
     throw mapStripeError(err);
   }
 }

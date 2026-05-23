@@ -8,7 +8,10 @@ import {
 } from '../config/xeroBankTransactionBuilder';
 import { JOURNAL_SHEET } from '../config/xeroJournalBuilder';
 import { buildXeroBankTransactionsFromBalanceTransactions } from '../utils/xeroBankTransactionsExcel';
+import { applyAccountMappingsDropdowns } from '../utils/accountMappingsExcel';
 import { buildXeroJournalsFromBalanceTransactions } from '../utils/xeroJournalsExcel';
+import { apiGet } from '../utils/api';
+import type { XeroMappingOptions } from '@stripesync/shared';
 import {
   activateFirstAvailableWorksheet,
   activateWorksheet,
@@ -43,6 +46,10 @@ export default function BuildPanel({
     setStatusError(false);
     try {
       const result = await buildXeroJournalsFromBalanceTransactions(defaultCurrency);
+      const optRes = await apiGet<XeroMappingOptions>('/api/xero/mapping-options');
+      if (optRes.success && optRes.data) {
+        await applyAccountMappingsDropdowns(optRes.data, defaultCurrency);
+      }
       await activateWorksheet(JOURNAL_SHEET, 'A2');
       const dateCount =
         result.chargeDates + result.refundDates + result.feeDates;

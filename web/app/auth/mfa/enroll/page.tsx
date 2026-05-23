@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
-import { enrollTotp, getMfaStatus, verifyTotpEnrollment } from '@/lib/auth/mfa';
+import { prepareTotpEnrollment, getMfaStatus, verifyTotpEnrollment } from '@/lib/auth/mfa';
+import {
+  markMfaEnrollmentSkipped,
+  needsMfaEnrollmentSetup,
+} from '@/lib/auth/mfa-enrollment';
+import { resolvePostAuthRedirect } from '@/lib/auth/client-post-auth-redirect';
 import AuthCard from '@/components/ui/AuthCard';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
@@ -20,11 +25,20 @@ export default function MfaEnrollPage() {
 
   useEffect(() => {
     (async () => {
+      const statusRes = await fetch('/api/onboarding/status', {
+        credentials: 'include',
+      });
+      const statusJson = await statusRes.json();
+      if (statusJson.success && statusJson.data?.needsAccountSetup) {
+        router.replace('/onboarding');
+        return;
+      }
+
       const supabase = createSupabaseBrowser();
       const status = await getMfaStatus(supabase);
 
-      if (status.hasVerifiedTotp) {
-        router.replace('/dashboard');
+      if (!(await needsMfaEnrollmentSetup(supabase))) {
+        router.replace(await resolvePostAuthRedirect(supabase));
         return;
       }
 
@@ -34,7 +48,7 @@ export default function MfaEnrollPage() {
       }
 
       try {
-        const enrolled = await enrollTotp(supabase);
+        const enrolled = await prepareTotpEnrollment(supabase);
         setFactorId(enrolled.id);
         setQr(enrolled.totp?.qr_code ?? null);
       } catch (err) {
@@ -54,7 +68,7 @@ export default function MfaEnrollPage() {
     try {
       const supabase = createSupabaseBrowser();
       await verifyTotpEnrollment(supabase, factorId, code.trim());
-      router.push('/dashboard');
+      router.push(await resolvePostAuthRedirect(supabase));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code. Try again.');
     } finally {
@@ -62,14 +76,16 @@ export default function MfaEnrollPage() {
     }
   };
 
-  const handleSkip = () => {
-    router.push('/dashboard');
+  const handleSkip = async () => {
+    const supabase = createSupabaseBrowser();
+    await markMfaEnrollmentSkipped(supabase);
+    router.push(await resolvePostAuthRedirect(supabase));
   };
 
   return (
     <AuthCard
       title="Secure your account"
-      subtitle="Optional: add an authenticator app for two-factor sign-in."
+      subtitle="Add an authenticator app for two-factor sign-in, or skip to continue."
     >
       {loading ? (
         <p className="text-sm text-text-2">Preparing your QR code…</p>

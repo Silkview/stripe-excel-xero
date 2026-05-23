@@ -13,6 +13,18 @@ export function formatAuthError(error: AuthError): string {
   const code = error.code ?? '';
 
   if (
+    code === 'over_email_send_rate_limit' ||
+    /email rate limit exceeded/i.test(msg) ||
+    /rate limit exceeded/i.test(msg)
+  ) {
+    return (
+      'Too many emails were sent recently. Wait about an hour, check your inbox for an ' +
+      'earlier confirmation link, or ask your admin to enable Resend SMTP in Supabase ' +
+      '(Authentication → SMTP Settings).'
+    );
+  }
+
+  if (
     code === 'email_not_confirmed' ||
     /email not confirmed/i.test(msg)
   ) {
@@ -37,65 +49,12 @@ export type PasswordSignInResult =
   | { ok: true; session: Session }
   | { ok: false; message: string };
 
-function emailFingerprint(email: string): {
-  length: number;
-  domain: string | null;
-} {
-  const parts = email.split('@');
-  return {
-    length: email.length,
-    domain: parts.length === 2 ? parts[1] : null,
-  };
-}
-
-function agentLog(
-  hypothesisId: string,
-  location: string,
-  message: string,
-  data: Record<string, unknown>
-) {
-  // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': '49b4e5',
-    },
-    body: JSON.stringify({
-      sessionId: '49b4e5',
-      runId: 'pre-fix',
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
-
 export async function signInWithPassword(
   supabase: SupabaseClient,
   email: string,
   password: string
 ): Promise<PasswordSignInResult> {
   const normalizedEmail = normalizeAuthEmail(email);
-  const fp = emailFingerprint(normalizedEmail);
-
-  let supabaseHost = 'unknown';
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-    supabaseHost = url ? new URL(url).host : 'missing-env';
-  } catch {
-    supabaseHost = 'invalid-url';
-  }
-
-  agentLog('D', 'credentials.ts:signIn', 'signIn attempt start', {
-    supabaseHost,
-    origin: typeof window !== 'undefined' ? window.location.origin : 'server',
-    emailFingerprint: fp,
-    passwordLength: password.length,
-  });
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email: normalizedEmail,
@@ -103,23 +62,9 @@ export async function signInWithPassword(
   });
 
   if (error) {
-    agentLog('A', 'credentials.ts:signIn', 'signIn error from Supabase', {
-      supabaseHost,
-      emailFingerprint: fp,
-      errorCode: error.code ?? null,
-      errorStatus: (error as { status?: number }).status ?? null,
-      errorMessage: error.message,
-    });
-
     const isInvalidCredentials =
       error.code === 'invalid_credentials' ||
       /invalid login credentials/i.test(error.message);
-
-    agentLog('C', 'credentials.ts:signIn', 'invalid credentials branch', {
-      supabaseHost,
-      emailFingerprint: fp,
-      isInvalidCredentials,
-    });
 
     let hint: SignInHint | null = null;
     if (typeof window !== 'undefined' && isInvalidCredentials) {
@@ -131,19 +76,8 @@ export async function signInWithPassword(
         });
         const hintJson = await hintRes.json().catch(() => null);
         hint = (hintJson?.data ?? null) as SignInHint | null;
-
-        agentLog('B', 'credentials.ts:signIn', 'signin-hint lookup', {
-          emailFingerprint: fp,
-          httpStatus: hintRes.status,
-          userFound: hint?.userFound ?? null,
-          emailConfirmed: hint?.emailConfirmed ?? null,
-        });
-      } catch (lookupErr) {
-        agentLog('B', 'credentials.ts:signIn', 'signin-hint fetch failed', {
-          emailFingerprint: fp,
-          lookupError:
-            lookupErr instanceof Error ? lookupErr.message : 'unknown',
-        });
+      } catch {
+        // Non-fatal
       }
     }
 
@@ -152,27 +86,10 @@ export async function signInWithPassword(
         ? messageForSignInFailure(hint, formatAuthError(error))
         : formatAuthError(error);
 
-    agentLog('B', 'credentials.ts:signIn', 'resolved sign-in message', {
-      emailFingerprint: fp,
-      userFound: hint?.userFound ?? null,
-      messageKind: !hint?.userFound
-        ? 'no_account'
-        : !hint?.emailConfirmed
-          ? 'unconfirmed'
-          : hint?.hasEmailPasswordIdentity === false
-            ? 'no_password_identity'
-            : 'wrong_password',
-    });
-
     return { ok: false, message };
   }
 
   if (!data.session) {
-    agentLog('A', 'credentials.ts:signIn', 'no session after signIn', {
-      supabaseHost,
-      emailFingerprint: fp,
-      hasUser: Boolean(data.user),
-    });
     return {
       ok: false,
       message:
@@ -180,19 +97,13 @@ export async function signInWithPassword(
     };
   }
 
-  agentLog('A', 'credentials.ts:signIn', 'signIn success', {
-    supabaseHost,
-    emailFingerprint: fp,
-    hasSession: true,
-  });
-
   return { ok: true, session: data.session };
 }
 
 export async function syncBrowserSessionToServer(
   session: Session
 ): Promise<void> {
-  await fetch('/api/auth/session', {
+  const res = await fetch('/api/auth/session', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -201,6 +112,13 @@ export async function syncBrowserSessionToServer(
       refresh_token: session.refresh_token,
     }),
   });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const message =
+      body?.error?.message ?? 'Could not sync session to the server.';
+    throw new Error(message);
+  }
 }
 
 export async function resendSignupConfirmation(
@@ -216,7 +134,7 @@ export async function resendSignupConfirmation(
   });
 
   if (error) {
-    return { ok: false, message: error.message };
+    return { ok: false, message: formatAuthError(error) };
   }
 
   return {

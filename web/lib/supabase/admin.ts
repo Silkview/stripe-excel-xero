@@ -10,9 +10,8 @@ export function createSupabaseAdmin(): SupabaseClient<Database> {
       'Missing SUPABASE_SERVICE_ROLE_KEY in web/.env.local. Restart the dev server after adding it.'
     );
   }
-  return createClient<Database>(
-    url,
-    serviceKey,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
+  return createClient<Database>(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: 'core' },
+  });
 }

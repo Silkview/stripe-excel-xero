@@ -9,11 +9,41 @@ export type Json =
 export interface Database {
   core: {
     Tables: {
+      plans: {
+        Row: {
+          code: string;
+          name: string;
+          description: string;
+          features: Json;
+          max_users: number;
+          max_workspaces: number;
+          max_stripe_connections: number;
+          max_xero_connections_per_workspace: number;
+          stripe_price_id: string | null;
+          sort_order: number;
+          created_at: string | null;
+        };
+        Insert: {
+          code: string;
+          name: string;
+          description?: string;
+          features?: Json;
+          max_users: number;
+          max_workspaces: number;
+          max_stripe_connections: number;
+          max_xero_connections_per_workspace?: number;
+          stripe_price_id?: string | null;
+          sort_order?: number;
+        };
+        Update: Partial<Database['core']['Tables']['plans']['Insert']>;
+        Relationships: [];
+      };
       accounts: {
         Row: {
           id: string;
           name: string;
           plan: string;
+          plan_code: string;
           stripe_customer_id: string | null;
           stripe_subscription_id: string | null;
           subscription_status: string | null;
@@ -21,6 +51,7 @@ export interface Database {
           current_period_end: string | null;
           max_users: number;
           max_workspaces: number;
+          onboarding_completed_at: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -28,6 +59,7 @@ export interface Database {
           id?: string;
           name: string;
           plan?: string;
+          plan_code?: string;
           stripe_customer_id?: string | null;
           stripe_subscription_id?: string | null;
           subscription_status?: string | null;
@@ -35,6 +67,7 @@ export interface Database {
           current_period_end?: string | null;
           max_users?: number;
           max_workspaces?: number;
+          onboarding_completed_at?: string | null;
         };
         Update: Partial<Database['core']['Tables']['accounts']['Insert']>;
         Relationships: [];
@@ -156,15 +189,61 @@ export interface Database {
           role?: string;
           invited_by?: string | null;
         };
-        Update: Partial<Database['core']['Tables']['account_invitations']['Insert']>;
+        Update: Partial<
+          Database['core']['Tables']['account_invitations']['Insert'] & {
+            accepted_at?: string | null;
+            token?: string;
+            expires_at?: string | null;
+          }
+        >;
+        Relationships: [];
+      };
+      invitation_workspaces: {
+        Row: {
+          invitation_id: string;
+          workspace_id: string;
+        };
+        Insert: {
+          invitation_id: string;
+          workspace_id: string;
+        };
+        Update: Partial<
+          Database['core']['Tables']['invitation_workspaces']['Insert']
+        >;
+        Relationships: [];
+      };
+      account_user_workspaces: {
+        Row: {
+          account_user_id: string;
+          workspace_id: string;
+        };
+        Insert: {
+          account_user_id: string;
+          workspace_id: string;
+        };
+        Update: Partial<
+          Database['core']['Tables']['account_user_workspaces']['Insert']
+        >;
         Relationships: [];
       };
     };
     Views: Record<string, never>;
     Functions: {
       check_plan_limit: {
-        Args: { p_account_id: string; p_resource: string };
+        Args: {
+          p_account_id: string;
+          p_resource: string;
+          p_workspace_id?: string;
+        };
         Returns: boolean;
+      };
+      lock_user_provisioning: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
+      unlock_user_provisioning: {
+        Args: { p_user_id: string };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

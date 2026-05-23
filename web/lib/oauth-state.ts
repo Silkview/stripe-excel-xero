@@ -6,6 +6,13 @@ export interface OAuthStatePayload {
   workspaceId: string;
   userId: string;
   nonce: string;
+  /** Xero PKCE verifier (embedded in signed state for system-browser OAuth). */
+  codeVerifier?: string;
+  /** Stripe Connect: client_id + redirect_uri used when building the authorize URL. */
+  stripeClientId?: string;
+  stripeRedirectUri?: string;
+  /** Stripe Connect OAuth landing: register (new account) or login (existing). */
+  stripeConnectFlow?: 'register' | 'login';
 }
 
 function secret(): string {

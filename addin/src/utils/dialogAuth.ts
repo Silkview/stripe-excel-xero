@@ -103,7 +103,7 @@ export async function openAuthFlow(
     const connected = await pollUntil(waitForConnected);
     if (!connected) {
       throw new Error(
-        'Sign-in timed out. Finish authorization in your browser, then click Connect again.'
+        'Sign-in timed out. Check the browser tab for a Stripe error (often mismatched Connect client ID and secret key). Then click Connect again.'
       );
     }
     return;

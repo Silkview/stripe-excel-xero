@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createSupabaseServer } from '@/lib/supabase/server';
-import DashboardNav from '@/components/dashboard/DashboardNav';
+import { getOnboardingStatusForUser } from '@/lib/auth/onboarding-status';
+import { loadDashboardContext } from '@/lib/dashboard/load-context';
+import DashboardShell from '@/components/dashboard/DashboardShell';
 
 export default async function DashboardLayout({
   children,
@@ -16,10 +18,18 @@ export default async function DashboardLayout({
     redirect('/auth/login');
   }
 
-  return (
-    <div className="min-h-screen bg-bg">
-      <DashboardNav email={user.email ?? ''} />
-      <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">{children}</main>
-    </div>
+  const onboarding = await getOnboardingStatusForUser(
+    user.id,
+    user.user_metadata as Record<string, unknown>
   );
+  if (onboarding.needsAccountSetup) {
+    redirect('/onboarding');
+  }
+
+  const context = await loadDashboardContext(user.id, user.email ?? '');
+  if (!context) {
+    redirect('/onboarding');
+  }
+
+  return <DashboardShell context={context}>{children}</DashboardShell>;
 }

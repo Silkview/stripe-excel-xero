@@ -20,6 +20,8 @@ export interface ApiResponse<T = unknown> {
   error?: ApiError;
 }
 
+export type PlanCode = 'free' | 'pro' | 'firm';
+
 export interface StripePayoutRow {
   payout_id: string;
   arrival_date: string;
@@ -57,6 +59,30 @@ export interface StripeChargeRow {
   description: string;
   payment_method: string;
   paid: boolean;
+}
+
+/** Payout fields merged with linked balance transaction(s) for one sheet row. */
+export interface StripePayoutBalanceTransactionRow {
+  payout_id: string;
+  payout_arrival_date: string;
+  payout_gross_amount: number;
+  payout_fee_amount: number;
+  payout_net_amount: number;
+  payout_currency: string;
+  payout_status: string;
+  payout_description: string;
+  payout_bank_account_last4: string;
+  transaction_id: string;
+  created: string;
+  available_on: string;
+  amount: number;
+  fee: number;
+  net: number;
+  currency: string;
+  type: string;
+  reporting_category: string;
+  description: string;
+  source_id: string;
 }
 
 export interface XeroAccount {
@@ -106,6 +132,8 @@ export interface XeroAccountOption {
   Code: string;
   Name: string;
   Type: string;
+  /** Default tax code configured on the account in Xero. */
+  TaxType?: string;
   SystemAccount?: string;
   CurrencyCode?: string;
   displayLabel: string;

@@ -10,8 +10,9 @@ const PUBLIC_PREFIXES = [
   '/auth/excel-complete',
   '/api/auth/signup',
   '/api/auth/session',
-  '/api/auth/debug-status',
   '/api/auth/signin-hint',
+  '/api/auth/login-audit',
+  '/api/plans',
   '/api/billing/webhook',
   '/api/stripe/callback',
   '/api/xero/callback',
@@ -29,6 +30,8 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/api/stripe/connect') ||
     pathname.startsWith('/api/stripe/status') ||
+    pathname.startsWith('/api/stripe/connections') ||
+    pathname.startsWith('/api/onboarding/') ||
     pathname.startsWith('/api/xero/connect') ||
     pathname.startsWith('/auth/stripe/') ||
     pathname.startsWith('/auth/xero/')

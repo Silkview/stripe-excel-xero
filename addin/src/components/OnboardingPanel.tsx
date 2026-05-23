@@ -1,0 +1,148 @@
+import { useEffect, useRef } from 'react';
+import type { OnboardingState } from '../hooks/useOnboarding';
+import { useXeroAuth } from '../hooks/useXeroAuth';
+import { useStripeAuth } from '../hooks/useStripeAuth';
+import Header from './ui/Header';
+import Button from './ui/Button';
+
+type Props = {
+  onboarding: OnboardingState;
+  onFinished: () => void;
+};
+
+export default function OnboardingPanel({ onboarding, onFinished }: Props) {
+  const apiReady = !!onboarding.workspaceId;
+  const xeroAuth = useXeroAuth(apiReady);
+  const stripeAuth = useStripeAuth(apiReady);
+
+  const maxStripe = onboarding.limits?.maxStripeConnections ?? 1;
+  const canAddStripe = onboarding.accountStripeCount < maxStripe;
+
+  const refreshOnboarding = onboarding.refresh;
+  const wasXeroConnected = useRef(false);
+  const wasStripeConnected = useRef(false);
+
+  useEffect(() => {
+    const xeroNow = xeroAuth.status.connected;
+    const stripeNow = stripeAuth.status.connected;
+    const xeroJustConnected = xeroNow && !wasXeroConnected.current;
+    const stripeJustConnected = stripeNow && !wasStripeConnected.current;
+    wasXeroConnected.current = xeroNow;
+    wasStripeConnected.current = stripeNow;
+
+    if (xeroJustConnected || stripeJustConnected) {
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'OnboardingPanel.tsx:connection',message:'sync onboarding after connect',data:{xeroJustConnected,stripeJustConnected},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+      // #endregion
+      void refreshOnboarding({ silent: true });
+    }
+  }, [
+    xeroAuth.status.connected,
+    stripeAuth.status.connected,
+    refreshOnboarding,
+  ]);
+
+  const handleFinish = async () => {
+    const ok = await onboarding.finish();
+    if (ok) {
+      onFinished();
+    }
+  };
+
+  if (onboarding.loading) {
+    return (
+      <div className="min-h-screen bg-bg p-4 font-sans text-text">
+        <Header onOpenSetup={() => {}} />
+        <p className="text-sm text-text-2">Loading setup…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
+      <Header onOpenSetup={() => {}} />
+      <h2 className="text-lg font-semibold mt-2">Connect your accounts</h2>
+      <p className="text-sm text-text-2 mt-1 mb-4">
+        Your workspace is ready. Connect Xero and Stripe to use Pull, Build, and
+        Push in Excel.
+      </p>
+
+      {onboarding.error && (
+        <p className="text-xs text-warn-text mb-3">{onboarding.error}</p>
+      )}
+
+      <section className="mb-4 rounded border border-border bg-surface p-3">
+        <h3 className="text-sm font-semibold mb-2">1. Connect Xero</h3>
+        <p className="text-xs text-text-2 mb-2">
+          One Xero organisation per workspace (sets your base currency).
+        </p>
+        {xeroAuth.status.connected ? (
+          <p className="text-xs text-success-text">
+            Connected: {xeroAuth.status.tenantName ?? 'Xero'}
+          </p>
+        ) : (
+          <Button
+            variant="xero"
+            disabled={xeroAuth.loading || xeroAuth.waitingForBrowser}
+            onClick={() => void xeroAuth.connect()}
+          >
+            {xeroAuth.waitingForBrowser
+              ? 'Waiting…'
+              : xeroAuth.loading
+                ? 'Connecting…'
+                : 'Connect Xero'}
+          </Button>
+        )}
+        {xeroAuth.error && (
+          <p className="text-xs text-warn-text mt-2">{xeroAuth.error}</p>
+        )}
+      </section>
+
+      <section className="mb-4 rounded border border-border bg-surface p-3">
+        <h3 className="text-sm font-semibold mb-2">2. Connect Stripe</h3>
+        <p className="text-xs text-text-2 mb-2">
+          {onboarding.accountStripeCount} of {maxStripe} Stripe account
+          {maxStripe > 1 ? 's' : ''} on your plan (account-wide).
+        </p>
+        <p className="text-xs text-text-3 mb-2">
+          Opens Stripe so you can sign in and authorize the account you want to
+          connect.
+        </p>
+        {stripeAuth.status.connected ? (
+          <p className="text-xs text-success-text mb-2">
+            At least one Stripe account connected
+          </p>
+        ) : null}
+        {canAddStripe && (
+          <Button
+            variant="primary"
+            disabled={stripeAuth.loading || stripeAuth.waitingForBrowser}
+            onClick={() => void stripeAuth.connect('login')}
+          >
+            {stripeAuth.loading || stripeAuth.waitingForBrowser
+              ? 'Connecting…'
+              : onboarding.hasStripe
+                ? 'Reconnect Stripe'
+                : 'Connect Stripe'}
+          </Button>
+        )}
+        {!canAddStripe && onboarding.hasStripe && (
+          <p className="text-xs text-text-3">
+            Stripe limit reached for your plan.
+          </p>
+        )}
+        {stripeAuth.error && (
+          <p className="text-xs text-warn-text mt-2">{stripeAuth.error}</p>
+        )}
+      </section>
+
+      <Button
+        variant="primary"
+        disabled={!onboarding.hasXero || !onboarding.hasStripe}
+        onClick={() => void handleFinish()}
+      >
+        Finish setup
+      </Button>
+    </div>
+  );
+}

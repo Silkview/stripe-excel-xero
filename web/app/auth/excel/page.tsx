@@ -1,13 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
-import { getExcelPostLoginPath } from '@/lib/auth/excel-auth-flow';
+import { getMfaStatus } from '@/lib/auth/mfa';
+import {
+  needsMfaEnrollmentSetup,
+} from '@/lib/auth/mfa-enrollment';
+import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
 import {
   signInWithPassword,
   syncBrowserSessionToServer,
 } from '@/lib/auth/credentials';
+import MfaEnrollStep from '@/components/onboarding/MfaEnrollStep';
 import ResendConfirmation from '@/components/auth/ResendConfirmation';
 import AuthShell from '@/components/auth/AuthShell';
 import Input from '@/components/ui/Input';
@@ -15,15 +20,103 @@ import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 
 type AuthMode = 'password' | 'magic';
+type Screen = 'login' | 'mfa' | 'checking';
 
-export default function ExcelAuthPage() {
-  const router = useRouter();
+async function auditLogin(data: Record<string, unknown>) {
+  try {
+    await fetch('/api/auth/login-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    // Non-fatal
+  }
+}
+
+async function fetchOnboardingStatus() {
+  const statusRes = await fetch('/api/onboarding/status', {
+    credentials: 'include',
+  });
+  return statusRes.json().catch(() => null);
+}
+
+async function continueExcelAuth(source: string) {
+  const supabase = createSupabaseBrowser();
+  const statusJson = await fetchOnboardingStatus();
+
+  if (statusJson?.success && statusJson.data?.needsOnboarding) {
+    await auditLogin({
+      location: 'excel:continue',
+      message: 'navigate onboarding',
+      data: { source, needsOnboarding: true },
+      runId: 'post-fix-inline-mfa',
+    });
+    navigateExcelAuth('/onboarding?return=excel');
+    return;
+  }
+
+  const mfa = await getMfaStatus(supabase);
+  if (mfa.needsVerification) {
+    await auditLogin({
+      location: 'excel:continue',
+      message: 'navigate mfa verify',
+      data: { source },
+      runId: 'post-fix-inline-mfa',
+    });
+    navigateExcelAuth('/auth/mfa/verify?return=excel');
+    return;
+  }
+
+  if (await needsMfaEnrollmentSetup(supabase)) {
+    await auditLogin({
+      location: 'excel:continue',
+      message: 'show inline mfa',
+      data: { source },
+      runId: 'post-fix-inline-mfa',
+    });
+    return 'mfa' as const;
+  }
+
+  await auditLogin({
+    location: 'excel:continue',
+    message: 'navigate excel-complete',
+    data: { source },
+    runId: 'post-fix-inline-mfa',
+  });
+  navigateExcelAuth('/auth/excel-complete');
+  return 'done' as const;
+}
+
+function ExcelAuthInner() {
+  const searchParams = useSearchParams();
+  const forceMfa = searchParams.get('step') === 'mfa';
+
+  const [screen, setScreen] = useState<Screen>(forceMfa ? 'checking' : 'login');
   const [mode, setMode] = useState<AuthMode>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [magicSent, setMagicSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!forceMfa) return;
+    (async () => {
+      const supabase = createSupabaseBrowser();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        setScreen('login');
+        setError('Sign in first, then complete MFA setup.');
+        return;
+      }
+      await syncBrowserSessionToServer(session);
+      const next = await continueExcelAuth('url-step-mfa');
+      if (next === 'mfa') setScreen('mfa');
+    })();
+  }, [forceMfa]);
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +132,19 @@ export default function ExcelAuthPage() {
       return;
     }
 
-    await syncBrowserSessionToServer(result.session);
-
-    const nextPath = await getExcelPostLoginPath(supabase);
-    setLoading(false);
-    router.push(nextPath);
+    try {
+      await syncBrowserSessionToServer(result.session);
+      const next = await continueExcelAuth('password-login');
+      if (next === 'mfa') {
+        setScreen('mfa');
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Account setup failed. Try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMagicLink = async (e: React.FormEvent) => {
@@ -67,6 +168,33 @@ export default function ExcelAuthPage() {
 
     setMagicSent(true);
   };
+
+  const finishMfa = useCallback(() => {
+    navigateExcelAuth('/auth/excel-complete');
+  }, []);
+
+  if (screen === 'checking') {
+    return (
+      <AuthShell title="Secure your account" subtitle="Loading…">
+        <p className="text-sm text-text-2">Loading…</p>
+      </AuthShell>
+    );
+  }
+
+  if (screen === 'mfa') {
+    return (
+      <AuthShell
+        title="Secure your account"
+        subtitle="Set up two-factor authentication (recommended). You can skip and continue to Excel."
+      >
+        <MfaEnrollStep
+          verifyReturnPath="/auth/mfa/verify?return=excel"
+          onComplete={finishMfa}
+          onSkip={finishMfa}
+        />
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
@@ -143,5 +271,19 @@ export default function ExcelAuthPage() {
         </form>
       )}
     </AuthShell>
+  );
+}
+
+export default function ExcelAuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthShell title="Sign in to Excel" subtitle="Loading…">
+          <p className="text-sm text-text-2">Loading…</p>
+        </AuthShell>
+      }
+    >
+      <ExcelAuthInner />
+    </Suspense>
   );
 }

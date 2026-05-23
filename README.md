@@ -48,7 +48,7 @@ npm install
    - **URL configuration:** Site URL = `NEXT_PUBLIC_APP_URL` (e.g. `http://localhost:4003`). Add redirect URLs:
      - `http://localhost:4003/auth/callback` and `http://localhost:4003/auth/callback/**`
      - `https://localhost:4000/auth/callback` and `https://localhost:4000/auth/callback/**` (Excel add-in dialog via Vite proxy)
-5. Create a **Database Webhook** on `auth.users` **INSERT** → `POST https://<your-api>/api/auth/signup` with header `x-webhook-secret: <SUPABASE_SERVICE_ROLE_KEY>` (see `web/app/api/auth/signup/route.ts`). This creates `core.accounts` + default workspace. A fallback `POST /api/auth/ensure-account` runs after web login if the webhook is delayed.
+5. Optional **Database Webhook** on `auth.users` **INSERT** → `POST https://<your-api>/api/auth/signup` with header `x-webhook-secret: <SUPABASE_SERVICE_ROLE_KEY>` (auto-confirms email only). Account + workspace are created in **`POST /api/onboarding/complete`** after the user confirms email and finishes `/onboarding`.
 
 ### 3. Configure environment
 
@@ -197,7 +197,8 @@ Stripe/Xero connect still opens the **system browser** (`Office.context.ui.openB
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/auth/signup` | Create account + default workspace (Supabase webhook) |
+| POST | `/api/auth/signup` | Auth webhook (auto-confirm email; optional) |
+| POST | `/api/onboarding/complete` | Create account + first workspace after signup |
 | GET/POST | `/api/workspace` | List / create workspaces |
 | POST | `/api/account/invite` | Invite user (plan limits) |
 | POST | `/api/billing/checkout` | Stripe Checkout |

@@ -5,6 +5,7 @@ interface AuthShellProps {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }
 
 export default function AuthShell({
@@ -12,13 +13,18 @@ export default function AuthShell({
   subtitle,
   children,
   footer,
+  wide = false,
 }: AuthShellProps) {
   return (
     <div className="min-h-screen gradient-hero flex flex-col items-center justify-center px-4 py-12">
-      <a href="/" className="mb-8 text-lg font-bold text-text tracking-tight">
-        Silkview <span className="text-stripe">Sync</span>
+      <a href="/" className="mb-8 text-lg font-bold text-ink tracking-tight">
+        Silkview <span className="text-accent">Connect</span>
       </a>
-      <div className="w-full max-w-md bg-surface rounded shadow-card border border-border/80 p-8">
+      <div
+        className={`w-full bg-surface rounded shadow-card border border-border/80 p-8 ${
+          wide ? 'max-w-5xl' : 'max-w-md'
+        }`}
+      >
         <h1 className="text-xl font-bold text-text">{title}</h1>
         {subtitle && <p className="mt-1.5 text-sm text-text-2">{subtitle}</p>}
         <div className="mt-6">{children}</div>

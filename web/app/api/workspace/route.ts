@@ -1,5 +1,6 @@
 import { requireUser, getAccountMembership } from '@/lib/api-auth';
 import { enforceLimit } from '@/lib/plan-limits';
+import { listWorkspacesForUser } from '@/lib/dashboard/workspaces';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
@@ -13,22 +14,8 @@ export async function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   try {
     const { user } = await requireUser(request);
-    const membership = await getAccountMembership(user.id);
-    if (!membership) {
-      return withCors(
-        request,
-        jsonError('ACCOUNT_REQUIRED', 'No account found.', 403)
-      );
-    }
-
-    const admin = createSupabaseAdmin();
-    const { data: workspaces } = await core(admin)
-      .from('workspaces')
-      .select('id, name, created_at')
-      .eq('account_id', membership.account_id)
-      .order('created_at', { ascending: true });
-
-    return ok(request, { workspaces: workspaces ?? [] });
+    const workspaces = await listWorkspacesForUser(user.id);
+    return ok(request, { workspaces });
   } catch (err) {
     return handleRouteError(request, err);
   }
@@ -63,7 +50,7 @@ export async function POST(request: Request) {
         name: name.trim(),
         created_by: user.id,
       })
-      .select()
+      .select('id, name, created_at')
       .single();
 
     if (error || !ws) {
@@ -73,7 +60,15 @@ export async function POST(request: Request) {
       );
     }
 
-    return ok(request, ws, 201);
+    return ok(
+      request,
+      {
+        ...ws,
+        xero: null,
+        stripe: [],
+      },
+      201
+    );
   } catch (err) {
     return handleRouteError(request, err);
   }

@@ -1,5 +1,9 @@
 import { useState, useCallback } from 'react';
-import { getAccessToken, setAccessToken, clearAccessToken } from '../utils/session';
+import {
+  getAccessToken,
+  setAccessToken,
+  clearSession,
+} from '../utils/session';
 import { openAuthDialog } from '../utils/dialogAuth';
 import { getOfficeAuthOrigin } from '../utils/officeAuthUrl';
 
@@ -13,7 +17,13 @@ export function useAuth() {
     setError(null);
     try {
       const loginUrl = `${getOfficeAuthOrigin()}/auth/excel`;
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'opening auth dialog',data:{loginUrl},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
       const payload = await openAuthDialog(loginUrl);
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'dialog resolved',data:{status:payload?.status,hasToken:typeof payload?.accessToken==='string'},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
       if (
         payload.status === 'signed_in' &&
         typeof payload.accessToken === 'string'
@@ -38,9 +48,12 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(() => {
-    clearAccessToken();
+    clearSession();
     setSignedIn(false);
+    setError(null);
   }, []);
 
-  return { signedIn, loading, error, signIn, signOut };
+  const invalidateSession = signOut;
+
+  return { signedIn, loading, error, signIn, signOut, invalidateSession };
 }

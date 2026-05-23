@@ -24,6 +24,7 @@ import {
   type XeroTokens,
 } from '../connections/store';
 import { REQUEST_TIMEOUT_MS } from '../api-response';
+import { getOAuthRedirectUri } from '../oauth-redirect';
 
 const XERO_IDENTITY = 'https://identity.xero.com/connect/token';
 const XERO_API = 'https://api.xero.com';
@@ -57,7 +58,7 @@ export async function exchangeXeroCode(
         grant_type: 'authorization_code',
         client_id: process.env.XERO_CLIENT_ID || '',
         client_secret: process.env.XERO_CLIENT_SECRET || '',
-        redirect_uri: process.env.XERO_REDIRECT_URI || '',
+        redirect_uri: getOAuthRedirectUri('xero'),
         code,
         code_verifier: codeVerifier,
       }),
@@ -237,9 +238,30 @@ function formatDateDdMmYyyy(isoDate: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function roundMoney(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+function enrichLineTaxFromAccounts(
+  lines: XeroJournalLineInput[],
+  accounts: XeroAccountOption[]
+): void {
+  const taxByCode = new Map(
+    accounts
+      .filter((a) => a.TaxType?.trim())
+      .map((a) => [a.Code, a.TaxType!.trim()] as const)
+  );
+  for (const line of lines) {
+    if (!line.taxType?.trim()) {
+      const defaultTax = taxByCode.get(line.accountCode);
+      if (defaultTax) line.taxType = defaultTax;
+    }
+  }
+}
+
 function buildJournalLine(line: XeroJournalLineInput): Record<string, unknown> {
   const journalLine: Record<string, unknown> = {
-    LineAmount: line.netAmount,
+    LineAmount: roundMoney(line.netAmount),
     AccountCode: line.accountCode,
     Description: line.description || '',
   };
@@ -371,11 +393,18 @@ async function collectManualJournalValidationIssues(
   const rowIssues: PushRowIssue[] = [];
 
   for (const [date, groupLines] of groups) {
-    const total = groupLines.reduce((sum, l) => sum + l.netAmount, 0);
-    if (Math.abs(total) > BALANCE_EPSILON) {
+    const grossTotal = groupLines.reduce((sum, l) => sum + l.netAmount, 0);
+
+    // #region agent log
+    if (Math.abs(grossTotal) > BALANCE_EPSILON) {
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:balance-check',message:'journal gross balance',data:{date,grossTotal,lines:groupLines.map((l)=>({account:l.accountCode,tax:l.taxType??null,amount:l.netAmount}))},timestamp:Date.now(),hypothesisId:'H-gross-balance'})}).catch(()=>{});
+    }
+    // #endregion
+
+    if (Math.abs(grossTotal) > BALANCE_EPSILON) {
       rowIssues.push({
         date,
-        message: `Journal is unbalanced (total ${total.toFixed(2)}). Line amounts must sum to zero (Inclusive).`,
+        message: `Journal is unbalanced (total ${grossTotal.toFixed(2)}). Line amounts must sum to zero.`,
       });
     }
 
@@ -409,6 +438,20 @@ async function collectManualJournalValidationIssues(
         });
       }
 
+      const accountDefaultTax = (mappedAccount?.TaxType ?? '').trim();
+      if (
+        line.taxType &&
+        accountDefaultTax &&
+        line.taxType.toUpperCase() !== accountDefaultTax.toUpperCase()
+      ) {
+        rowIssues.push({
+          date,
+          description: line.description,
+          accountCode: line.accountCode,
+          message: `Tax type "${line.taxType}" does not match account ${line.accountCode} default tax "${accountDefaultTax}" in Xero. Xero will override it — change Tax Type in column F to "${accountDefaultTax}".`,
+        });
+      }
+
       const hasName = Boolean(line.trackingName1?.trim());
       const hasOption = Boolean(line.trackingOption1?.trim());
       if (hasName !== hasOption) {
@@ -439,6 +482,303 @@ async function collectManualJournalValidationIssues(
   return rowIssues;
 }
 
+function amountsEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) <= BALANCE_EPSILON;
+}
+
+function buildManualJournalsPayload(
+  lines: XeroJournalLineInput[],
+  status: XeroManualJournalStatus,
+  defaultCurrency: string
+): Array<{
+  Date: string;
+  Narration: string;
+  Status: XeroManualJournalStatus;
+  LineAmountTypes: string;
+  CurrencyCode: string;
+  JournalLines: Record<string, unknown>[];
+}> {
+  const groups = groupLinesByDate(lines);
+  const sortedDates = [...groups.keys()].sort();
+  return sortedDates.map((date) => {
+    const journalLines = groups.get(date) ?? [];
+    return {
+      Date: date,
+      Narration: `${JOURNAL_NARRATION_PREFIX}${formatDateDdMmYyyy(date)}`,
+      Status: status,
+      LineAmountTypes: 'Inclusive',
+      CurrencyCode: defaultCurrency,
+      JournalLines: journalLines.map(buildJournalLine),
+    };
+  });
+}
+
+function collectManualJournalPayloadIssues(
+  lines: XeroJournalLineInput[],
+  status: XeroManualJournalStatus,
+  defaultCurrency: string
+): PushRowIssue[] {
+  const rowIssues: PushRowIssue[] = [];
+  const groups = groupLinesByDate(lines);
+  const manualJournals = buildManualJournalsPayload(lines, status, defaultCurrency);
+
+  for (const journal of manualJournals) {
+    const date = journal.Date;
+    const inputLines = groups.get(date) ?? [];
+    const builtLines = journal.JournalLines;
+
+    if (journal.Status !== status) {
+      rowIssues.push({
+        date,
+        message: `Payload mismatch: Status expected "${status}", got "${journal.Status}".`,
+      });
+    }
+    if (journal.CurrencyCode !== defaultCurrency) {
+      rowIssues.push({
+        date,
+        message: `Payload mismatch: CurrencyCode expected "${defaultCurrency}", got "${journal.CurrencyCode}".`,
+      });
+    }
+    if (journal.LineAmountTypes !== 'Inclusive') {
+      rowIssues.push({
+        date,
+        message: `Payload mismatch: LineAmountTypes expected "Inclusive", got "${journal.LineAmountTypes}".`,
+      });
+    }
+    if (builtLines.length !== inputLines.length) {
+      rowIssues.push({
+        date,
+        message: 'Payload mismatch: journal line count differs from input.',
+      });
+      continue;
+    }
+
+    for (let i = 0; i < inputLines.length; i++) {
+      const line = inputLines[i];
+      const built = builtLines[i];
+      const ctx = {
+        date,
+        description: line.description,
+        accountCode: line.accountCode,
+      };
+
+      const builtAmount = built.LineAmount as number | undefined;
+      if (typeof builtAmount !== 'number' || !amountsEqual(builtAmount, line.netAmount)) {
+        rowIssues.push({
+          ...ctx,
+          message: `Payload mismatch: LineAmount expected ${line.netAmount}, got ${String(builtAmount)}.`,
+        });
+      }
+      if (built.AccountCode !== line.accountCode) {
+        rowIssues.push({
+          ...ctx,
+          message: `Payload mismatch: AccountCode expected "${line.accountCode}", got "${String(built.AccountCode)}".`,
+        });
+      }
+      const builtDesc = String(built.Description ?? '');
+      const inputDesc = line.description || '';
+      if (builtDesc !== inputDesc) {
+        rowIssues.push({
+          ...ctx,
+          message: `Payload mismatch: Description expected "${inputDesc}", got "${builtDesc}".`,
+        });
+      }
+
+      const builtTax = built.TaxType as string | undefined;
+      if (line.taxType) {
+        if (builtTax !== line.taxType) {
+          rowIssues.push({
+            ...ctx,
+            message: builtTax
+              ? `Payload mismatch: TaxType expected "${line.taxType}", got "${builtTax}".`
+              : `Payload mismatch: expected TaxType "${line.taxType}" but payload has no TaxType.`,
+          });
+        }
+      } else if (builtTax !== undefined && builtTax !== '') {
+        rowIssues.push({
+          ...ctx,
+          message: `Payload mismatch: expected no TaxType but payload has "${builtTax}".`,
+        });
+      }
+
+      const builtTracking = built.Tracking as
+        | Array<{ Name?: string; Option?: string }>
+        | undefined;
+      const hasTrackingInput = Boolean(
+        line.trackingName1?.trim() && line.trackingOption1?.trim()
+      );
+      if (hasTrackingInput) {
+        const first = builtTracking?.[0];
+        if (
+          !first ||
+          first.Name !== line.trackingName1 ||
+          first.Option !== line.trackingOption1
+        ) {
+          rowIssues.push({
+            ...ctx,
+            message: `Payload mismatch: Tracking expected "${line.trackingName1}" / "${line.trackingOption1}".`,
+          });
+        }
+      } else if (builtTracking && builtTracking.length > 0) {
+        rowIssues.push({
+          ...ctx,
+          message: 'Payload mismatch: expected no Tracking but payload includes tracking.',
+        });
+      }
+    }
+  }
+
+  return rowIssues;
+}
+
+function collectBankTransactionPayloadIssues(
+  lines: XeroBankTransactionInput[],
+  contacts: XeroContactOption[]
+): PushRowIssue[] {
+  const rowIssues: PushRowIssue[] = [];
+
+  for (const line of lines) {
+    const payload = buildBankTransactionPayload(line, contacts);
+    const ctx = { date: line.date, reference: line.reference };
+
+    const payloadType = String(payload.Type ?? '').toUpperCase();
+    const inputType = line.type.trim().toUpperCase();
+    if (payloadType !== inputType) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: Type expected "${inputType}", got "${payloadType}".`,
+      });
+    }
+    if (payload.Date !== line.date) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: Date expected "${line.date}", got "${String(payload.Date)}".`,
+      });
+    }
+    if (payload.Reference !== (line.reference || '')) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: Reference expected "${line.reference || ''}", got "${String(payload.Reference)}".`,
+      });
+    }
+
+    const bankAccount = payload.BankAccount as { Code?: string } | undefined;
+    if (bankAccount?.Code !== line.bankAccountCode) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: BankAccount code expected "${line.bankAccountCode}", got "${bankAccount?.Code ?? ''}".`,
+      });
+    }
+
+    const lineItems = payload.LineItems as
+      | Array<{ LineAmount?: number; AccountCode?: string }>
+      | undefined;
+    const firstItem = lineItems?.[0];
+    const expectedAmount = Math.abs(line.amount);
+    if (
+      !firstItem ||
+      typeof firstItem.LineAmount !== 'number' ||
+      !amountsEqual(firstItem.LineAmount, expectedAmount)
+    ) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: LineAmount expected ${expectedAmount}, got ${String(firstItem?.LineAmount)}.`,
+      });
+    }
+    if (firstItem?.AccountCode !== line.accountCode) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: line AccountCode expected "${line.accountCode}", got "${firstItem?.AccountCode ?? ''}".`,
+      });
+    }
+
+    const contact = payload.Contact as Record<string, string> | undefined;
+    const trimmedName = line.contactName.trim();
+    if (contact?.ContactID) {
+      if (!contactMatches(line.contactName, contacts)) {
+        rowIssues.push({
+          ...ctx,
+          message: `Payload mismatch: ContactID used but "${line.contactName}" does not match a Xero contact.`,
+        });
+      }
+    } else if (contact?.Name !== trimmedName) {
+      rowIssues.push({
+        ...ctx,
+        message: `Payload mismatch: Contact Name expected "${trimmedName}", got "${contact?.Name ?? ''}".`,
+      });
+    }
+  }
+
+  return rowIssues;
+}
+
+async function collectPostedManualJournalTaxMismatches(
+  workspaceId: string,
+  manualJournalId: string,
+  date: string,
+  linesForDate: XeroJournalLineInput[]
+): Promise<PushRowIssue[]> {
+  const rowIssues: PushRowIssue[] = [];
+  const linesWithTax = linesForDate.filter((l) => Boolean(l.taxType?.trim()));
+  if (linesWithTax.length === 0) return rowIssues;
+
+  const fetched = await xeroGet<{
+    ManualJournals?: Array<{
+      JournalLines?: Array<{
+        AccountCode?: string;
+        TaxType?: string;
+        LineAmount?: number;
+      }>;
+    }>;
+  }>(workspaceId, `/api.xro/2.0/ManualJournals/${manualJournalId}`);
+
+  const xeroLines = (fetched.ManualJournals ?? [])[0]?.JournalLines ?? [];
+
+  // #region agent log
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:post-xero-get',message:'xero stored tax vs expected',data:{manualJournalId,date,expectedLines:linesWithTax.map((l)=>({accountCode:l.accountCode,taxType:l.taxType??null,netAmount:l.netAmount})),xeroLines:xeroLines.map((xl)=>({accountCode:xl.AccountCode,taxType:xl.TaxType??null,lineAmount:xl.LineAmount}))},timestamp:Date.now(),hypothesisId:'H4-H5',runId:'post-fix'})}).catch(()=>{});
+  // #endregion
+
+  for (const line of linesWithTax) {
+    const xeroLine = xeroLines.find(
+      (xl) =>
+        xl.AccountCode === line.accountCode &&
+        typeof xl.LineAmount === 'number' &&
+        amountsEqual(xl.LineAmount, line.netAmount)
+    );
+    if (!xeroLine) continue;
+
+    const expectedTax = line.taxType!.trim().toUpperCase();
+    const xeroTax = (xeroLine.TaxType ?? '').trim().toUpperCase();
+    if (xeroTax !== expectedTax) {
+      rowIssues.push({
+        date,
+        description: line.description,
+        accountCode: line.accountCode,
+        message: `Xero stored tax "${xeroLine.TaxType}" on account ${line.accountCode} but "${line.taxType}" was specified. Update Tax Type in column F to "${xeroLine.TaxType}" (account default in Xero).`,
+      });
+    }
+  }
+
+  return rowIssues;
+}
+
+function xeroRejectErrorFromRowIssues(
+  rowIssues: PushRowIssue[],
+  sheetHint: string,
+  partialNote?: string
+): never {
+  const details = rowIssues.map((i) => i.message);
+  const partial = partialNote ? ` ${partialNote}` : '';
+  const summary = `Xero rejected the push.${partial} Fix ${sheetHint}, then push again.`;
+  throw new XeroServiceError(
+    'VALIDATION_ERROR',
+    summary,
+    undefined,
+    details,
+    rowIssues
+  );
+}
+
 export async function pushManualJournals(
   workspaceId: string,
   status: XeroManualJournalStatus,
@@ -446,6 +786,16 @@ export async function pushManualJournals(
 ): Promise<ManualJournalPushResult> {
   await ensureValidToken(workspaceId);
   const defaultCurrency = await getWorkspaceDefaultCurrency(workspaceId);
+  const mappingOptions = await getMappingOptions(workspaceId);
+  enrichLineTaxFromAccounts(lines, mappingOptions.accounts);
+
+  // #region agent log
+  for (const [date, groupLines] of groupLinesByDate(lines)) {
+    const grossTotal = groupLines.reduce((s, l) => s + l.netAmount, 0);
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:pre-push-lines',message:'journal lines sent to validation',data:{date,grossTotal,lines:groupLines.map((l)=>({account:l.accountCode,tax:l.taxType??null,amount:l.netAmount}))},timestamp:Date.now(),hypothesisId:'H-gross-balance',runId:'post-fix-v2'})}).catch(()=>{});
+  }
+  // #endregion
+
   const validationIssues = await collectManualJournalValidationIssues(
     workspaceId,
     lines,
@@ -458,25 +808,37 @@ export async function pushManualJournals(
     );
   }
 
-  const groups = groupLinesByDate(lines);
-  const sortedDates = [...groups.keys()].sort();
-  const manualJournals = sortedDates.map((date) => {
-    const journalLines = groups.get(date) ?? [];
-    const payload = {
-      Date: date,
-      Narration: `${JOURNAL_NARRATION_PREFIX}${formatDateDdMmYyyy(date)}`,
-      Status: status,
-      LineAmountTypes: 'Inclusive',
-      CurrencyCode: defaultCurrency,
-      JournalLines: journalLines.map(buildJournalLine),
-    };
-    return payload;
-  });
+  const payloadIssues = collectManualJournalPayloadIssues(
+    lines,
+    status,
+    defaultCurrency
+  );
+  if (payloadIssues.length > 0) {
+    validationErrorFromRowIssues(
+      payloadIssues,
+      'Xero_Journals and Account_Mappings'
+    );
+  }
+
+  const manualJournals = buildManualJournalsPayload(
+    lines,
+    status,
+    defaultCurrency
+  );
+
+  // #region agent log
+  for (const journal of manualJournals) {
+    const taxSummary = journal.JournalLines.map((jl) => ({
+      account: jl.AccountCode,
+      taxType: (jl as { TaxType?: string }).TaxType ?? null,
+      amount: jl.LineAmount,
+    }));
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero.ts:pre-post',message:'manual journal payload tax',data:{date:journal.Date,taxSummary},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
+  }
+  // #endregion
 
   const manualJournalIds: string[] = [];
   const journalIdsByDate: Record<string, string> = {};
-  const errors: Array<{ date: string; message: string }> = [];
-  const rowIssues: PushRowIssue[] = [];
 
   for (let i = 0; i < manualJournals.length; i += MANUAL_JOURNAL_CHUNK) {
     const chunk = manualJournals.slice(i, i + MANUAL_JOURNAL_CHUNK);
@@ -486,6 +848,7 @@ export async function pushManualJournals(
       }>(workspaceId, '/api.xro/2.0/ManualJournals', { ManualJournals: chunk });
 
       const created = data.ManualJournals ?? [];
+      const postedTaxIssues: PushRowIssue[] = [];
       for (let j = 0; j < created.length; j++) {
         const mj = created[j];
         const date = chunk[j]?.Date;
@@ -493,23 +856,49 @@ export async function pushManualJournals(
           manualJournalIds.push(mj.ManualJournalID);
           if (date) journalIdsByDate[date] = mj.ManualJournalID;
         }
+        if (mj.ManualJournalID && chunk[j]?.Date) {
+          const journalDate = chunk[j].Date as string;
+          const mismatches = await collectPostedManualJournalTaxMismatches(
+            workspaceId,
+            mj.ManualJournalID,
+            journalDate,
+            lines.filter((l) => l.date === journalDate)
+          );
+          postedTaxIssues.push(...mismatches);
+        }
+      }
+      if (postedTaxIssues.length > 0) {
+        const partialNote =
+          manualJournalIds.length > 0
+            ? `${manualJournalIds.length} journal(s) were created in Xero with incorrect tax before this was detected. Void or delete them in Xero, fix Tax Type in column F, then push again.`
+            : undefined;
+        xeroRejectErrorFromRowIssues(
+          postedTaxIssues,
+          'Xero_Journals',
+          partialNote
+        );
       }
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
         const parsed = parseXeroManualJournalErrors(err.response.data);
-        const dates = chunk.map((c) => c.Date).join(', ');
         const fallback =
           'Xero rejected the journal. Check account codes, tax types, and tracking in Account_Mappings.';
         const message = parsed.length > 0 ? parsed.join('; ') : fallback;
-        errors.push({ date: dates, message });
+        const rowIssues: PushRowIssue[] = [];
         for (const journal of chunk) {
           if (journal.Date) {
             rowIssues.push({ date: journal.Date, message });
           }
         }
-        if (err.response.status === 400) {
-          continue;
-        }
+        const partialNote =
+          manualJournalIds.length > 0
+            ? `${manualJournalIds.length} journal(s) may already have been created in Xero before this error.`
+            : undefined;
+        xeroRejectErrorFromRowIssues(
+          rowIssues,
+          'Xero_Journals and Account_Mappings',
+          partialNote
+        );
       }
       throw mapXeroError(err);
     }
@@ -519,8 +908,6 @@ export async function pushManualJournals(
     created: manualJournalIds.length,
     manualJournalIds,
     journalIdsByDate,
-    errors: errors.length > 0 ? errors : undefined,
-    rowIssues: rowIssues.length > 0 ? rowIssues : undefined,
   };
 }
 
@@ -713,13 +1100,22 @@ export async function pushBankTransactions(
   }
 
   const options = await getMappingOptions(workspaceId);
+  const payloadIssues = collectBankTransactionPayloadIssues(
+    lines,
+    options.contacts
+  );
+  if (payloadIssues.length > 0) {
+    validationErrorFromRowIssues(
+      payloadIssues,
+      'Xero_Bank_Transaction and Account_Mappings'
+    );
+  }
+
   const bankTransactions = lines.map((line) =>
     buildBankTransactionPayload(line, options.contacts)
   );
 
   const bankTransactionIds: string[] = [];
-  const errors: Array<{ reference: string; message: string }> = [];
-  const rowIssues: PushRowIssue[] = [];
 
   for (let i = 0; i < bankTransactions.length; i += BANK_TRANSACTION_CHUNK) {
     const chunk = bankTransactions.slice(i, i + BANK_TRANSACTION_CHUNK);
@@ -739,21 +1135,23 @@ export async function pushBankTransactions(
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data) {
         const parsed = parseXeroBankTransactionErrors(err.response.data);
-        const refs = chunkLines.map((l) => l.reference || l.date).join(', ');
         const fallback =
           'Xero rejected the bank transaction. Check contact, bank account, and account codes in Account_Mappings.';
         const message = parsed.length > 0 ? parsed.join('; ') : fallback;
-        errors.push({ reference: refs, message });
-        for (const line of chunkLines) {
-          rowIssues.push({
-            date: line.date,
-            reference: line.reference,
-            message,
-          });
-        }
-        if (err.response.status === 400) {
-          continue;
-        }
+        const rowIssues: PushRowIssue[] = chunkLines.map((line) => ({
+          date: line.date,
+          reference: line.reference,
+          message,
+        }));
+        const partialNote =
+          bankTransactionIds.length > 0
+            ? `${bankTransactionIds.length} bank transaction(s) may already have been created in Xero before this error.`
+            : undefined;
+        xeroRejectErrorFromRowIssues(
+          rowIssues,
+          'Xero_Bank_Transaction and Account_Mappings',
+          partialNote
+        );
       }
       throw mapXeroError(err);
     }
@@ -762,8 +1160,6 @@ export async function pushBankTransactions(
   return {
     created: bankTransactionIds.length,
     bankTransactionIds,
-    errors: errors.length > 0 ? errors : undefined,
-    rowIssues: rowIssues.length > 0 ? rowIssues : undefined,
   };
 }
 
@@ -905,6 +1301,7 @@ export async function getMappingOptions(
     Code: a.Code,
     Name: a.Name,
     Type: a.Type,
+    TaxType: a.TaxType || undefined,
     SystemAccount: a.SystemAccount,
     CurrencyCode: a.CurrencyCode,
     displayLabel: `${a.Code} — ${a.Name}`,

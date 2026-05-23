@@ -1,4 +1,5 @@
-import { requireWorkspace } from '@/lib/api-auth';
+import { requireWorkspace, getAccountMembership } from '@/lib/api-auth';
+import { enforceLimit } from '@/lib/plan-limits';
 import {
   newNonce,
   setPkceVerifier,
@@ -6,6 +7,7 @@ import {
   type OAuthStatePayload,
 } from '@/lib/oauth-state';
 import { generatePkcePair } from '@/lib/pkce';
+import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
@@ -17,10 +19,20 @@ export async function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   try {
     const { user, workspaceId } = await requireWorkspace(request);
+    const membership = await getAccountMembership(user.id);
+    if (!membership) {
+      return withCors(request, jsonError('ACCOUNT_REQUIRED', 'No account.', 403));
+    }
+    const check = await enforceLimit(membership.account_id, 'xero', workspaceId);
+    if (!check.allowed) {
+      return withCors(
+        request,
+        jsonError('PLAN_LIMIT', check.reason ?? 'Plan limit reached.', 403)
+      );
+    }
+
     const clientId = process.env.XERO_CLIENT_ID;
-    const redirectUri =
-      process.env.XERO_REDIRECT_URI ||
-      'http://localhost:4003/api/xero/callback';
+    const redirectUri = getOAuthRedirectUri('xero');
 
     if (!clientId) {
       return withCors(
@@ -34,6 +46,7 @@ export async function GET(request: Request) {
       workspaceId,
       userId: user.id,
       nonce: newNonce(),
+      codeVerifier,
     };
     const state = signOAuthState(payload);
     setPkceVerifier(state, codeVerifier);
@@ -56,7 +69,12 @@ export async function GET(request: Request) {
     });
 
     const url = `https://login.xero.com/identity/connect/authorize?${params.toString()}`;
-    return ok(request, { url, workspaceId });
+
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'xero/connect/route.ts',message:'xero authorize url built',data:{redirectUri,hasClientId:!!clientId},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
+
+    return ok(request, { url, workspaceId, redirectUri });
   } catch (err) {
     return handleRouteError(request, err);
   }

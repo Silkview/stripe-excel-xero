@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useMemo, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
-import { getMfaStatus } from '@/lib/auth/mfa';
+import {
+  resolvePostAuthRedirect,
+  safeReturnPath,
+} from '@/lib/auth/client-post-auth-redirect';
+import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
 import {
   signInWithPassword,
   syncBrowserSessionToServer,
@@ -22,6 +26,7 @@ function LoginFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const excelMode = searchParams.get('return') === 'excel';
+  const returnPath = excelMode ? null : safeReturnPath(searchParams.get('return'));
   const defaultTab: Tab = excelMode ? 'excel' : 'password';
 
   const [tab, setTab] = useState<Tab>(defaultTab);
@@ -31,20 +36,6 @@ function LoginFormInner() {
   const [magicSent, setMagicSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const redirectAfterLogin = useMemo(() => {
-    return async () => {
-      const supabase = createSupabaseBrowser();
-      const status = await getMfaStatus(supabase);
-      if (status.needsVerification) {
-        router.push('/auth/mfa/verify');
-      } else if (!status.hasVerifiedTotp) {
-        router.push('/auth/mfa/enroll');
-      } else {
-        router.push('/dashboard');
-      }
-    };
-  }, [router]);
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,43 +51,25 @@ function LoginFormInner() {
       return;
     }
 
-    await syncBrowserSessionToServer(result.session);
-
-    if (excelMode) {
-      try {
-        await fetch('/api/auth/ensure-account', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            Authorization: `Bearer ${result.session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: '{}',
-        });
-      } catch {
-        // Webhook may have provisioned; non-fatal
-      }
-      setLoading(false);
-      router.push('/auth/excel-complete');
-      return;
-    }
-
     try {
-      await fetch('/api/auth/ensure-account', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          Authorization: `Bearer ${result.session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: '{}',
-      });
-    } catch {
-      // Webhook may have provisioned; non-fatal
-    }
+      await syncBrowserSessionToServer(result.session);
 
-    setLoading(false);
-    await redirectAfterLogin();
+      const path = await resolvePostAuthRedirect(supabase, {
+        excelMode,
+        returnPath,
+      });
+      if (excelMode) {
+        navigateExcelAuth(path);
+      } else {
+        router.push(path);
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Sign-in failed. Try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMagicLink = async (e: React.FormEvent) => {

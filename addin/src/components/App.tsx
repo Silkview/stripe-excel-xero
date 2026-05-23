@@ -8,15 +8,24 @@ import PushPanel from './PushPanel';
 import SetupPanel from './SetupPanel';
 import Button from './ui/Button';
 import { useAuth } from '../hooks/useAuth';
+import { useOnboarding } from '../hooks/useOnboarding';
+import OnboardingPanel from './OnboardingPanel';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { useStripeAuth } from '../hooks/useStripeAuth';
 import { useXeroAuth } from '../hooks/useXeroAuth';
 import { useDefaultCurrency } from '../hooks/useDefaultCurrency';
+import { getAppUrl } from '../utils/api';
 
 export default function App() {
   const auth = useAuth();
-  const workspace = useWorkspace(auth.signedIn);
-  const apiReady = auth.signedIn && workspace.ready;
+  const onboarding = useOnboarding(auth.signedIn);
+  const workspace = useWorkspace(
+    auth.signedIn && !onboarding.needsSetup && !onboarding.needsWebProvision,
+    {
+      onAuthExpired: auth.signOut,
+    }
+  );
+  const apiReady = auth.signedIn && !onboarding.needsSetup && workspace.ready;
   const stripeAuth = useStripeAuth(apiReady);
   const xeroAuth = useXeroAuth(apiReady);
   const { currency, ready: currencyReady } = useDefaultCurrency(xeroAuth.status);
@@ -35,12 +44,16 @@ export default function App() {
     setActiveTab(tabBeforeSetup);
   };
 
-  if (!auth.signedIn) {
+  const needsSignIn = !auth.signedIn || workspace.sessionExpired;
+
+  if (needsSignIn) {
     return (
       <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
         <Header onOpenSetup={() => {}} />
         <p className="text-sm text-text-2 mb-3">
-          Sign in to sync Stripe and Xero data in this workbook.
+          {workspace.sessionExpired
+            ? 'Your session expired. Sign in again to sync Stripe and Xero data.'
+            : 'Sign in to sync Stripe and Xero data in this workbook.'}
         </p>
         <Button variant="primary" onClick={auth.signIn} disabled={auth.loading}>
           {auth.loading ? 'Signing in…' : 'Sign in'}
@@ -52,13 +65,86 @@ export default function App() {
     );
   }
 
-  if (!workspace.ready) {
+  if (onboarding.loading || onboarding.provisioning) {
     return (
       <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
         <Header onOpenSetup={() => {}} />
         <p className="text-sm text-text-2">
+          {onboarding.provisioning
+            ? 'Creating your account…'
+            : 'Loading…'}
+        </p>
+      </div>
+    );
+  }
+
+  if (onboarding.needsWebProvision) {
+    const onboardingUrl = `${getAppUrl()}/onboarding`;
+    const isSupabaseSchemaConfig =
+      onboarding.error?.includes('core" schema') ||
+      onboarding.error?.includes('Exposed schemas') ||
+      onboarding.error?.includes('Invalid schema');
+    return (
+      <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
+        <Header onOpenSetup={() => {}} />
+        <h2 className="text-lg font-semibold mt-2">
+          {isSupabaseSchemaConfig
+            ? 'Supabase configuration required'
+            : 'Account setup needed'}
+        </h2>
+        <p className="text-sm text-text-2 mt-2 mb-4">
+          {isSupabaseSchemaConfig
+            ? 'The app database schema is not exposed on your Supabase project, so accounts and workspaces cannot be created. Fix this in the Supabase Dashboard, then retry.'
+            : 'We could not create your workspace automatically. Open onboarding in your browser to finish setup, then return here to connect Xero and Stripe.'}
+        </p>
+        {onboarding.error && (
+          <p className="text-xs text-warn-text mb-3">{onboarding.error}</p>
+        )}
+        {!isSupabaseSchemaConfig && (
+        <Button
+          variant="primary"
+          onClick={() => {
+            window.open(onboardingUrl, '_blank');
+          }}
+        >
+          Open web onboarding
+        </Button>
+        )}
+        <Button
+          variant="ghost"
+          className="mt-2"
+          onClick={() => void onboarding.refresh()}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (onboarding.needsSetup) {
+    return (
+      <OnboardingPanel
+        onboarding={onboarding}
+        onFinished={() => {
+          void onboarding.refresh({ silent: true });
+          void workspace.refresh();
+        }}
+      />
+    );
+  }
+
+  if (!workspace.ready) {
+    return (
+      <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
+        <Header onOpenSetup={() => {}} />
+        <p className="text-sm text-text-2 mb-3">
           {workspace.loading ? 'Loading workspace…' : workspace.error ?? 'No workspace available.'}
         </p>
+        {!workspace.loading && workspace.error && (
+          <Button variant="ghost" onClick={auth.signOut} className="mt-2">
+            Sign out
+          </Button>
+        )}
       </div>
     );
   }
@@ -93,7 +179,7 @@ export default function App() {
         xeroLoading={xeroAuth.loading}
         stripeWaiting={stripeAuth.waitingForBrowser}
         xeroWaiting={xeroAuth.waitingForBrowser}
-        onConnectStripe={stripeAuth.connect}
+        onConnectStripe={() => void stripeAuth.connect('login')}
         onConnectXero={xeroAuth.connect}
         dimmed={showSetup}
         defaultCurrency={currencyReady ? currency : undefined}

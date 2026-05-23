@@ -95,10 +95,9 @@ export default function PushPanel({
         { status: pushStatus, lines }
       );
 
-      const rowIssues =
-        res.error?.rowIssues ?? res.data?.rowIssues;
+      const rowIssues = res.error?.rowIssues;
 
-      if (!res.success || !res.data) {
+      if (!res.success || !res.data || res.data.created === 0) {
         if (rowIssues?.length) {
           const feedback = buildJournalRowFeedback(rowContext, rowIssues, undefined);
           await applyPushRowFeedback(
@@ -122,7 +121,7 @@ export default function PushPanel({
       const { created, journalIdsByDate } = res.data;
       const feedback = buildJournalRowFeedback(
         rowContext,
-        rowIssues,
+        undefined,
         journalIdsByDate
       );
       await applyPushRowFeedback(
@@ -132,20 +131,13 @@ export default function PushPanel({
         feedback
       );
 
-      const errorRows = feedback.filter((f) => f.status === 'error').length;
       const okRows = feedback.filter((f) => f.status === 'ok').length;
-
-      let msg = `${created} journal${created === 1 ? '' : 's'} pushed as ${pushStatus}.`;
-      if (okRows > 0 && errorRows === 0) {
-        msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully (highlighted green).`;
-      } else if (errorRows > 0) {
-        msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed; ${errorRows} row${errorRows === 1 ? '' : 's'} failed (highlighted red).`;
-      }
+      let msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully as ${pushStatus} (${created} journal${created === 1 ? '' : 's'} in Xero, highlighted green).`;
       if (skippedCount > 0) {
         msg += ` ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (already pushed).`;
       }
       setStatusMessage(msg);
-      setStatusError(errorRows > 0);
+      setStatusError(false);
     } catch (err) {
       setStatusMessage(
         err instanceof Error ? err.message : 'Failed to push journals to Xero.'
@@ -186,10 +178,9 @@ export default function PushPanel({
         { transactions }
       );
 
-      const rowIssues =
-        res.error?.rowIssues ?? res.data?.rowIssues;
+      const rowIssues = res.error?.rowIssues;
 
-      if (!res.success || !res.data) {
+      if (!res.success || !res.data || res.data.created === 0) {
         if (rowIssues?.length) {
           const feedback = buildBankRowFeedback(
             includedRowNumbers,
@@ -220,7 +211,7 @@ export default function PushPanel({
       const feedback = buildBankRowFeedback(
         includedRowNumbers,
         transactions,
-        rowIssues,
+        undefined,
         bankTransactionIds
       );
       await applyPushRowFeedback(
@@ -230,20 +221,13 @@ export default function PushPanel({
         feedback
       );
 
-      const errorRows = feedback.filter((f) => f.status === 'error').length;
       const okRows = feedback.filter((f) => f.status === 'ok').length;
-
-      let msg = `${created} bank transaction${created === 1 ? '' : 's'} pushed as AUTHORISED.`;
-      if (okRows > 0 && errorRows === 0) {
-        msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully (highlighted green).`;
-      } else if (errorRows > 0) {
-        msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed; ${errorRows} row${errorRows === 1 ? '' : 's'} failed (highlighted red).`;
-      }
+      let msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully as AUTHORISED (${created} transaction${created === 1 ? '' : 's'} in Xero, highlighted green).`;
       if (skippedCount > 0) {
         msg += ` ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (already pushed).`;
       }
       setStatusMessage(msg);
-      setStatusError(errorRows > 0);
+      setStatusError(false);
     } catch (err) {
       setStatusMessage(
         err instanceof Error

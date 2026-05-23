@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type {
   StripeBalanceTransactionRow,
   StripeChargeRow,
+  StripePayoutBalanceTransactionRow,
   StripePayoutRow,
   StripePullResponse,
 } from '@stripesync/shared';
@@ -16,6 +17,7 @@ import { friendlyError } from '../utils/errorMessages';
 import {
   PAYOUT_HEADERS,
   BALANCE_TRANSACTION_HEADERS,
+  PAYOUT_BALANCE_TRANSACTION_HEADERS,
   CHARGE_HEADERS,
   STRIPE_PULL_OBJECTS,
   type StripePullObjectType,
@@ -31,6 +33,7 @@ import {
   parseDestination,
   activateWorksheet,
 } from '../utils/officeHelpers';
+import { formatBalanceTrxPayoutsForSheet } from '../utils/stripeBalanceTrxPayoutsSheet';
 
 function getCurrentMonthRange(): { from: string; to: string } {
   const now = new Date();
@@ -48,7 +51,11 @@ function defaultDestination(objectType: StripePullObjectType): string {
 
 function mapRowsToSheetData(
   objectType: StripePullObjectType,
-  rows: StripePayoutRow[] | StripeBalanceTransactionRow[] | StripeChargeRow[]
+  rows:
+    | StripePayoutRow[]
+    | StripeBalanceTransactionRow[]
+    | StripePayoutBalanceTransactionRow[]
+    | StripeChargeRow[]
 ): { headers: string[]; data: unknown[][] } {
   switch (objectType) {
     case 'payouts':
@@ -83,6 +90,16 @@ function mapRowsToSheetData(
           r.source_id,
         ]),
       };
+    case 'balance_trx_payouts': {
+      const headers = PAYOUT_BALANCE_TRANSACTION_HEADERS;
+      return {
+        headers,
+        data: formatBalanceTrxPayoutsForSheet(
+          rows as StripePayoutBalanceTransactionRow[],
+          headers.length
+        ),
+      };
+    }
     case 'charges':
       return {
         headers: CHARGE_HEADERS,
@@ -146,6 +163,7 @@ export default function StripePanel({
       type PullRow =
         | StripePayoutRow
         | StripeBalanceTransactionRow
+        | StripePayoutBalanceTransactionRow
         | StripeChargeRow;
 
       const res = await apiGet<StripePullResponse<PullRow>>(
@@ -159,19 +177,25 @@ export default function StripePanel({
       }
 
       const { rows, excludedByCurrency } = res.data;
-      const rowError = stripePullRowCountError(rows.length);
+
+      const { headers, data } = mapRowsToSheetData(
+        objectType,
+        rows as Parameters<typeof mapRowsToSheetData>[1]
+      );
+
+      const sheetRowCount =
+        objectType === 'balance_trx_payouts' ? data.length : rows.length;
+      const rowError = stripePullRowCountError(sheetRowCount);
       if (rowError) {
         setStatusMessage(rowError);
         setStatusError(true);
         return;
       }
-
-      const { headers, data } = mapRowsToSheetData(objectType, rows);
       const { sheetName } = parseDestination(destination);
       await writeDataToSheet(sheetName, 'A1', data, headers);
       await activateWorksheet(sheetName, data.length > 0 ? 'A2' : 'A1');
 
-      let msg = `${rows.length} ${pullConfig.label.toLowerCase()} → ${sheetName}`;
+      let msg = `${sheetRowCount} ${pullConfig.label.toLowerCase()} → ${sheetName}`;
       if (excludedByCurrency > 0) {
         msg += ` (${excludedByCurrency} other currencies excluded)`;
       }

@@ -47,6 +47,13 @@ export function handleRouteError(request: Request, err: unknown) {
       jsonError(err.code, err.message, status, { retry_after: err.retryAfter })
     );
   }
+  if (err instanceof Error && err.message) {
+    console.error(err);
+    return withCors(
+      request,
+      jsonError('PROVISION_ERROR', err.message, 500)
+    );
+  }
   console.error(err);
   return withCors(
     request,

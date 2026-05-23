@@ -1,9 +1,16 @@
 import { saveStripeConnection } from '@/lib/connections/store';
+import { enforceStripeConnect } from '@/lib/plan-limits';
+import { createSupabaseAdmin } from '@/lib/supabase/admin';
+import { core } from '@/lib/supabase/core';
 import { verifyOAuthState } from '@/lib/oauth-state';
 import {
   authCallbackErrorHtml,
   authCallbackHtml,
 } from '@/lib/api-response';
+import {
+  formatStripeConnectConfigError,
+  getStripePlatformAccountId,
+} from '@/lib/stripe-connect-config';
 import { exchangeStripeCode } from '@/lib/services/stripe-data';
 import { NextResponse } from 'next/server';
 
@@ -40,12 +47,51 @@ export async function GET(request: Request) {
   }
 
   try {
-    const tokens = await exchangeStripeCode(code);
+    const admin = createSupabaseAdmin();
+    const { data: ws } = await core(admin)
+      .from('workspaces')
+      .select('account_id')
+      .eq('id', payload.workspaceId)
+      .single();
+
+    if (!payload.stripeClientId || !payload.stripeRedirectUri) {
+      return new NextResponse(
+        authCallbackErrorHtml(
+          'stripe',
+          'OAuth session is outdated. Close this tab, return to Excel, and click Connect Stripe again.'
+        ),
+        { headers: { 'Content-Type': 'text/html' } }
+      );
+    }
+
+    const tokens = await exchangeStripeCode(code, {
+      clientId: payload.stripeClientId,
+      redirectUri: payload.stripeRedirectUri,
+    });
+
+    if (!tokens.stripe_user_id || !tokens.access_token) {
+      throw new Error('Stripe did not return account credentials. Try connecting again.');
+    }
+
+    if (ws?.account_id) {
+      const check = await enforceStripeConnect(
+        ws.account_id,
+        payload.workspaceId,
+        tokens.stripe_user_id
+      );
+      if (!check.allowed) {
+        return new NextResponse(authCallbackErrorHtml('stripe', check.reason!), {
+          headers: { 'Content-Type': 'text/html' },
+        });
+      }
+    }
+
     await saveStripeConnection(
       payload.workspaceId,
       tokens,
       payload.userId
     );
+
     return new NextResponse(
       authCallbackHtml({
         status: 'stripe_connected',
@@ -54,8 +100,9 @@ export async function GET(request: Request) {
       { headers: { 'Content-Type': 'text/html' } }
     );
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Failed to connect Stripe.';
+    const raw = err instanceof Error ? err.message : 'Failed to connect Stripe.';
+    const platformAccountId = await getStripePlatformAccountId();
+    const message = formatStripeConnectConfigError(raw, { platformAccountId });
     return new NextResponse(authCallbackErrorHtml('stripe', message), {
       headers: { 'Content-Type': 'text/html' },
     });

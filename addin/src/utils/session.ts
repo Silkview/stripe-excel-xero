@@ -50,3 +50,18 @@ export function setWorkspaceId(id: string): void {
     // ignore
   }
 }
+
+export function clearWorkspaceId(): void {
+  workspaceId = null;
+  try {
+    localStorage.removeItem(WORKSPACE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Clear auth token and workspace selection (sign-out / expired session). */
+export function clearSession(): void {
+  clearAccessToken();
+  clearWorkspaceId();
+}

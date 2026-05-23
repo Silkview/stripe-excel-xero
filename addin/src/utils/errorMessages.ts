@@ -13,6 +13,10 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   STRIPE_ERROR: 'Could not reach Stripe. Please try again.',
   XERO_ERROR: 'Could not reach Xero. Please try again.',
   SERVER_ERROR: 'Something went wrong on the server. Please try again.',
+  ACCOUNT_REQUIRED:
+    'Your account is not set up yet. Sign out and sign in again, or contact support.',
+  AUTH_REQUIRED: 'Your session expired. Sign in again.',
+  PROVISION_ERROR: '',
 };
 
 export function friendlyError(
@@ -22,8 +26,13 @@ export function friendlyError(
   if (!response?.error) return fallback;
   const { code, message } = response.error;
   if (code === 'CONFIG_ERROR' && message) return message;
+  if (code === 'PROVISION_ERROR' && message?.trim()) return message.trim();
+  if (code === 'VALIDATION_ERROR' && message?.trim()) return message.trim();
+  if (code && FRIENDLY_MESSAGES[code] && FRIENDLY_MESSAGES[code]) {
+    return FRIENDLY_MESSAGES[code];
+  }
   if (message?.trim()) return message.trim();
-  return FRIENDLY_MESSAGES[code] || fallback;
+  return fallback;
 }
 
 export function formatErrorWithDetails(response?: ApiResponse): string {

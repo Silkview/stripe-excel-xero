@@ -28,21 +28,33 @@ export function useStripeAuth(enabled: boolean) {
     refresh();
   }, [refresh]);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (flow: 'register' | 'login' = 'login') => {
     setLoading(true);
     setError(null);
     setWaitingForBrowser(false);
     try {
-      const connectRes = await apiGet<{ url: string }>('/auth/stripe/connect');
+      const connectRes = await apiGet<{
+        url: string;
+        needsIncognito?: boolean;
+      }>(`/auth/stripe/connect?flow=${flow}`);
       if (!connectRes.success || !connectRes.data?.url) {
         setError(friendlyError(connectRes));
         return;
+      }
+      if (connectRes.data.needsIncognito) {
+        setError(
+          'Your Silkview email matches your Stripe Dashboard login. When the browser opens, sign out of Stripe or use a private/incognito window, then create a new test account with a different email.'
+        );
       }
       setLoading(false);
       setWaitingForBrowser(true);
       await openAuthFlow(connectRes.data.url, async () => {
         const res = await apiGet<StripeConnectionStatus>('/auth/stripe/status');
-        return !!(res.success && res.data?.connected);
+        if (res.success && res.data?.connected) return true;
+        const list = await apiGet<{ accountStripeCount: number }>(
+          '/api/stripe/connections'
+        );
+        return !!(list.success && (list.data?.accountStripeCount ?? 0) > 0);
       });
       await refresh();
     } catch (err) {
@@ -55,5 +67,13 @@ export function useStripeAuth(enabled: boolean) {
     }
   }, [refresh]);
 
-  return { status, loading, waitingForBrowser, error, connect, refresh, setError };
+  return {
+    status,
+    loading,
+    waitingForBrowser,
+    error,
+    connect,
+    refresh,
+    setError,
+  };
 }

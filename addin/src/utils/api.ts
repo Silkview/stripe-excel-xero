@@ -39,6 +39,21 @@ export async function apiPost<T, B = unknown>(
   }
 }
 
+export async function apiPatch<T, B = unknown>(
+  url: string,
+  body: B
+): Promise<ApiResponse<T>> {
+  try {
+    const res = await api.patch<ApiResponse<T>>(url, body);
+    return res.data;
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      return err.response.data as ApiResponse<T>;
+    }
+    throw err;
+  }
+}
+
 export async function apiGet<T>(url: string): Promise<ApiResponse<T>> {
   try {
     const res = await api.get<ApiResponse<T>>(url);

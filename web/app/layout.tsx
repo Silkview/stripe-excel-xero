@@ -1,24 +1,30 @@
 import type { Metadata } from 'next';
-import { DM_Mono, DM_Sans } from 'next/font/google';
+import { Figtree, Fraunces, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-const dmSans = DM_Sans({
+const figtree = Figtree({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
+  variable: '--font-figtree',
   display: 'swap',
 });
 
-const dmMono = DM_Mono({
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-fraunces',
+  display: 'swap',
+});
+
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
-  variable: '--font-dm-mono',
+  variable: '--font-jetbrains',
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'Silkview Sync — Stripe & Xero for Excel',
+  title: 'Silkview Connect — Stripe to Xero, inside Excel',
   description:
-    'Pull Stripe payouts and balance transactions into Excel, build Xero journals, and push to your ledger.',
+    'Pull Stripe balance transactions into Excel, build Xero journals, and push to your ledger.',
 };
 
 export default function RootLayout({
@@ -27,7 +33,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${dmMono.variable}`}>
+    <html
+      lang="en"
+      className={`${figtree.variable} ${fraunces.variable} ${jetbrainsMono.variable}`}
+    >
       <body className="font-sans min-h-screen">{children}</body>
     </html>
   );

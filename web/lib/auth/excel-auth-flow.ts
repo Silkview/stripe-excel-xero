@@ -1,40 +1,46 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getMfaStatus } from './mfa';
+import type { ApiResponse } from '@stripesync/shared';
+import { resolvePostAuthRedirect } from './client-post-auth-redirect';
+
+export type EnsureAccountResult = {
+  accountId: string;
+  created: boolean;
+  needsOnboarding?: boolean;
+};
 
 export async function ensureAccountProvisioned(
   accessToken?: string
-): Promise<void> {
+): Promise<EnsureAccountResult | null> {
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  await fetch('/api/auth/ensure-account', {
+  const res = await fetch('/api/auth/ensure-account', {
     method: 'POST',
     credentials: 'include',
     headers,
     body: '{}',
   });
+
+  const body = (await res.json().catch(() => null)) as ApiResponse<
+    EnsureAccountResult & { needsOnboarding?: boolean }
+  > | null;
+
+  if (body?.error?.code === 'ONBOARDING_REQUIRED') {
+    return { accountId: '', created: false, needsOnboarding: true };
+  }
+
+  if (!res.ok || !body?.success || !body.data) {
+    return null;
+  }
+
+  return body.data;
 }
 
 /** Where to navigate after password login or MFA verify in the Excel dialog. */
 export async function getExcelPostLoginPath(
   supabase: SupabaseClient
 ): Promise<string> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  try {
-    await ensureAccountProvisioned(session?.access_token);
-  } catch {
-    // Webhook may have provisioned; continue
-  }
-
-  const status = await getMfaStatus(supabase);
-  if (status.needsVerification) {
-    return '/auth/mfa/verify?return=excel';
-  }
-
-  return '/auth/excel-complete';
+  return resolvePostAuthRedirect(supabase, { excelMode: true });
 }

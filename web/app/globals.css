@@ -8,15 +8,24 @@
   }
 
   body {
-    @apply bg-bg text-text antialiased;
+    @apply bg-surface text-text antialiased;
   }
 }
 
 @layer utilities {
   .gradient-hero {
-    background:
-      radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99, 91, 255, 0.12), transparent),
-      radial-gradient(ellipse 50% 40% at 90% 20%, rgba(0, 180, 216, 0.08), transparent),
-      #f5f6fa;
+    background: linear-gradient(180deg, #f0f3fb 0%, #ffffff 100%);
+  }
+
+  .section-eyebrow {
+    @apply font-mono text-[11px] font-medium uppercase tracking-widest text-ink-3;
+  }
+
+  .section-title {
+    @apply font-serif text-[clamp(1.625rem,3.5vw,2.5rem)] font-normal leading-tight text-ink;
+  }
+
+  .section-sub {
+    @apply text-[17px] font-light text-ink-2 leading-relaxed;
   }
 }

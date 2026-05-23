@@ -24,6 +24,29 @@ export const BALANCE_TRANSACTION_HEADERS = [
   'source_id',
 ];
 
+export const PAYOUT_BALANCE_TRANSACTION_HEADERS = [
+  'payout_id',
+  'payout_arrival_date',
+  'payout_gross_amount',
+  'payout_fee_amount',
+  'payout_net_amount',
+  'payout_currency',
+  'payout_status',
+  'payout_description',
+  'payout_bank_account_last4',
+  'transaction_id',
+  'created',
+  'available_on',
+  'amount',
+  'fee',
+  'net',
+  'currency',
+  'type',
+  'reporting_category',
+  'description',
+  'source_id',
+];
+
 export const CHARGE_HEADERS = [
   'charge_id',
   'created',
@@ -40,6 +63,7 @@ export const CHARGE_HEADERS = [
 export type StripePullObjectType =
   | 'payouts'
   | 'balance_transactions'
+  | 'balance_trx_payouts'
   | 'charges';
 
 export const STRIPE_PULL_OBJECTS: Record<
@@ -55,6 +79,11 @@ export const STRIPE_PULL_OBJECTS: Record<
     label: 'Balance Transactions',
     sheet: 'Stripe_Balance_Transactions',
     endpoint: '/api/stripe/balance-transactions',
+  },
+  balance_trx_payouts: {
+    label: 'Balance Transaction Payouts',
+    sheet: 'Stripe_Balance_Trx_Payouts',
+    endpoint: '/api/stripe/balance-trx-payouts',
   },
   charges: {
     label: 'Charges',
@@ -90,6 +119,10 @@ export interface WorkbookSheetConfig {
 export const WORKBOOK_SHEETS: WorkbookSheetConfig[] = [
   { name: 'Stripe_Payouts', headers: PAYOUT_HEADERS },
   { name: 'Stripe_Balance_Transactions', headers: BALANCE_TRANSACTION_HEADERS },
+  {
+    name: 'Stripe_Balance_Trx_Payouts',
+    headers: PAYOUT_BALANCE_TRANSACTION_HEADERS,
+  },
   { name: 'Stripe_Charges', headers: CHARGE_HEADERS },
   {
     name: 'Xero_Journals',
