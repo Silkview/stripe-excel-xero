@@ -48,36 +48,52 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
         }
 
         const dialog = asyncResult.value;
+        let settled = false;
+
+        const finishResolve = (payload: Record<string, unknown>) => {
+          if (settled) return;
+          settled = true;
+          resolve(payload);
+        };
+
+        const finishReject = (err: Error) => {
+          if (settled) return;
+          settled = true;
+          reject(err);
+        };
 
         dialog.addEventHandler(
           Office.EventType.DialogMessageReceived,
           (arg) => {
             // #region agent log
-            fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:DialogMessageReceived',message:'dialog message',data:{hasMessage:'message' in arg && !!arg.message},timestamp:Date.now(),hypothesisId:'H3-H5',runId:'post-fix'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:DialogMessageReceived',message:'dialog message',data:{hasMessage:'message' in arg && !!arg.message},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
             // #endregion
-            dialog.close();
             if ('message' in arg && arg.message) {
               try {
-                const payload = JSON.parse(arg.message);
+                const payload = JSON.parse(arg.message) as Record<
+                  string,
+                  unknown
+                >;
                 if (payload.status === 'error') {
-                  reject(
+                  finishReject(
                     new Error(
-                      payload.message || 'Connection was cancelled or failed.'
+                      (typeof payload.message === 'string' && payload.message) ||
+                        'Connection was cancelled or failed.'
                     )
                   );
-                } else if (
-                  payload.status === 'signed_in' &&
-                  typeof payload.accessToken === 'string'
-                ) {
-                  resolve(payload);
                 } else {
-                  resolve(payload);
+                  finishResolve(payload);
                 }
               } catch {
-                reject(new Error('Invalid response from sign-in window.'));
+                finishReject(new Error('Invalid response from sign-in window.'));
               }
             } else {
-              reject(new Error('No response from sign-in window.'));
+              finishReject(new Error('No response from sign-in window.'));
+            }
+            try {
+              dialog.close();
+            } catch {
+              // Dialog may already be closing after messageParent.
             }
           }
         );
@@ -87,10 +103,10 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
           (arg) => {
             // #region agent log
             const errCode = 'error' in arg ? arg.error : undefined;
-            fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:DialogEventReceived',message:'dialog event',data:{errCode},timestamp:Date.now(),hypothesisId:'H3-H5',runId:'post-fix'})}).catch(()=>{});
+            fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:DialogEventReceived',message:'dialog event',data:{errCode,settled},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
             // #endregion
-            if ('error' in arg && arg.error === 12006) {
-              reject(new Error('Sign-in was cancelled.'));
+            if ('error' in arg && arg.error === 12006 && !settled) {
+              finishReject(new Error('Sign-in was cancelled.'));
             }
           }
         );

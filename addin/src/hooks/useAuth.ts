@@ -7,6 +7,18 @@ import {
 import { openAuthDialog } from '../utils/dialogAuth';
 import { getOfficeAuthOrigin } from '../utils/officeAuthUrl';
 
+async function auditDialogAuth(data: Record<string, unknown>) {
+  try {
+    await fetch(`${getOfficeAuthOrigin()}/api/auth/login-audit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    // Non-fatal
+  }
+}
+
 export function useAuth() {
   const [signedIn, setSignedIn] = useState(!!getAccessToken());
   const [loading, setLoading] = useState(false);
@@ -30,13 +42,34 @@ export function useAuth() {
       ) {
         setAccessToken(payload.accessToken);
         setSignedIn(true);
+        await auditDialogAuth({
+          location: 'useAuth:signIn',
+          message: 'dialog success',
+          data: { hasToken: true },
+          hypothesisId: 'H6',
+          runId: 'post-fix-v2',
+        });
       } else {
+        await auditDialogAuth({
+          location: 'useAuth:signIn',
+          message: 'dialog incomplete payload',
+          data: { status: payload?.status },
+          hypothesisId: 'H6',
+          runId: 'post-fix-v2',
+        });
         setError(
           'Sign-in did not finish. Use password on the Excel sign-in page, complete MFA if prompted, then return to Excel.'
         );
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Sign in failed.';
+      await auditDialogAuth({
+        location: 'useAuth:signIn',
+        message: 'dialog error',
+        data: { msg },
+        hypothesisId: 'H6',
+        runId: 'post-fix-v2',
+      });
       setError(
         msg.includes('cancelled')
           ? msg

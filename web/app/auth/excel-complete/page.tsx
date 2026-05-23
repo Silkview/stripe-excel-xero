@@ -10,6 +10,36 @@ import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import Alert from '@/components/ui/Alert';
 
+async function auditExcelComplete(data: Record<string, unknown>) {
+  try {
+    await fetch('/api/auth/login-audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    // Non-fatal
+  }
+}
+
+function sendTokenToExcel(accessToken: string): boolean {
+  const payload = JSON.stringify({
+    status: 'signed_in',
+    accessToken,
+  });
+  const addinOrigin = process.env.NEXT_PUBLIC_ADDIN_URL?.replace(/\/$/, '');
+  try {
+    if (addinOrigin) {
+      Office.context.ui.messageParent(payload, addinOrigin);
+    } else {
+      Office.context.ui.messageParent(payload);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function ExcelCompletePage() {
   const startedRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'done' | 'error'>('loading');
@@ -113,16 +143,20 @@ export default function ExcelCompletePage() {
 
         await syncBrowserSessionToServer(fallbackSession);
 
-        const payload = JSON.stringify({
-          status: 'signed_in',
-          accessToken: fallbackSession.access_token,
+        // #region agent log
+        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'excel-complete:messageParent',message:'sending token to Excel (fallback)',data:{hasOffice:typeof Office!=='undefined'},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
+        // #endregion
+        await auditExcelComplete({
+          location: 'excel-complete:messageParent',
+          message: 'sending token (fallback session)',
+          hypothesisId: 'H6',
+          runId: 'post-fix-v2',
         });
 
-        try {
-          Office.context.ui.messageParent(payload);
+        if (sendTokenToExcel(fallbackSession.access_token)) {
           setStatus('done');
           setMessage('Signed in. You can close this window and return to Excel.');
-        } catch {
+        } else {
           setStatus('error');
           setMessage(
             'Could not send the token to Excel. Close this window and try Sign in again.'
@@ -135,19 +169,20 @@ export default function ExcelCompletePage() {
         await syncBrowserSessionToServer(session);
       }
 
-      const payload = JSON.stringify({
-        status: 'signed_in',
-        accessToken: session.access_token,
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'excel-complete:messageParent',message:'sending token to Excel',data:{hasOffice:typeof Office!=='undefined'},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
+      // #endregion
+      await auditExcelComplete({
+        location: 'excel-complete:messageParent',
+        message: 'sending token',
+        hypothesisId: 'H6',
+        runId: 'post-fix-v2',
       });
 
-      try {
-        // #region agent log
-        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'excel-complete:messageParent',message:'sending token to Excel',data:{hasOffice:typeof Office!=='undefined'},timestamp:Date.now(),hypothesisId:'H3-H5'})}).catch(()=>{});
-        // #endregion
-        Office.context.ui.messageParent(payload);
+      if (sendTokenToExcel(session.access_token)) {
         setStatus('done');
         setMessage('Signed in. You can close this window and return to Excel.');
-      } catch {
+      } else {
         setStatus('error');
         setMessage(
           'Could not send the token to Excel. Close this window and try Sign in again.'
