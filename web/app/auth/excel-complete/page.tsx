@@ -1,21 +1,23 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Script from 'next/script';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 import { getMfaStatus } from '@/lib/auth/mfa';
 import { needsMfaEnrollmentSetup } from '@/lib/auth/mfa-enrollment';
 import { syncBrowserSessionToServer } from '@/lib/auth/credentials';
+import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
 import AuthShell from '@/components/auth/AuthShell';
 import Alert from '@/components/ui/Alert';
 
 export default function ExcelCompletePage() {
-  const router = useRouter();
+  const startedRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'done' | 'error'>('loading');
   const [message, setMessage] = useState('Completing sign-in…');
 
   const completeSignIn = useCallback(async () => {
+    if (startedRef.current) return;
+    startedRef.current = true;
     try {
       const supabase = createSupabaseBrowser();
       const path = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -57,7 +59,7 @@ export default function ExcelCompletePage() {
           'excel_auth_redirects',
           String(redirectCount + 1)
         );
-        router.replace('/auth/excel?step=mfa');
+        navigateExcelAuth('/auth/excel?step=mfa');
         return;
       }
 
@@ -69,7 +71,7 @@ export default function ExcelCompletePage() {
         // #region agent log
         fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'excel-complete:redirect',message:'redirect to mfa verify',data:{target:'/auth/mfa/verify?return=excel'},timestamp:Date.now(),hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
         // #endregion
-        router.replace('/auth/mfa/verify?return=excel');
+        navigateExcelAuth('/auth/mfa/verify?return=excel');
         return;
       }
 
@@ -88,7 +90,7 @@ export default function ExcelCompletePage() {
         // #region agent log
         fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'excel-complete:redirect',message:'redirect to onboarding',data:{target:'/onboarding?return=excel'},timestamp:Date.now(),hypothesisId:'H1',runId:'post-fix'})}).catch(()=>{});
         // #endregion
-        router.replace('/onboarding?return=excel');
+        navigateExcelAuth('/onboarding?return=excel');
         return;
       }
 
@@ -152,6 +154,7 @@ export default function ExcelCompletePage() {
         );
       }
     } catch (err) {
+      startedRef.current = false;
       setStatus('error');
       setMessage(
         err instanceof Error
@@ -159,11 +162,17 @@ export default function ExcelCompletePage() {
           : 'Account setup failed. Close this window and try Sign in again from Excel.'
       );
     }
-  }, [router]);
+  }, []);
 
   const onOfficeReady = useCallback(() => {
     void completeSignIn();
   }, [completeSignIn]);
+
+  useEffect(() => {
+    if (typeof Office !== 'undefined') {
+      Office.onReady(onOfficeReady);
+    }
+  }, [onOfficeReady]);
 
   return (
     <>

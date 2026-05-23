@@ -52,6 +52,9 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
         dialog.addEventHandler(
           Office.EventType.DialogMessageReceived,
           (arg) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:DialogMessageReceived',message:'dialog message',data:{hasMessage:'message' in arg && !!arg.message},timestamp:Date.now(),hypothesisId:'H3-H5',runId:'post-fix'})}).catch(()=>{});
+            // #endregion
             dialog.close();
             if ('message' in arg && arg.message) {
               try {
@@ -82,6 +85,10 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
         dialog.addEventHandler(
           Office.EventType.DialogEventReceived,
           (arg) => {
+            // #region agent log
+            const errCode = 'error' in arg ? arg.error : undefined;
+            fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'dialogAuth:DialogEventReceived',message:'dialog event',data:{errCode},timestamp:Date.now(),hypothesisId:'H3-H5',runId:'post-fix'})}).catch(()=>{});
+            // #endregion
             if ('error' in arg && arg.error === 12006) {
               reject(new Error('Sign-in was cancelled.'));
             }

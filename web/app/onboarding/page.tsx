@@ -151,8 +151,11 @@ function OnboardingInner() {
             setStep('mfa');
             return;
           }
-          const target = excelReturn ? '/auth/excel-complete' : '/dashboard';
-          router.replace(target);
+          if (excelReturn) {
+            navigateExcelAuth('/auth/excel-complete');
+          } else {
+            router.replace('/dashboard');
+          }
           return;
         }
         if (
@@ -317,7 +320,7 @@ function OnboardingInner() {
             type="button"
             variant="primary"
             className="w-full mt-6"
-            onClick={() => router.push('/auth/excel-complete')}
+            onClick={() => navigateExcelAuth('/auth/excel-complete')}
           >
             Return to Excel
           </Button>
