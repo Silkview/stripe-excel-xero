@@ -99,7 +99,7 @@ export default function BuildPanel({
   const buildDisabled = busy || !currencyReady;
 
   return (
-    <div className="p-3 flex flex-col gap-0">
+    <div className="p-3.5 flex flex-col gap-0">
       {!currencyReady && (
         <InfoRow className="mb-2 text-warn">
           Connect Xero first to set your organisation currency. Build is disabled until then.
@@ -120,7 +120,7 @@ export default function BuildPanel({
           (charges, refunds, fees + clearing). Uses Account_Mappings.
         </InfoRow>
         <Button
-          variant="primary"
+          variant="build"
           onClick={handleBuildJournals}
           disabled={buildDisabled}
           className="mt-2"
@@ -139,7 +139,7 @@ export default function BuildPanel({
           contact from Account_Mappings.
         </InfoRow>
         <Button
-          variant="primary"
+          variant="build"
           onClick={handleBuildBankTransactions}
           disabled={buildDisabled}
           className="mt-2"

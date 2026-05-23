@@ -1,52 +1,40 @@
-import WorkspaceSelect, { type WorkspaceOption } from './WorkspaceSelect';
+import { getAppUrl } from '../../utils/api';
 
-interface HeaderProps {
-  onOpenSetup: () => void;
-  workspaces?: WorkspaceOption[];
-  workspaceId?: string | null;
-  onWorkspaceChange?: (id: string) => void;
-  workspaceLoading?: boolean;
-}
-
-export default function Header({
-  onOpenSetup,
-  workspaces = [],
-  workspaceId = null,
-  onWorkspaceChange,
-  workspaceLoading,
-}: HeaderProps) {
-  const showWorkspace =
-    workspaces.length > 0 && typeof onWorkspaceChange === 'function';
+export default function Header() {
+  const dashboardUrl = getAppUrl();
 
   return (
-    <header className="bg-surface px-4 py-3.5 pb-3 border-b border-border sticky top-0 z-10">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="w-7 h-7 shrink-0 bg-stripe rounded-[7px] flex items-center justify-center text-[11px] font-bold text-white tracking-tight font-mono">
-            Sv
-          </div>
-          <span className="text-[15px] font-semibold tracking-tight truncate">
-            Silkview Sync
-          </span>
+    <header className="bg-navy px-3.5 py-2.5 flex items-center justify-between shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-[26px] h-[26px] shrink-0 bg-accent rounded-sm flex items-center justify-center">
+          <svg viewBox="0 0 13 13" fill="none" className="w-[13px] h-[13px]" aria-hidden>
+            <path
+              d="M2 4h9M2 6.5h9M2 9h5.5"
+              stroke="white"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <circle cx="10.5" cy="9" r="2.5" fill="#06B3E8" />
+          </svg>
         </div>
-        <button
-          type="button"
-          onClick={onOpenSetup}
-          className="w-[30px] h-[30px] shrink-0 border border-border bg-bg rounded-sm flex items-center justify-center cursor-pointer text-text-2 text-sm hover:bg-border hover:text-text transition-colors"
-          title="Setup"
-          aria-label="Setup"
-        >
-          ⚙
-        </button>
+        <span className="text-sm font-semibold text-white tracking-tight">
+          Silkview <span className="font-normal text-white/50">Connect</span>
+        </span>
       </div>
-      {showWorkspace && (
-        <WorkspaceSelect
-          workspaces={workspaces}
-          workspaceId={workspaceId}
-          onChange={onWorkspaceChange}
-          loading={workspaceLoading}
-        />
-      )}
+      <a
+        href={dashboardUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1 px-2.5 py-1 rounded-sm bg-white/10 border border-white/15 text-[11.5px] font-medium text-white/75 no-underline hover:bg-white/[0.18] hover:text-white transition-colors shrink-0"
+      >
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <path
+            d="M6 2H2v5h4V2zM14 2h-4v3h4V2zM14 9h-4v5h4V9zM6 11H2v3h4v-3z"
+            fill="currentColor"
+          />
+        </svg>
+        Dashboard ↗
+      </a>
     </header>
   );
 }

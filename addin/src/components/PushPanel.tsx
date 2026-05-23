@@ -241,7 +241,7 @@ export default function PushPanel({
   };
 
   return (
-    <div className="p-3 flex flex-col gap-0">
+    <div className="p-3.5 flex flex-col gap-0">
       {!currencyReady && (
         <InfoRow className="mb-2 text-warn">
           Connect Xero first to set your organisation currency. Push is disabled until then.
@@ -252,28 +252,30 @@ export default function PushPanel({
           Journals and bank transactions post in {defaultCurrency} only.
         </InfoRow>
       )}
-      <div className="flex gap-1 mb-2.5 p-0.5 bg-bg rounded-sm border border-border">
+      <div className="grid grid-cols-2 gap-1.5 mb-2.5">
         <button
           type="button"
           onClick={() => setPushType('journals')}
-          className={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-[3px] border-none cursor-pointer transition-colors ${
+          className={`py-2 px-2 text-[11.5px] font-medium rounded-lg border cursor-pointer transition-colors ${
             pushType === 'journals'
-              ? 'bg-surface text-text shadow-sm'
-              : 'bg-transparent text-text-3'
+              ? 'border-xero bg-xero-light text-xero-dark'
+              : 'border-border bg-white text-ink-2'
           }`}
         >
-          Manual Journals
+          <div className="text-base mb-0.5">📒</div>
+          Manual journals
         </button>
         <button
           type="button"
           onClick={() => setPushType('bank')}
-          className={`flex-1 py-1.5 px-2 text-[11px] font-semibold rounded-[3px] border-none cursor-pointer transition-colors ${
+          className={`py-2 px-2 text-[11.5px] font-medium rounded-lg border cursor-pointer transition-colors ${
             pushType === 'bank'
-              ? 'bg-surface text-text shadow-sm'
-              : 'bg-transparent text-text-3'
+              ? 'border-xero bg-xero-light text-xero-dark'
+              : 'border-border bg-white text-ink-2'
           }`}
         >
-          Bank Transactions
+          <div className="text-base mb-0.5">🏦</div>
+          Bank transactions
         </button>
       </div>
 
@@ -303,7 +305,7 @@ export default function PushPanel({
             </select>
           </Field>
           <Button
-            variant="xero"
+            variant="push"
             onClick={handlePushJournals}
             disabled={pushing || !pushEnabled}
             className="mt-2"
@@ -335,7 +337,7 @@ export default function PushPanel({
           </Field>
           <InfoRow>Receive Money · AUTHORISED · skips pushed rows · errors in column {BANK_PUSH_STATUS_COL}.</InfoRow>
           <Button
-            variant="xero"
+            variant="push"
             onClick={handlePushBank}
             disabled={pushing || !pushEnabled}
             className="mt-2"

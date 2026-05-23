@@ -1,43 +1,62 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  --ink: #0b0f1a;
+  --ink2: #48506a;
+  --ink3: #8f96ad;
+  --rule: #e2e6f0;
+  --rule2: #f0f3fa;
+  --bg: #f4f6fb;
+  --white: #fff;
+  --accent: #2563eb;
+  --accent-l: #eef4ff;
+  --xero: #06b3e8;
+  --xero-d: #0499c9;
+  --xero-l: #e6f8fd;
   --stripe: #635bff;
-  --stripe-light: #eef0ff;
-  --xero: #00b4d8;
-  --xero-dark: #0099bb;
-  --xero-light: #e0f7fc;
-  --success: #12a05c;
-  --success-bg: #e8f8f1;
-  --warn: #e07b39;
-  --warn-bg: #fdf0e7;
-  --text: #0d0f12;
-  --text-2: #5a6072;
-  --text-3: #9aa0b0;
-  --border: #e8eaf0;
-  --bg: #f5f6fa;
-  --surface: #ffffff;
-  --radius: 10px;
-  --radius-sm: 6px;
+  --stripe-d: #4e47e5;
+  --stripe-l: #eeeeff;
+  --green: #16a34a;
+  --green-l: #f0fdf4;
+  --amber: #d97706;
+  --amber-l: #fffbeb;
+  --red: #dc2626;
+  --red-l: #fef2f2;
+  --navy: #1a2547;
+  --sans: 'Figtree', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --r: 9px;
+  /* legacy aliases */
+  --text: var(--ink);
+  --text-2: var(--ink2);
+  --text-3: var(--ink3);
+  --border: var(--rule);
+  --surface: var(--white);
+  --success: var(--green);
+  --success-bg: var(--green-l);
+  --warn: var(--amber);
+  --warn-bg: var(--amber-l);
 }
 
 body {
   margin: 0;
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--sans);
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text);
+  color: var(--ink);
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {
-  min-width: 300px;
-  max-width: 300px;
+  min-width: 360px;
+  max-width: 360px;
 }
 
 .font-mono {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--mono);
 }

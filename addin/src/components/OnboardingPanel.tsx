@@ -50,7 +50,7 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
   if (onboarding.loading) {
     return (
       <div className="min-h-screen bg-bg p-4 font-sans text-text">
-        <Header onOpenSetup={() => {}} />
+        <Header />
         <p className="text-sm text-text-2">Loading setup…</p>
       </div>
     );
@@ -58,7 +58,7 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
 
   return (
     <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
-      <Header onOpenSetup={() => {}} />
+      <Header />
       <h2 className="text-lg font-semibold mt-2">Connect your accounts</h2>
       <p className="text-sm text-text-2 mt-1 mb-4">
         Your workspace is ready. Connect <strong>your</strong> Xero organisation

@@ -19,10 +19,10 @@ export default function Card({
 }: CardProps) {
   return (
     <div
-      className={`bg-surface border border-border rounded overflow-hidden mb-2.5 ${className}`}
+      className={`bg-white border border-border rounded overflow-hidden mb-2.5 last:mb-0 ${className}`}
     >
-      <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
-        <div className="text-xs font-semibold flex items-center gap-1.5">
+      <div className="px-3 py-2.5 bg-bg border-b border-border flex items-center justify-between gap-2">
+        <div className="text-[12.5px] font-semibold flex items-center gap-1.5 text-ink">
           {icon && (
             <span
               className={`w-[22px] h-[22px] rounded-[5px] flex items-center justify-center text-xs ${iconClass}`}

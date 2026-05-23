@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type {
   StripeBalanceTransactionRow,
   StripeChargeRow,
@@ -7,11 +7,9 @@ import type {
   StripePayoutRow,
   StripePullResponse,
 } from '@stripesync/shared';
-import Card from './ui/Card';
 import Button from './ui/Button';
 import Field from './ui/Field';
 import ResultBar from './ui/ResultBar';
-import Badge from './ui/Badge';
 import InfoRow from './ui/InfoRow';
 import { apiGetWithStripeAccount } from '../utils/api';
 import { friendlyError } from '../utils/errorMessages';
@@ -185,8 +183,7 @@ function truncateId(id: string, len = 12): string {
 
 interface StripePanelProps {
   stripeConnected: boolean;
-  stripeConnections: StripeConnectionItem[];
-  defaultStripeAccountId?: string;
+  selectedList: StripeConnectionItem[];
   currencyReady: boolean;
   defaultCurrency?: string;
   onPulled?: () => void;
@@ -194,8 +191,7 @@ interface StripePanelProps {
 
 export default function StripePanel({
   stripeConnected,
-  stripeConnections,
-  defaultStripeAccountId,
+  selectedList,
   currencyReady,
   defaultCurrency,
   onPulled,
@@ -208,56 +204,12 @@ export default function StripePanel({
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState(false);
-  const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(
-    new Set()
-  );
-
-  const initSelection = useCallback(() => {
-    if (!stripeConnections.length) {
-      setSelectedAccountIds(new Set());
-      return;
-    }
-    const defaultId =
-      defaultStripeAccountId ??
-      stripeConnections.find((c) => c.isDefault)?.stripeAccountId ??
-      stripeConnections[0]?.stripeAccountId;
-    setSelectedAccountIds(defaultId ? new Set([defaultId]) : new Set());
-  }, [stripeConnections, defaultStripeAccountId]);
-
-  useEffect(() => {
-    initSelection();
-  }, [initSelection]);
 
   useEffect(() => {
     setDestination(defaultDestination(objectType));
   }, [objectType]);
 
   const pullConfig = STRIPE_PULL_OBJECTS[objectType];
-  const selectedList = stripeConnections.filter((c) =>
-    selectedAccountIds.has(c.stripeAccountId)
-  );
-
-  const toggleAccount = (stripeAccountId: string) => {
-    setSelectedAccountIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(stripeAccountId)) {
-        next.delete(stripeAccountId);
-      } else {
-        next.add(stripeAccountId);
-      }
-      return next;
-    });
-  };
-
-  const selectAllAccounts = () => {
-    setSelectedAccountIds(
-      new Set(stripeConnections.map((c) => c.stripeAccountId))
-    );
-  };
-
-  const clearAccountSelection = () => {
-    setSelectedAccountIds(new Set());
-  };
 
   const handlePull = async () => {
     if (!selectedList.length) {
@@ -374,85 +326,31 @@ export default function StripePanel({
   };
 
   return (
-    <div className="p-3">
-      <Card
-        title="Pull from Stripe"
-        icon="↓"
-        iconClass="bg-stripe-light text-stripe"
-        badge={
-          stripeConnected ? (
-            <Badge variant="success">Connected</Badge>
-          ) : (
-            <Badge variant="warn">Connect Stripe</Badge>
-          )
-        }
-      >
-        {!currencyReady && (
-          <InfoRow className="mb-2 text-warn">
-            Connect Xero first to set your organisation currency. Pull is disabled until then.
-          </InfoRow>
-        )}
-        {currencyReady && defaultCurrency && (
-          <InfoRow className="mb-2">
-            Only {defaultCurrency} rows are pulled (from your Xero organisation).
-          </InfoRow>
-        )}
+    <div className="p-3.5">
+      {!stripeConnected && (
+        <InfoRow variant="amber">Connect Stripe above to pull data.</InfoRow>
+      )}
+      {stripeConnected && selectedList.length === 0 && (
+        <InfoRow variant="amber">Select one or more Stripe accounts above.</InfoRow>
+      )}
+      {!currencyReady && (
+        <InfoRow variant="amber">
+          Connect Xero first to set your organisation currency. Pull is disabled until then.
+        </InfoRow>
+      )}
+      {currencyReady && defaultCurrency && (
+        <InfoRow>
+          Only {defaultCurrency} rows are pulled (from your Xero organisation).
+        </InfoRow>
+      )}
 
-        {stripeConnections.length > 0 && (
-          <Field label="Stripe accounts">
-            {stripeConnections.length > 1 && (
-              <div className="flex gap-2 mb-1.5">
-                <button
-                  type="button"
-                  onClick={selectAllAccounts}
-                  className="text-[10px] font-semibold text-stripe"
-                >
-                  Select all
-                </button>
-                <button
-                  type="button"
-                  onClick={clearAccountSelection}
-                  className="text-[10px] font-semibold text-text-3"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-            <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto border border-border rounded-sm p-2 bg-bg">
-              {stripeConnections.map((c) => {
-                const label = c.displayName ?? c.stripeAccountId;
-                const checked = selectedAccountIds.has(c.stripeAccountId);
-                return (
-                  <label
-                    key={c.id}
-                    className="flex items-start gap-2 text-xs cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleAccount(c.stripeAccountId)}
-                      className="mt-0.5 shrink-0"
-                    />
-                    <span className="min-w-0">
-                      <span className="font-medium text-text">{label}</span>
-                      <span className="block font-mono text-[10px] text-text-3 truncate">
-                        {truncateId(c.stripeAccountId, 20)}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </Field>
-        )}
-
-        <Field label="Object" className="mt-2">
+      <Field label="Object">
           <select
             value={objectType}
             onChange={(e) =>
               setObjectType(e.target.value as StripePullObjectType)
             }
-            className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
+            className="w-full border border-border rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(37,99,235,0.07)]"
           >
             {(Object.keys(STRIPE_PULL_OBJECTS) as StripePullObjectType[]).map(
               (key) => (
@@ -464,54 +362,53 @@ export default function StripePanel({
           </select>
         </Field>
 
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <Field label="From">
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
-            />
-          </Field>
-          <Field label="To">
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
-            />
-          </Field>
-        </div>
-
-        <InfoRow className="mt-2 mb-0">
-          Max {MAX_STRIPE_PULL_DAYS} days per pull and {MAX_STRIPE_PULL_ROWS.toLocaleString()}{' '}
-          rows total on the sheet. Each selected account is pulled separately, then merged and sorted by Stripe account, date, and type.
-        </InfoRow>
-
-        <Field label="Destination" className="mt-2">
+      <div className="grid grid-cols-2 gap-2">
+        <Field label="From">
           <input
-            type="text"
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            className="w-full border border-border rounded-sm px-2 py-1.5 text-xs font-mono bg-surface"
-            spellCheck={false}
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="w-full border border-border rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none focus:border-accent"
           />
         </Field>
+        <Field label="To">
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="w-full border border-border rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none focus:border-accent"
+          />
+        </Field>
+      </div>
 
-        <Button
-          variant="primary"
-          onClick={handlePull}
-          disabled={
-            !stripeConnected ||
-            !currencyReady ||
-            loading ||
-            selectedList.length === 0
-          }
-          className="mt-2"
-        >
-          {loading ? 'Pulling…' : '↓ Pull to sheet'}
-        </Button>
-      </Card>
+      <InfoRow>
+        Max {MAX_STRIPE_PULL_DAYS} days per pull and {MAX_STRIPE_PULL_ROWS.toLocaleString()}{' '}
+        rows total. Each selected account is pulled separately, then merged and sorted.
+      </InfoRow>
+
+      <Field label="Destination">
+        <input
+          type="text"
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+          className="w-full border border-border rounded-lg px-2.5 py-2 text-[11.5px] font-mono text-accent bg-white outline-none focus:border-accent"
+          spellCheck={false}
+        />
+      </Field>
+
+      <Button
+        variant="primary"
+        onClick={handlePull}
+        disabled={
+          !stripeConnected ||
+          !currencyReady ||
+          loading ||
+          selectedList.length === 0
+        }
+        className="mt-1"
+      >
+        {loading ? 'Pulling…' : 'Pull to sheet'}
+      </Button>
 
       {(statusMessage || loading) && (
         <ResultBar variant={statusError ? 'warn' : 'success'}>
