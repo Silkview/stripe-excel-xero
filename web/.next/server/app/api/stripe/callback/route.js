@@ -19,7 +19,7 @@
   });
 </script>
 </body>
-</html>`}function c(e,t){return o({status:"error",provider:e,message:t})}function u(e){let t=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),r=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function c(e,t){return o({status:"error",provider:e,message:t})}function u(e,t){let r=JSON.stringify(t??"").replace(/</g,"\\u003c"),n=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),a=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -32,9 +32,19 @@
 <p id="status">Returning to Excel…</p>
 <script>
   Office.onReady(function() {
-    var signedInPayload = ${t};
-    var handoffReadyPayload = ${r};
+    var signedInPayload = ${n};
+    var handoffReadyPayload = ${a};
+    var handoffNonce = ${r};
     var attempts = 0;
+    function persistHandoffThen(cb) {
+      if (!handoffNonce) { cb(); return; }
+      fetch('/api/auth/excel-handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ nonce: handoffNonce, accessToken: signedInPayload.accessToken })
+      }).finally(cb);
+    }
     function sendToParent(payload) {
       try {
         if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
@@ -45,12 +55,14 @@
       return false;
     }
     function retry() {
-      sendToParent(signedInPayload);
-      sendToParent(handoffReadyPayload);
-      var el = document.getElementById('status');
-      if (el) el.textContent = 'Returning to Excel…';
-      attempts += 1;
-      if (attempts < 25) setTimeout(retry, 200);
+      persistHandoffThen(function() {
+        sendToParent(signedInPayload);
+        sendToParent(handoffReadyPayload);
+        var el = document.getElementById('status');
+        if (el) el.textContent = 'Returning to Excel…';
+        attempts += 1;
+        if (attempts < 25) setTimeout(retry, 200);
+      });
     }
     retry();
   });

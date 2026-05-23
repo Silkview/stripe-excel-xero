@@ -12,9 +12,9 @@ export async function POST(request: Request) {
       ...body,
       timestamp: Date.now(),
     });
-    if (process.env.NODE_ENV !== 'production') {
+    try {
       await appendFile(LOG_PATH, `${line}\n`);
-    } else {
+    } catch {
       console.log('[excel-auth-audit]', line);
     }
   } catch {

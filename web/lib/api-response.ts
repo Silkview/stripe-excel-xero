@@ -69,7 +69,11 @@ export function authCallbackErrorHtml(provider: string, message: string): string
 }
 
 /** Office dialog page that returns the Supabase access token to the Excel task pane. */
-export function authExcelSignInHtml(accessToken: string): string {
+export function authExcelSignInHtml(
+  accessToken: string,
+  handoffNonce?: string | null
+): string {
+  const handoffJson = JSON.stringify(handoffNonce ?? '').replace(/</g, '\\u003c');
   const signedInJson = JSON.stringify({ status: 'signed_in', accessToken }).replace(
     /</g,
     '\\u003c'
@@ -93,7 +97,17 @@ export function authExcelSignInHtml(accessToken: string): string {
   Office.onReady(function() {
     var signedInPayload = ${signedInJson};
     var handoffReadyPayload = ${handoffReadyJson};
+    var handoffNonce = ${handoffJson};
     var attempts = 0;
+    function persistHandoffThen(cb) {
+      if (!handoffNonce) { cb(); return; }
+      fetch('/api/auth/excel-handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ nonce: handoffNonce, accessToken: signedInPayload.accessToken })
+      }).finally(cb);
+    }
     function sendToParent(payload) {
       try {
         if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
@@ -104,12 +118,14 @@ export function authExcelSignInHtml(accessToken: string): string {
       return false;
     }
     function retry() {
-      sendToParent(signedInPayload);
-      sendToParent(handoffReadyPayload);
-      var el = document.getElementById('status');
-      if (el) el.textContent = 'Returning to Excel…';
-      attempts += 1;
-      if (attempts < 25) setTimeout(retry, 200);
+      persistHandoffThen(function() {
+        sendToParent(signedInPayload);
+        sendToParent(handoffReadyPayload);
+        var el = document.getElementById('status');
+        if (el) el.textContent = 'Returning to Excel…';
+        attempts += 1;
+        if (attempts < 25) setTimeout(retry, 200);
+      });
     }
     retry();
   });

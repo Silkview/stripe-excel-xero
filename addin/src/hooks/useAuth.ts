@@ -7,7 +7,9 @@ import {
 import { openAuthDialog } from '../utils/dialogAuth';
 import {
   getOfficeAuthOrigin,
+  getHandoffPollOrigin,
   isMisconfiguredAuthOrigin,
+  verifyHandoffPollReachable,
 } from '../utils/officeAuthUrl';
 
 const HANDOFF_TIMEOUT_MS = 90_000;
@@ -74,7 +76,7 @@ type HandoffPoller = {
 
 function startExcelHandoffPoll(
   handoff: string,
-  origin: string,
+  pollOrigin: string,
   maxMs = HANDOFF_TIMEOUT_MS,
   intervalMs = HANDOFF_POLL_MS
 ): HandoffPoller {
@@ -83,10 +85,10 @@ function startExcelHandoffPoll(
   let pollCount = 0;
 
   const pollNow = async (): Promise<string | null> => {
-    const result = await fetchHandoffToken(handoff, origin);
+    const result = await fetchHandoffToken(handoff, pollOrigin);
     lastPoll = result;
   // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:poll',message:'handoff poll',data:{pollCount,status:result.ok?200:result.status,ready:result.ok||result.ready,originHost:origin.replace(/^https?:\/\//,'')},timestamp:Date.now(),hypothesisId:'H1-H2'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:poll',message:'handoff poll',data:{pollCount,status:result.ok?200:result.status,ready:result.ok||result.ready,pollOrigin:pollOrigin.replace(/^https?:\/\//,'')},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
   // #endregion
     pollCount += 1;
     return result.ok ? result.token : null;
@@ -110,7 +112,7 @@ function startExcelHandoffPoll(
           location: 'useAuth:handoff',
           message: 'handoff timeout',
           data: {
-            origin,
+            pollOrigin,
             handoff,
             pollCount,
             lastStatus: lastPoll.ok ? 200 : lastPoll.status,
@@ -155,10 +157,10 @@ function startExcelHandoffPoll(
  */
 async function acquireExcelSessionToken(
   loginUrl: string,
-  handoff: string,
-  origin: string
+  handoff: string
 ): Promise<{ token: string; via: 'dialog' | 'handoff'; authDialog: { close: () => void } }> {
-  const handoffPoll = startExcelHandoffPoll(handoff, origin);
+  const pollOrigin = getHandoffPollOrigin();
+  const handoffPoll = startExcelHandoffPoll(handoff, pollOrigin);
   let settled = false;
 
   let resolveExternal: (v: { token: string; via: 'dialog' | 'handoff' }) => void;
@@ -174,11 +176,15 @@ async function acquireExcelSessionToken(
     onHandoffReady: () => {
       handoffPoll.wake();
       void (async () => {
-        const token = await handoffPoll.pollNow();
-        if (token && !settled) {
-          settled = true;
-          resolveExternal({ token, via: 'handoff' });
-          authDialog.close();
+        for (let i = 0; i < 12 && !settled; i++) {
+          const token = await handoffPoll.pollNow();
+          if (token) {
+            settled = true;
+            resolveExternal({ token, via: 'handoff' });
+            authDialog.close();
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 100));
         }
       })();
     },
@@ -211,10 +217,11 @@ export function useAuth() {
     setError(null);
     const handoff = crypto.randomUUID();
     const origin = getOfficeAuthOrigin();
+    const pollOrigin = getHandoffPollOrigin();
     const loginUrl = `${origin}/auth/excel?handoff=${encodeURIComponent(handoff)}`;
 
     // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'start',data:{origin,handoff,taskpaneOrigin:typeof window!=='undefined'?window.location?.origin:null,misconfigured:isMisconfiguredAuthOrigin()},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'useAuth:signIn',message:'start',data:{origin,pollOrigin,handoff,taskpaneOrigin:typeof window!=='undefined'?window.location?.origin:null},timestamp:Date.now(),hypothesisId:'H6',runId:'post-fix-v2'})}).catch(()=>{});
     // #endregion
 
     if (isMisconfiguredAuthOrigin()) {
@@ -225,10 +232,17 @@ export function useAuth() {
       return;
     }
 
+    const handoffReachable = await verifyHandoffPollReachable();
+    if (!handoffReachable.ok) {
+      setError(handoffReachable.message ?? 'Sign-in API is not reachable.');
+      setLoading(false);
+      return;
+    }
+
     let authDialog: { close: () => void } | null = null;
 
     try {
-      const acquired = await acquireExcelSessionToken(loginUrl, handoff, origin);
+      const acquired = await acquireExcelSessionToken(loginUrl, handoff);
       authDialog = acquired.authDialog;
       const { token, via } = acquired;
 

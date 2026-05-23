@@ -97,7 +97,7 @@ export async function GET(request: Request) {
       })
     );
 
-    return new NextResponse(authExcelSignInHtml(session.access_token), {
+    return new NextResponse(authExcelSignInHtml(session.access_token, handoffNonce), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },
     });
   } catch (err) {
