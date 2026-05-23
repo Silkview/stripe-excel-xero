@@ -12,8 +12,8 @@
   <HighResolutionIconUrl DefaultValue="https://localhost:4000/icon-64.png"/>
   <SupportUrl DefaultValue="https://github.com"/>
   <AppDomains>
-    <AppDomain>https://localhost:4000</AppDomain>
-    <AppDomain>http://localhost:4003</AppDomain>
+    <AppDomain>https://addin.silkview.org<AppDomain>
+    <AppDomain>https://silkview.org</AppDomain>
     <AppDomain>https://connect.stripe.com</AppDomain>
     <AppDomain>https://login.xero.com</AppDomain>
   </AppDomains>
@@ -21,7 +21,7 @@
     <Host Name="Workbook"/>
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://localhost:4000/taskpane.html"/>
+    <SourceLocation DefaultValue="https://addin.silkview.org/taskpane.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
 </OfficeApp>

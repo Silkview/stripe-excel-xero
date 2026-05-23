@@ -1,5 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabaseAdmin } from '@/lib/supabase/admin';
+import {
+  createSupabaseAdmin,
+  type AdminClient,
+} from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
 
 export type AccountMembershipRow = {
@@ -11,6 +13,8 @@ export type WorkspaceRow = {
   id: string;
 };
 
+type DbClient = AdminClient;
+
 function isUniqueViolation(error: { code?: string } | null): boolean {
   return error?.code === '23505';
 }
@@ -18,7 +22,7 @@ function isUniqueViolation(error: { code?: string } | null): boolean {
 /** One membership per user; never use maybeSingle on user_id (breaks when duplicates exist). */
 export async function getPrimaryAccountMembership(
   userId: string,
-  client?: SupabaseClient
+  client?: DbClient
 ): Promise<AccountMembershipRow | null> {
   const supabase = client ?? createSupabaseAdmin();
   const { data, error } = await core(supabase)
@@ -42,7 +46,7 @@ export async function getPrimaryAccountMembership(
 /** Primary workspace for an account (oldest by created_at). */
 export async function getPrimaryWorkspaceForAccount(
   accountId: string,
-  client?: SupabaseClient
+  client?: DbClient
 ): Promise<WorkspaceRow | null> {
   const supabase = client ?? createSupabaseAdmin();
   const { data, error } = await core(supabase)
@@ -64,7 +68,7 @@ export async function getPrimaryWorkspaceForAccount(
 export async function findWorkspaceByNameForAccount(
   accountId: string,
   workspaceName: string,
-  client?: SupabaseClient
+  client?: DbClient
 ): Promise<WorkspaceRow | null> {
   const supabase = client ?? createSupabaseAdmin();
   const normalized = workspaceName.trim().toLowerCase();
@@ -86,7 +90,7 @@ export async function findWorkspaceByNameForAccount(
 
 export async function markOnboardingCompletedIfNull(
   accountId: string,
-  client?: SupabaseClient
+  client?: DbClient
 ): Promise<void> {
   const supabase = client ?? createSupabaseAdmin();
   await core(supabase)
@@ -98,7 +102,7 @@ export async function markOnboardingCompletedIfNull(
 
 export async function deleteOrphanAccount(
   accountId: string,
-  client?: SupabaseClient
+  client?: DbClient
 ): Promise<void> {
   const supabase = client ?? createSupabaseAdmin();
   const { count } = await core(supabase)

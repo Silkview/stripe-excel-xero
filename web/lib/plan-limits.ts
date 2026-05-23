@@ -39,7 +39,7 @@ export async function enforceLimit(
     {
       p_account_id: accountId,
       p_resource: resource,
-      p_workspace_id: workspaceId ?? null,
+      p_workspace_id: workspaceId ?? undefined,
     }
   );
 

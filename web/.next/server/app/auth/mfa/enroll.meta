@@ -1,0 +1,5 @@
+{
+  "headers": {
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/auth/layout,_N_T_/auth/mfa/layout,_N_T_/auth/mfa/enroll/layout,_N_T_/auth/mfa/enroll/page,_N_T_/auth/mfa/enroll"
+  }
+}

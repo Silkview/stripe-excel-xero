@@ -46,7 +46,8 @@ export async function enrollTotp(supabase: SupabaseClient) {
 export async function prepareTotpEnrollment(supabase: SupabaseClient) {
   const { data: factorsData } = await supabase.auth.mfa.listFactors();
   const stale =
-    factorsData?.totp?.filter((f) => f.status === 'unverified') ?? [];
+    factorsData?.totp?.filter((f) => (f.status as string) === 'unverified') ??
+    [];
   for (const factor of stale) {
     await supabase.auth.mfa.unenroll({ factorId: factor.id });
   }

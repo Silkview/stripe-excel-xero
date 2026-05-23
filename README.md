@@ -130,7 +130,7 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
 
 ## Deploy (Vercel)
 
-1. Deploy the `web/` app (root `web/vercel.json` builds addin + web).
+1. Create a Vercel project with **Root Directory** = `web`. Leave **Output Directory** empty (do not set `.next` — that causes platform 404 on all routes). [`web/vercel.json`](web/vercel.json) runs `npm install` from the monorepo root and builds the web workspace only; host the add-in separately (see step 6).
 2. Set all `web/.env` variables in Vercel.
 3. Point Stripe/Xero redirect URIs to production:
 

@@ -8,6 +8,7 @@ const PUBLIC_PREFIXES = [
   '/auth/callback',
   '/auth/mfa',
   '/auth/excel-complete',
+  '/auth/invite',
   '/api/auth/signup',
   '/api/auth/session',
   '/api/auth/signin-hint',

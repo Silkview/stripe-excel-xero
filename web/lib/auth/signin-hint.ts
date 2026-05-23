@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type SignInHint = {
   userFound: boolean;
@@ -7,8 +6,10 @@ export type SignInHint = {
 };
 
 /** Service-role lookup in auth.users (no email logged). */
+import type { AdminClient } from '@/lib/supabase/admin';
+
 export async function lookupAuthUserByEmail(
-  admin: SupabaseClient,
+  admin: AdminClient,
   email: string
 ): Promise<SignInHint> {
   const normalized = email.trim().toLowerCase();
