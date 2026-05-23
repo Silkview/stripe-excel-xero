@@ -27,7 +27,7 @@ import {
   parseDestination,
   activateWorksheet,
 } from '../utils/officeHelpers';
-import { formatBalanceTrxPayoutsForSheet } from '../utils/stripeBalanceTrxPayoutsSheet';
+import { formatBalanceTrxPayoutsTaggedForSheet } from '../utils/stripeBalanceTrxPayoutsSheet';
 
 function getCurrentMonthRange(): { from: string; to: string } {
   const now = new Date();
@@ -157,35 +157,7 @@ function mapRowsToSheetData(
         ]),
       };
     case 'balance_trx_payouts':
-      return {
-        headers: pullMeta.displayHeaders,
-        data: tagged.map(({ row, account }) => {
-          const r = row as StripePayoutBalanceTransactionRow;
-          return [
-            ...accountPrefix(account),
-            r.payout_id,
-            r.payout_arrival_date,
-            r.payout_gross_amount,
-            r.payout_fee_amount,
-            r.payout_net_amount,
-            r.payout_currency,
-            r.payout_status,
-            r.payout_description,
-            r.payout_bank_account_last4,
-            r.transaction_id,
-            r.created,
-            r.available_on,
-            r.amount,
-            r.fee,
-            r.net,
-            r.currency,
-            r.type,
-            r.reporting_category,
-            r.description,
-            r.source_id,
-          ];
-        }),
-      };
+      throw new Error('balance_trx_payouts uses grouped sheet formatter');
     case 'charges':
       return {
         headers: pullMeta.displayHeaders,
@@ -346,21 +318,15 @@ export default function StripePanel({
       let headers: string[];
       let data: unknown[][];
 
-      if (
-        objectType === 'balance_trx_payouts' &&
-        selectedList.length === 1 &&
-        allTagged.length > 0
-      ) {
-        const conn = selectedList[0];
-        const payoutRows = allTagged.map(
-          (t) => t.row as StripePayoutBalanceTransactionRow
+      if (objectType === 'balance_trx_payouts' && allTagged.length > 0) {
+        const payoutTagged = allTagged.map((t) => ({
+          row: t.row as StripePayoutBalanceTransactionRow,
+          account: t.account,
+        }));
+        data = formatBalanceTrxPayoutsTaggedForSheet(
+          payoutTagged,
+          pullConfig.sheetKeys.length
         );
-        const colCount = pullConfig.sheetKeys.length;
-        const prefix: [string, string] = [
-          conn.stripeAccountId,
-          conn.displayName ?? conn.stripeAccountId,
-        ];
-        data = formatBalanceTrxPayoutsForSheet(payoutRows, colCount, prefix);
         headers = pullConfig.displayHeaders;
         const rowError = stripePullRowCountError(data.length);
         if (rowError) {
