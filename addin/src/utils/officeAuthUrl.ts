@@ -40,14 +40,69 @@ export function isMisconfiguredAuthOrigin(): boolean {
 }
 
 /**
+ * Axios base URL for authenticated API calls from the task pane.
+ * Same-origin via add-in /api/* proxy — Excel WebView often blocks cross-origin XHR to www.
+ */
+export function getApiBase(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  const fromEnv = (import.meta.env.VITE_API_URL as string | undefined)?.replace(
+    /\/$/,
+    ''
+  );
+  return fromEnv || '';
+}
+
+/**
  * Poll excel-handoff from the task-pane origin (same-origin via addin vercel rewrite).
  * Excel often blocks cross-origin fetch from the task pane to www even when CORS allows it.
  */
 export function getHandoffPollOrigin(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
+  return getApiBase() || getOfficeAuthOrigin();
+}
+
+async function probeJsonApi(path: string): Promise<{
+  ok: boolean;
+  message?: string;
+}> {
+  const base = getApiBase();
+  if (!base) {
+    return { ok: false, message: 'Task pane origin is unknown.' };
   }
-  return getOfficeAuthOrigin();
+  try {
+    const res = await fetch(`${base}${path}`);
+    const text = await res.text();
+    if (res.status === 404 || text.includes('NOT_FOUND')) {
+      return {
+        ok: false,
+        message:
+          'Add-in API proxy is not deployed. Redeploy the add-in Vercel project (needs addin/api/), then reload Excel.',
+      };
+    }
+    if (!text.includes('"success"')) {
+      return {
+        ok: false,
+        message: `API at ${base}${path} did not return JSON. Redeploy the add-in project.`,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      message: `Cannot reach API at ${base}. Check network and redeploy the add-in.`,
+    };
+  }
+}
+
+/** Confirms same-origin /api/* proxy works (required after sign-in for onboarding, Stripe, Xero). */
+export async function verifyTaskpaneApiReachable(): Promise<{
+  ok: boolean;
+  message?: string;
+}> {
+  const onboarding = await probeJsonApi('/api/onboarding/status');
+  if (!onboarding.ok) return onboarding;
+  return probeJsonApi('/api/stripe/status');
 }
 
 /** Confirms add-in can reach handoff API (requires addin/vercel.json proxy on Vercel). */

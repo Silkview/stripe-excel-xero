@@ -33,7 +33,7 @@ export function useXeroAuth(enabled: boolean) {
     setError(null);
     setWaitingForBrowser(false);
     try {
-      const connectRes = await apiGet<{ url: string }>('/auth/xero/connect');
+      const connectRes = await apiGet<{ url: string }>('/api/xero/connect');
       if (!connectRes.success || !connectRes.data?.url) {
         setError(friendlyError(connectRes));
         return;

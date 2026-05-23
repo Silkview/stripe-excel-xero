@@ -5,11 +5,13 @@ import {
   clearSession,
 } from '../utils/session';
 import { openAuthDialog } from '../utils/dialogAuth';
+import { apiGet } from '../utils/api';
 import {
   getOfficeAuthOrigin,
   getHandoffPollOrigin,
   isMisconfiguredAuthOrigin,
   verifyHandoffPollReachable,
+  verifyTaskpaneApiReachable,
 } from '../utils/officeAuthUrl';
 
 const HANDOFF_TIMEOUT_MS = 90_000;
@@ -239,6 +241,13 @@ export function useAuth() {
       return;
     }
 
+    const apiReachable = await verifyTaskpaneApiReachable();
+    if (!apiReachable.ok) {
+      setError(apiReachable.message ?? 'Add-in API is not reachable.');
+      setLoading(false);
+      return;
+    }
+
     let authDialog: { close: () => void } | null = null;
 
     try {
@@ -247,17 +256,18 @@ export function useAuth() {
       const { token, via } = acquired;
 
       setAccessToken(token);
-      setSignedIn(true);
 
-      const verifyRes = await fetch(`${origin}/api/onboarding/status`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const verifyJson = await verifyRes.json().catch(() => null);
-      if (verifyJson?.error?.code === 'AUTH_REQUIRED') {
+      const verifyRes = await apiGet<{ needsAccountSetup?: boolean }>(
+        '/api/onboarding/status'
+      );
+      if (verifyRes.error?.code === 'AUTH_REQUIRED') {
+        clearSession();
         throw new Error(
           'Sign-in token was rejected by the server. Try signing in again.'
         );
       }
+
+      setSignedIn(true);
 
       await auditDialogAuth({
         location: 'useAuth:signIn',
@@ -265,6 +275,8 @@ export function useAuth() {
         data: { via },
       });
     } catch (err) {
+      clearSession();
+      setSignedIn(false);
       const msg = err instanceof Error ? err.message : 'Sign in failed.';
       await auditDialogAuth({
         location: 'useAuth:signIn',

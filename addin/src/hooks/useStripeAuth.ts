@@ -15,7 +15,7 @@ export function useStripeAuth(enabled: boolean) {
   const refresh = useCallback(async () => {
     if (!enabled) return;
     try {
-      const res = await apiGet<StripeConnectionStatus>('/auth/stripe/status');
+      const res = await apiGet<StripeConnectionStatus>('/api/stripe/status');
       if (res.success && res.data) {
         setStatus(res.data);
       }
@@ -34,7 +34,7 @@ export function useStripeAuth(enabled: boolean) {
     setWaitingForBrowser(false);
     try {
       const connectRes = await apiGet<{ url: string }>(
-        `/auth/stripe/connect?flow=${flow}`
+        `/api/stripe/connect?flow=${flow}`
       );
       if (!connectRes.success || !connectRes.data?.url) {
         setError(friendlyError(connectRes));
@@ -43,7 +43,7 @@ export function useStripeAuth(enabled: boolean) {
       setLoading(false);
       setWaitingForBrowser(true);
       await openAuthFlow(connectRes.data.url, async () => {
-        const res = await apiGet<StripeConnectionStatus>('/auth/stripe/status');
+        const res = await apiGet<StripeConnectionStatus>('/api/stripe/status');
         if (res.success && res.data?.connected) return true;
         const list = await apiGet<{ accountStripeCount: number }>(
           '/api/stripe/connections'

@@ -1,18 +1,15 @@
 import axios from 'axios';
 import type { ApiResponse } from '@stripesync/shared';
+import { getApiBase, getOfficeAuthOrigin } from './officeAuthUrl';
 import { getAccessToken, getWorkspaceId } from './session';
 
-const apiBase =
-  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ||
-  '';
-
 export const api = axios.create({
-  baseURL: apiBase,
   withCredentials: true,
   timeout: 20000,
 });
 
 api.interceptors.request.use((config) => {
+  config.baseURL = getApiBase();
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -23,6 +20,49 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+function logApiNetworkFailure(
+  method: string,
+  url: string,
+  err: unknown
+): void {
+  if (!axios.isAxiosError(err) || err.message !== 'Network Error') return;
+  // #region agent log
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': '49b4e5',
+    },
+    body: JSON.stringify({
+      sessionId: '49b4e5',
+      location: 'api.ts:network',
+      message: 'axios network error',
+      data: {
+        method,
+        url,
+        apiBase: getApiBase().replace(/^https?:\/\//, ''),
+        taskpaneOrigin:
+          typeof window !== 'undefined'
+            ? window.location?.origin?.replace(/^https?:\/\//, '')
+            : null,
+      },
+      timestamp: Date.now(),
+      hypothesisId: 'H7',
+      runId: 'post-fix-v3',
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
+function rethrowApiError(err: unknown): never {
+  if (axios.isAxiosError(err) && err.message === 'Network Error') {
+    throw new Error(
+      'Cannot reach the Silkview API from Excel. Reload the add-in after redeploying, or sign in again.'
+    );
+  }
+  throw err;
+}
 
 export async function apiPost<T, B = unknown>(
   url: string,
@@ -35,7 +75,8 @@ export async function apiPost<T, B = unknown>(
     if (axios.isAxiosError(err) && err.response?.data) {
       return err.response.data as ApiResponse<T>;
     }
-    throw err;
+    logApiNetworkFailure('POST', url, err);
+    rethrowApiError(err);
   }
 }
 
@@ -50,7 +91,8 @@ export async function apiPatch<T, B = unknown>(
     if (axios.isAxiosError(err) && err.response?.data) {
       return err.response.data as ApiResponse<T>;
     }
-    throw err;
+    logApiNetworkFailure('PATCH', url, err);
+    rethrowApiError(err);
   }
 }
 
@@ -62,7 +104,8 @@ export async function apiGet<T>(url: string): Promise<ApiResponse<T>> {
     if (axios.isAxiosError(err) && err.response?.data) {
       return err.response.data as ApiResponse<T>;
     }
-    throw err;
+    logApiNetworkFailure('GET', url, err);
+    rethrowApiError(err);
   }
 }
 
@@ -77,5 +120,5 @@ export function getApiErrorMessage(
 }
 
 export function getAppUrl(): string {
-  return apiBase || 'http://localhost:4003';
+  return getOfficeAuthOrigin() || 'http://localhost:4003';
 }
