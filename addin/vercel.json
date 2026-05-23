@@ -1,4 +1,7 @@
 {
+  "installCommand": "cd .. && npm install",
+  "buildCommand": "cd .. && npm run build -w addin",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/:path*",
