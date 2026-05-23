@@ -5,34 +5,32 @@ import {
   takeExcelAuthHandoff,
 } from '@/lib/auth/excel-handoff';
 import { jsonError, jsonSuccess } from '@/lib/api-response';
-import { withCors } from '@/lib/cors';
+import { withCors, withPublicHandoffCors, publicHandoffOptions } from '@/lib/cors';
 
-export async function OPTIONS(request: Request) {
-  return withCors(request, new NextResponse(null, { status: 204 }));
+export async function OPTIONS() {
+  return publicHandoffOptions();
 }
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const nonce = url.searchParams.get('nonce')?.trim();
   if (!nonce) {
-    return withCors(
-      request,
+    return withPublicHandoffCors(
       jsonError('INVALID_REQUEST', 'Missing handoff nonce.', 400)
     );
   }
 
   const peeked = await peekExcelAuthHandoff(nonce);
   if (!peeked) {
-    return withCors(request, jsonSuccess({ ready: false }));
+    return withPublicHandoffCors(jsonSuccess({ ready: false }));
   }
 
   const token = await takeExcelAuthHandoff(nonce);
   if (!token) {
-    return withCors(request, jsonSuccess({ ready: false }));
+    return withPublicHandoffCors(jsonSuccess({ ready: false }));
   }
 
-  return withCors(
-    request,
+  return withPublicHandoffCors(
     jsonSuccess({ ready: true, accessToken: token })
   );
 }

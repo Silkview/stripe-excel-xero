@@ -31,3 +31,18 @@ export function withCors(request: Request, response: NextResponse): NextResponse
 export function corsOptions(request: Request) {
   return withCors(request, new NextResponse(null, { status: 204 }));
 }
+
+/** Anonymous Excel handoff poll from task pane (no credentials). */
+export function withPublicHandoffCors(response: NextResponse): NextResponse {
+  response.headers.set('Access-Control-Allow-Origin', '*');
+  response.headers.set(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-Workspace-Id'
+  );
+  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  return response;
+}
+
+export function publicHandoffOptions(): NextResponse {
+  return withPublicHandoffCors(new NextResponse(null, { status: 204 }));
+}

@@ -49,7 +49,28 @@ export async function GET(request: Request) {
     }
 
     if (handoffNonce) {
-      await saveExcelAuthHandoff(handoffNonce, session.access_token);
+      try {
+        await saveExcelAuthHandoff(handoffNonce, session.access_token);
+      } catch (saveErr) {
+        const detail =
+          saveErr instanceof Error ? saveErr.message : 'Could not store handoff.';
+        console.error(
+          '[excel-auth-audit]',
+          JSON.stringify({
+            location: 'excel-finish',
+            message: 'saveHandoff error',
+            detail: detail.slice(0, 200),
+          })
+        );
+        return new NextResponse(
+          authExcelSignInErrorHtml(
+            'Sign-in succeeded but Excel could not receive your session. ' +
+              'Apply Supabase migration 008_excel_auth_handoffs.sql, then try again. ' +
+              `(${detail})`
+          ),
+          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
+      }
     }
 
     console.log(
@@ -57,7 +78,7 @@ export async function GET(request: Request) {
       JSON.stringify({
         location: 'excel-finish',
         hasHandoff: !!handoffNonce,
-        runId: 'post-fix-v3',
+        saveHandoff: handoffNonce ? 'ok' : 'skipped',
       })
     );
 

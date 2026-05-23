@@ -26,8 +26,24 @@ export async function pollUntil(
   return false;
 }
 
-export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
-  return new Promise((resolve, reject) => {
+export type AuthDialogOptions = {
+  /** Server saved handoff; poll immediately (messageParent may not include token). */
+  onHandoffReady?: () => void;
+};
+
+export type AuthDialog = {
+  /** Resolves when the dialog sends signed_in or error via messageParent. */
+  closed: Promise<Record<string, unknown>>;
+  close: () => void;
+};
+
+export function openAuthDialog(
+  url: string,
+  options?: AuthDialogOptions
+): AuthDialog {
+  let dialogRef: Office.Dialog | null = null;
+
+  const closed = new Promise<Record<string, unknown>>((resolve, reject) => {
     Office.context.ui.displayDialogAsync(
       url,
       { height: 60, width: 50, displayInIframe: false },
@@ -48,6 +64,7 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
         }
 
         const dialog = asyncResult.value;
+        dialogRef = dialog;
         let settled = false;
 
         const finishResolve = (payload: Record<string, unknown>) => {
@@ -71,6 +88,10 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
                   string,
                   unknown
                 >;
+                if (payload.status === 'handoff_ready') {
+                  options?.onHandoffReady?.();
+                  return;
+                }
                 if (payload.status === 'error') {
                   finishReject(
                     new Error(
@@ -95,15 +116,23 @@ export function openAuthDialog(url: string): Promise<Record<string, unknown>> {
           }
         );
 
-        dialog.addEventHandler(
-          Office.EventType.DialogEventReceived,
-          () => {
-            // 12006 = user closed dialog. Do not reject — handoff polling may still succeed.
-          }
-        );
+        dialog.addEventHandler(Office.EventType.DialogEventReceived, () => {
+          // 12006 = user closed dialog. Do not reject — handoff polling may still succeed.
+        });
       }
     );
   });
+
+  return {
+    closed,
+    close: () => {
+      try {
+        dialogRef?.close();
+      } catch {
+        // ignore
+      }
+    },
+  };
 }
 
 /** Opens OAuth in the system browser (Stripe/Google SSO need a full browser). */
@@ -123,5 +152,5 @@ export async function openAuthFlow(
     return;
   }
 
-  await openAuthDialog(url);
+  await openAuthDialog(url).closed;
 }

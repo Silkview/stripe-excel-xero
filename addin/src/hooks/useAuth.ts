@@ -67,17 +67,31 @@ async function fetchHandoffToken(
   }
 }
 
-/** Poll server handoff until token is ready or deadline (primary Excel sign-in path). */
-function pollExcelHandoff(
+type HandoffPoller = {
+  promise: Promise<string>;
+  wake: () => void;
+};
+
+function startExcelHandoffPoll(
   handoff: string,
   maxMs = HANDOFF_TIMEOUT_MS,
   intervalMs = HANDOFF_POLL_MS
-): Promise<string> {
+): HandoffPoller {
   const origin = getOfficeAuthOrigin();
   let lastPoll: HandoffPollResult = { ok: false, status: 0, ready: false };
+  let cancelWait: (() => void) | null = null;
 
-  return new Promise((resolve, reject) => {
+  const promise = new Promise<string>((resolve, reject) => {
     const deadline = Date.now() + maxMs;
+
+    const waitInterval = () =>
+      new Promise<void>((r) => {
+        const timer = setTimeout(r, intervalMs);
+        cancelWait = () => {
+          clearTimeout(timer);
+          r();
+        };
+      });
 
     const tick = async () => {
       if (Date.now() >= deadline) {
@@ -86,6 +100,7 @@ function pollExcelHandoff(
           message: 'handoff timeout',
           data: {
             origin,
+            handoff,
             lastStatus: lastPoll.ok ? 200 : lastPoll.status,
             lastReady: lastPoll.ok ? true : lastPoll.ready,
           },
@@ -105,40 +120,48 @@ function pollExcelHandoff(
         return;
       }
 
-      await sleep(intervalMs);
+      cancelWait = null;
+      await waitInterval();
       void tick();
     };
 
     void tick();
   });
-}
 
-function dialogTokenPromise(loginUrl: string): Promise<string> {
-  return openAuthDialog(loginUrl).then((payload) => {
-    const token = tokenFromDialogPayload(payload);
-    if (token) return token;
-    throw new Error('Dialog closed without a session token.');
-  });
+  return {
+    promise,
+    wake: () => {
+      cancelWait?.();
+    },
+  };
 }
 
 /**
  * Excel sign-in: race server handoff (reliable) vs messageParent (fast when it works).
- * Closing the dialog (12006) does not reject — handoff polling continues until success or timeout.
  */
 async function acquireExcelSessionToken(
   loginUrl: string,
   handoff: string
-): Promise<{ token: string; via: 'dialog' | 'handoff' }> {
-  return Promise.race([
-    pollExcelHandoff(handoff).then((token) => ({
-      token,
-      via: 'handoff' as const,
-    })),
-    dialogTokenPromise(loginUrl).then((token) => ({
-      token,
-      via: 'dialog' as const,
-    })),
-  ]);
+): Promise<{ token: string; via: 'dialog' | 'handoff'; authDialog: { close: () => void } }> {
+  const handoffPoll = startExcelHandoffPoll(handoff);
+
+  const authDialog = openAuthDialog(loginUrl, {
+    onHandoffReady: () => handoffPoll.wake(),
+  });
+
+  const handoffTask = handoffPoll.promise.then((token) => ({
+    token,
+    via: 'handoff' as const,
+  }));
+
+  const dialogTask = authDialog.closed.then((payload) => {
+    const token = tokenFromDialogPayload(payload);
+    if (token) return { token, via: 'dialog' as const };
+    throw new Error('Dialog closed without a session token.');
+  });
+
+  const result = await Promise.race([handoffTask, dialogTask]);
+  return { ...result, authDialog };
 }
 
 export function useAuth() {
@@ -153,8 +176,12 @@ export function useAuth() {
     const origin = getOfficeAuthOrigin();
     const loginUrl = `${origin}/auth/excel?handoff=${encodeURIComponent(handoff)}`;
 
+    let authDialog: { close: () => void } | null = null;
+
     try {
-      const { token, via } = await acquireExcelSessionToken(loginUrl, handoff);
+      const acquired = await acquireExcelSessionToken(loginUrl, handoff);
+      authDialog = acquired.authDialog;
+      const { token, via } = acquired;
 
       setAccessToken(token);
       setSignedIn(true);
@@ -187,6 +214,7 @@ export function useAuth() {
           : `${msg} Complete MFA if prompted, wait for “Signed in to Excel”, then return to the task pane.`
       );
     } finally {
+      authDialog?.close();
       setLoading(false);
     }
   }, []);

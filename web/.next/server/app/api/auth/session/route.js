@@ -1,4 +1,4 @@
-"use strict";(()=>{var e={};e.id=7603,e.ids=[7603],e.modules={2934:e=>{e.exports=require("next/dist/client/components/action-async-storage.external.js")},4580:e=>{e.exports=require("next/dist/client/components/request-async-storage.external.js")},5869:e=>{e.exports=require("next/dist/client/components/static-generation-async-storage.external.js")},399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},4709:(e,t,s)=>{s.r(t),s.d(t,{originalPathname:()=>m,patchFetch:()=>h,requestAsyncStorage:()=>p,routeModule:()=>f,serverHooks:()=>d,staticGenerationAsyncStorage:()=>l});var r={};s.r(r),s.d(r,{POST:()=>u});var n=s(3277),i=s(5265),a=s(5356),o=s(8009),c=s(8248);async function u(e){let t=await e.json().catch(()=>({})),s="string"==typeof t.access_token?t.access_token:"",r="string"==typeof t.refresh_token?t.refresh_token:"";if(!s||!r)return(0,c.bg)("VALIDATION_ERROR","access_token and refresh_token are required.",400);let n=await (0,o.u)(),{error:i}=await n.auth.setSession({access_token:s,refresh_token:r});return i?(0,c.bg)("AUTH_ERROR",i.message,401):(0,c.jsonSuccess)({ok:!0})}let f=new n.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/auth/session/route",pathname:"/api/auth/session",filename:"route",bundlePath:"app/api/auth/session/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/session/route.ts",nextConfigOutput:"",userland:r}),{requestAsyncStorage:p,staticGenerationAsyncStorage:l,serverHooks:d}=f,m="/api/auth/session/route";function h(){return(0,a.patchFetch)({serverHooks:d,staticGenerationAsyncStorage:l})}},8248:(e,t,s)=>{s.d(t,{bg:()=>a,bx:()=>u,ds:()=>f,ff:()=>c,hd:()=>o,jsonSuccess:()=>i,tb:()=>n});var r=s(7076);let n=15e3;function i(e,t=200){return r.NextResponse.json({success:!0,data:e},{status:t})}function a(e,t,s=400,n){let i={success:!1,error:{code:e,message:t,...n}};return r.NextResponse.json(i,{status:s})}function o(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),s="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),r="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null;return`<!DOCTYPE html>
+"use strict";(()=>{var e={};e.id=7603,e.ids=[7603],e.modules={2934:e=>{e.exports=require("next/dist/client/components/action-async-storage.external.js")},4580:e=>{e.exports=require("next/dist/client/components/request-async-storage.external.js")},5869:e=>{e.exports=require("next/dist/client/components/static-generation-async-storage.external.js")},399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},4709:(e,t,s)=>{s.r(t),s.d(t,{originalPathname:()=>m,patchFetch:()=>h,requestAsyncStorage:()=>l,routeModule:()=>f,serverHooks:()=>d,staticGenerationAsyncStorage:()=>p});var n={};s.r(n),s.d(n,{POST:()=>u});var r=s(3277),i=s(5265),a=s(5356),o=s(8009),c=s(8248);async function u(e){let t=await e.json().catch(()=>({})),s="string"==typeof t.access_token?t.access_token:"",n="string"==typeof t.refresh_token?t.refresh_token:"";if(!s||!n)return(0,c.bg)("VALIDATION_ERROR","access_token and refresh_token are required.",400);let r=await (0,o.u)(),{error:i}=await r.auth.setSession({access_token:s,refresh_token:n});return i?(0,c.bg)("AUTH_ERROR",i.message,401):(0,c.jsonSuccess)({ok:!0})}let f=new r.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/auth/session/route",pathname:"/api/auth/session",filename:"route",bundlePath:"app/api/auth/session/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/session/route.ts",nextConfigOutput:"",userland:n}),{requestAsyncStorage:l,staticGenerationAsyncStorage:p,serverHooks:d}=f,m="/api/auth/session/route";function h(){return(0,a.patchFetch)({serverHooks:d,staticGenerationAsyncStorage:p})}},8248:(e,t,s)=>{s.d(t,{bg:()=>a,bx:()=>u,ds:()=>f,ff:()=>c,hd:()=>o,jsonSuccess:()=>i,tb:()=>r});var n=s(7076);let r=15e3;function i(e,t=200){return n.NextResponse.json({success:!0,data:e},{status:t})}function a(e,t,s=400,r){let i={success:!1,error:{code:e,message:t,...r}};return n.NextResponse.json(i,{status:s})}function o(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),s="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),n="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null;return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -8,7 +8,7 @@
 </head>
 <body>
 <h1>${s?"Silkview Sync connected":"Stripe not connected"}</h1>
-<p>${s?"You can close this tab and return to Excel.":r??"Please close this tab and try again from the add-in."}</p>
+<p>${s?"You can close this tab and return to Excel.":n??"Please close this tab and try again from the add-in."}</p>
 <script>
   Office.onReady(function() {
     try {
@@ -19,7 +19,7 @@
   });
 </script>
 </body>
-</html>`}function c(e,t){return o({status:"error",provider:e,message:t})}function u(e){let t=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function c(e,t){return o({status:"error",provider:e,message:t})}function u(e){let t=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),s=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -29,12 +29,13 @@
 </head>
 <body>
 <h1>Signed in to Excel</h1>
-<p>You can close this window and return to Excel.</p>
+<p id="status">Returning to Excel…</p>
 <script>
   Office.onReady(function() {
-    var payload = ${t};
+    var signedInPayload = ${t};
+    var handoffReadyPayload = ${s};
     var attempts = 0;
-    function sendToParent() {
+    function sendToParent(payload) {
       try {
         if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
           Office.context.ui.messageParent(payload);
@@ -44,7 +45,13 @@
       return false;
     }
     function retry() {
-      if (sendToParent()) return;
+      var sentSignedIn = sendToParent(signedInPayload);
+      sendToParent(handoffReadyPayload);
+      if (sentSignedIn) {
+        var el = document.getElementById('status');
+        if (el) el.textContent = 'Returning to Excel…';
+        return;
+      }
       attempts += 1;
       if (attempts < 8) setTimeout(retry, 200);
     }
@@ -73,4 +80,4 @@
   });
 </script>
 </body>
-</html>`}},1328:(e,t,s)=>{s.d(t,{j:()=>r});function r(){let e="https://szbfksebywhkalejxkgs.supabase.co",t="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6YmZrc2VieXdoa2FsZWp4a2dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjQ0MDcsImV4cCI6MjA5NTAwMDQwN30.LFAguTH_aKGvvn6JQKiCaxp7ZN79BQxs2lRyJ3m3_aY";if(!e||!t)throw Error("Missing Supabase env vars. Copy web/.env.example to web/.env.local and set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then restart the dev server.");return{url:e,anonKey:t}}},8009:(e,t,s)=>{s.d(t,{u:()=>a});var r=s(403),n=s(6701),i=s(1328);async function a(){let e=await (0,n.cookies)(),{url:t,anonKey:s}=(0,i.j)();return(0,r.createServerClient)(t,s,{cookies:{get:t=>e.get(t)?.value,set(t,s,r){e.set({name:t,value:s,...r})},remove(t,s){e.set({name:t,value:"",...s})}}})}}};var t=require("../../../../webpack-runtime.js");t.C(e);var s=e=>t(t.s=e),r=t.X(0,[5942,3084,3786,8769],()=>s(4709));module.exports=r})();
+</html>`}},1328:(e,t,s)=>{s.d(t,{j:()=>n});function n(){let e="https://szbfksebywhkalejxkgs.supabase.co",t="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6YmZrc2VieXdoa2FsZWp4a2dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjQ0MDcsImV4cCI6MjA5NTAwMDQwN30.LFAguTH_aKGvvn6JQKiCaxp7ZN79BQxs2lRyJ3m3_aY";if(!e||!t)throw Error("Missing Supabase env vars. Copy web/.env.example to web/.env.local and set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then restart the dev server.");return{url:e,anonKey:t}}},8009:(e,t,s)=>{s.d(t,{u:()=>a});var n=s(403),r=s(6701),i=s(1328);async function a(){let e=await (0,r.cookies)(),{url:t,anonKey:s}=(0,i.j)();return(0,n.createServerClient)(t,s,{cookies:{get:t=>e.get(t)?.value,set(t,s,n){e.set({name:t,value:s,...n})},remove(t,s){e.set({name:t,value:"",...s})}}})}}};var t=require("../../../../webpack-runtime.js");t.C(e);var s=e=>t(t.s=e),n=t.X(0,[5942,3084,3786,8769],()=>s(4709));module.exports=n})();

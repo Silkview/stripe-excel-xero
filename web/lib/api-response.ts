@@ -70,7 +70,11 @@ export function authCallbackErrorHtml(provider: string, message: string): string
 
 /** Office dialog page that returns the Supabase access token to the Excel task pane. */
 export function authExcelSignInHtml(accessToken: string): string {
-  const json = JSON.stringify({ status: 'signed_in', accessToken }).replace(
+  const signedInJson = JSON.stringify({ status: 'signed_in', accessToken }).replace(
+    /</g,
+    '\\u003c'
+  );
+  const handoffReadyJson = JSON.stringify({ status: 'handoff_ready' }).replace(
     /</g,
     '\\u003c'
   );
@@ -84,12 +88,13 @@ export function authExcelSignInHtml(accessToken: string): string {
 </head>
 <body>
 <h1>Signed in to Excel</h1>
-<p>You can close this window and return to Excel.</p>
+<p id="status">Returning to Excel…</p>
 <script>
   Office.onReady(function() {
-    var payload = ${json};
+    var signedInPayload = ${signedInJson};
+    var handoffReadyPayload = ${handoffReadyJson};
     var attempts = 0;
-    function sendToParent() {
+    function sendToParent(payload) {
       try {
         if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
           Office.context.ui.messageParent(payload);
@@ -99,7 +104,13 @@ export function authExcelSignInHtml(accessToken: string): string {
       return false;
     }
     function retry() {
-      if (sendToParent()) return;
+      var sentSignedIn = sendToParent(signedInPayload);
+      sendToParent(handoffReadyPayload);
+      if (sentSignedIn) {
+        var el = document.getElementById('status');
+        if (el) el.textContent = 'Returning to Excel…';
+        return;
+      }
       attempts += 1;
       if (attempts < 8) setTimeout(retry, 200);
     }
