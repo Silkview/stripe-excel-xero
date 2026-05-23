@@ -132,12 +132,16 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
 
 1. Create a Vercel project with **Root Directory** = `web`, **Framework** = Next.js. Leave **Output Directory** empty (do not set `.next` — that causes platform 404 on all routes). In Build & Development Settings, leave **Build Command** and **Install Command** empty so [`web/vercel.json`](web/vercel.json) applies (`cd .. && npm install`, `cd .. && npm run build -w web`). Do not override with `build -w addin` — the add-in is a separate Vercel project (see step 6).
 2. Set all `web/.env` variables in Vercel.
-3. Point Stripe/Xero redirect URIs to production:
+3. Set `NEXT_PUBLIC_APP_URL` to your web host (e.g. `https://www.silkview.org`). Register **these exact** callback URLs in Stripe Connect and Xero (same host, `https`, `/api/...` paths):
 
    ```
-   https://<your-domain>/api/stripe/callback
-   https://<your-domain>/api/xero/callback
+   https://www.silkview.org/api/stripe/callback
+   https://www.silkview.org/api/xero/callback
    ```
+
+   After deploy, confirm with `GET https://www.silkview.org/api/oauth/redirect-uris`.
+
+   **Do not use:** `http://` (except local dev), apex-only host if the app uses `www`, `/api/auth/xero`, or the add-in host (`addin.silkview.org`). Optional `STRIPE_REDIRECT_URI` / `XERO_REDIRECT_URI` must match the URLs above or are ignored.
 
 4. Stripe billing webhook: `https://<your-domain>/api/billing/webhook`
 5. Supabase: site URL + redirect URLs for auth; signup webhook to production `/api/auth/signup`
@@ -253,8 +257,9 @@ See earlier README sections in git history for column layouts, build formulas, a
 | Task pane blank | Run `npx office-addin-dev-certs install`; open https://localhost:4000/taskpane.html |
 | API 401 | Sign in again; check `VITE_API_URL` matches Next dev server |
 | CORS errors | `FRONTEND_URL=https://localhost:4000` in `web/.env` |
-| Invalid Xero redirect | Redirect URI must match `XERO_REDIRECT_URI` exactly (port **4003** API, not **4000** add-in) |
-| Stripe Connect fails | Use system browser; redirect URI on Stripe dashboard |
+| Invalid Xero redirect | Register `https://<web-host>/api/xero/callback` in Xero (not `/api/auth/xero`). Check `/api/oauth/redirect-uris` |
+| Stripe Connect fails | Register `https://<web-host>/api/stripe/callback` on Stripe Connect (must be `https` in production) |
+| OAuth “No authorization code” | You opened the callback URL directly; start from **Connect** in dashboard or Excel |
 | OAuth state invalid | `OAUTH_STATE_SECRET` stable across deploys; complete connect in one browser session |
 
 ## License

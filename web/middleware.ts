@@ -14,6 +14,7 @@ const PUBLIC_PREFIXES = [
   '/api/auth/signin-hint',
   '/api/auth/login-audit',
   '/api/auth/excel-finish',
+  '/api/oauth/redirect-uris',
   '/api/plans',
   '/api/billing/webhook',
   '/api/stripe/callback',
