@@ -3,9 +3,13 @@ import { NextResponse } from 'next/server';
 const ALLOWED_ORIGINS = [
   process.env.FRONTEND_URL,
   process.env.NEXT_PUBLIC_APP_URL,
+  process.env.NEXT_PUBLIC_ADDIN_URL,
   'https://localhost:4000',
   'http://localhost:4000',
-].filter(Boolean) as string[];
+  'https://addin.silkview.org',
+]
+  .filter(Boolean)
+  .map((o) => o!.replace(/\/$/, '')) as string[];
 
 export function withCors(request: Request, response: NextResponse): NextResponse {
   const origin = request.headers.get('origin');

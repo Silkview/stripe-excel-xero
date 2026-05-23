@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
 
   if (
     pathname === '/api/auth/excel-handoff' &&
-    request.method === 'GET'
+    (request.method === 'GET' || request.method === 'OPTIONS')
   ) {
     return NextResponse.next();
   }
