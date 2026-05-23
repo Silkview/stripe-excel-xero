@@ -41,7 +41,7 @@ async function fetchOnboardingStatus() {
   return statusRes.json().catch(() => null);
 }
 
-async function continueExcelAuth(source: string) {
+async function continueExcelAuth(source: string, handoff: string | null) {
   const supabase = createSupabaseBrowser();
   const statusJson = await fetchOnboardingStatus();
 
@@ -52,7 +52,7 @@ async function continueExcelAuth(source: string) {
       data: { source, needsOnboarding: true },
       runId: 'post-fix-inline-mfa',
     });
-    navigateExcelAuth('/onboarding?return=excel');
+    navigateExcelAuth('/onboarding?return=excel', handoff);
     return;
   }
 
@@ -64,7 +64,7 @@ async function continueExcelAuth(source: string) {
       data: { source },
       runId: 'post-fix-inline-mfa',
     });
-    navigateExcelAuth('/auth/mfa/verify?return=excel');
+    navigateExcelAuth('/auth/mfa/verify?return=excel', handoff);
     return;
   }
 
@@ -80,17 +80,18 @@ async function continueExcelAuth(source: string) {
 
   await auditLogin({
     location: 'excel:continue',
-    message: 'navigate excel-complete',
+    message: 'navigate excel-finish',
     data: { source },
     runId: 'post-fix-inline-mfa',
   });
-  navigateExcelAuth('/auth/excel-complete');
+  navigateExcelAuth('/api/auth/excel-finish', handoff);
   return 'done' as const;
 }
 
 function ExcelAuthInner() {
   const searchParams = useSearchParams();
   const forceMfa = searchParams.get('step') === 'mfa';
+  const handoff = searchParams.get('handoff');
 
   const [screen, setScreen] = useState<Screen>(forceMfa ? 'checking' : 'login');
   const [mode, setMode] = useState<AuthMode>('password');
@@ -113,10 +114,10 @@ function ExcelAuthInner() {
         return;
       }
       await syncBrowserSessionToServer(session);
-      const next = await continueExcelAuth('url-step-mfa');
+      const next = await continueExcelAuth('url-step-mfa', handoff);
       if (next === 'mfa') setScreen('mfa');
     })();
-  }, [forceMfa]);
+  }, [forceMfa, handoff]);
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +135,7 @@ function ExcelAuthInner() {
 
     try {
       await syncBrowserSessionToServer(result.session);
-      const next = await continueExcelAuth('password-login');
+      const next = await continueExcelAuth('password-login', handoff);
       if (next === 'mfa') {
         setScreen('mfa');
       }
@@ -170,8 +171,8 @@ function ExcelAuthInner() {
   };
 
   const finishMfa = useCallback(() => {
-    navigateExcelAuth('/auth/excel-complete');
-  }, []);
+    navigateExcelAuth('/api/auth/excel-finish', handoff);
+  }, [handoff]);
 
   if (screen === 'checking') {
     return (

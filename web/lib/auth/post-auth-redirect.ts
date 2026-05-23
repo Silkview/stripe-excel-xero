@@ -41,7 +41,7 @@ export async function getPostAuthRedirectPath(
   }
 
   if (excelMode) {
-    return '/auth/excel-complete';
+    return '/api/auth/excel-finish';
   }
 
   return '/dashboard';

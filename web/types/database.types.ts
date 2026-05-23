@@ -226,6 +226,22 @@ export interface Database {
         >;
         Relationships: [];
       };
+      excel_auth_handoffs: {
+        Row: {
+          nonce: string;
+          access_token: string;
+          expires_at: string;
+        };
+        Insert: {
+          nonce: string;
+          access_token: string;
+          expires_at?: string;
+        };
+        Update: Partial<
+          Database['core']['Tables']['excel_auth_handoffs']['Insert']
+        >;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

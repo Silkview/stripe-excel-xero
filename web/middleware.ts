@@ -13,6 +13,7 @@ const PUBLIC_PREFIXES = [
   '/api/auth/session',
   '/api/auth/signin-hint',
   '/api/auth/login-audit',
+  '/api/auth/excel-finish',
   '/api/plans',
   '/api/billing/webhook',
   '/api/stripe/callback',
@@ -23,6 +24,13 @@ const PUBLIC_PREFIXES = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (
+    pathname === '/api/auth/excel-handoff' &&
+    request.method === 'GET'
+  ) {
+    return NextResponse.next();
+  }
 
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();

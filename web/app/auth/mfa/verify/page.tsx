@@ -16,6 +16,7 @@ function MfaVerifyInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const excelReturn = searchParams.get('return') === 'excel';
+  const handoff = searchParams.get('handoff');
 
   const [factorId, setFactorId] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -37,7 +38,7 @@ function MfaVerifyInner() {
         const enrollPath = excelReturn
           ? '/auth/excel?step=mfa'
           : '/auth/mfa/enroll';
-        if (excelReturn) navigateExcelAuth(enrollPath);
+        if (excelReturn) navigateExcelAuth(enrollPath, handoff);
         else router.replace(enrollPath);
         return;
       }
@@ -49,7 +50,7 @@ function MfaVerifyInner() {
         // #region agent log
         fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'mfa-verify:auto-redirect',message:'already verified redirect',data:{excelReturn,next,hasVerifiedTotp:status.hasVerifiedTotp,currentLevel:status.currentLevel},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
         // #endregion
-        if (excelReturn) navigateExcelAuth(next);
+        if (excelReturn) navigateExcelAuth(next, handoff);
         else router.replace(next);
         return;
       }
@@ -57,7 +58,7 @@ function MfaVerifyInner() {
       setFactorId(status.totpFactorId);
       setLoading(false);
     })();
-  }, [router, excelReturn]);
+  }, [router, excelReturn, handoff]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +82,7 @@ function MfaVerifyInner() {
       const next = await resolvePostAuthRedirect(supabase, {
         excelMode: excelReturn,
       });
-      if (excelReturn) navigateExcelAuth(next);
+      if (excelReturn) navigateExcelAuth(next, handoff);
       else router.push(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code. Try again.');

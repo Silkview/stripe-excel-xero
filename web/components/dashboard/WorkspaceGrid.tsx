@@ -8,11 +8,13 @@ export default function WorkspaceGrid({
   canManage,
   onInvite,
   onAdd,
+  onConnectionsChanged,
 }: {
   workspaces: WorkspaceSummary[];
   canManage: boolean;
   onInvite: (workspaceId: string) => void;
   onAdd: () => void;
+  onConnectionsChanged?: () => void;
 }) {
   if (!canManage) {
     return (
@@ -45,7 +47,12 @@ export default function WorkspaceGrid({
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {workspaces.map((ws) => (
-        <WorkspaceCard key={ws.id} workspace={ws} onInvite={onInvite} />
+        <WorkspaceCard
+          key={ws.id}
+          workspace={ws}
+          onInvite={onInvite}
+          onConnectionsChanged={onConnectionsChanged}
+        />
       ))}
       <button
         type="button"

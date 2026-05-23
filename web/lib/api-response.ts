@@ -67,3 +67,62 @@ export function authCallbackHtml(payload: object): string {
 export function authCallbackErrorHtml(provider: string, message: string): string {
   return authCallbackHtml({ status: 'error', provider, message });
 }
+
+/** Office dialog page that returns the Supabase access token to the Excel task pane. */
+export function authExcelSignInHtml(accessToken: string): string {
+  const json = JSON.stringify({ status: 'signed_in', accessToken }).replace(
+    /</g,
+    '\\u003c'
+  );
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Silkview Sync</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+  <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
+</head>
+<body>
+<h1>Signed in to Excel</h1>
+<p>You can close this window and return to Excel.</p>
+<script>
+  Office.onReady(function() {
+    try {
+      if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
+        Office.context.ui.messageParent(${json});
+      }
+    } catch (e) { }
+  });
+</script>
+</body>
+</html>`;
+}
+
+export function authExcelSignInErrorHtml(message: string): string {
+  const json = JSON.stringify({ status: 'error', message }).replace(
+    /</g,
+    '\\u003c'
+  );
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Silkview Sync</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+  <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
+</head>
+<body>
+<h1>Sign-in failed</h1>
+<p>${message.replace(/</g, '&lt;')}</p>
+<script>
+  Office.onReady(function() {
+    try {
+      if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
+        Office.context.ui.messageParent(${json});
+      }
+    } catch (e) { }
+  });
+</script>
+</body>
+</html>`;
+}

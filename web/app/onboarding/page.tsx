@@ -42,6 +42,7 @@ function OnboardingInner() {
   const searchParams = useSearchParams();
   const forceMfa = searchParams.get('step') === 'mfa';
   const excelReturn = searchParams.get('return') === 'excel';
+  const handoff = searchParams.get('handoff');
 
   const [step, setStep] = useState<WizardStep>('loading');
   const [submitting, setSubmitting] = useState(false);
@@ -105,9 +106,9 @@ function OnboardingInner() {
 
   useEffect(() => {
     if (step === 'ready' && excelReturn) {
-      navigateExcelAuth('/auth/excel-complete');
+      navigateExcelAuth('/api/auth/excel-finish', handoff);
     }
-  }, [step, excelReturn]);
+  }, [step, excelReturn, handoff]);
 
   useEffect(() => {
     if (initialLoadDone.current) return;
@@ -152,7 +153,7 @@ function OnboardingInner() {
             return;
           }
           if (excelReturn) {
-            navigateExcelAuth('/auth/excel-complete');
+            navigateExcelAuth('/api/auth/excel-finish', handoff);
           } else {
             router.replace('/dashboard');
           }
@@ -320,7 +321,7 @@ function OnboardingInner() {
             type="button"
             variant="primary"
             className="w-full mt-6"
-            onClick={() => navigateExcelAuth('/auth/excel-complete')}
+            onClick={() => navigateExcelAuth('/api/auth/excel-finish', handoff)}
           >
             Return to Excel
           </Button>

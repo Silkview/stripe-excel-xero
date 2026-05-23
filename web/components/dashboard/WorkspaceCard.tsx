@@ -2,17 +2,24 @@
 
 import { useState } from 'react';
 import type { WorkspaceSummary } from '@/lib/dashboard/types';
+import { connectWorkspaceProvider } from '@/lib/dashboard/oauth-connect';
 import ConnRow from './ConnRow';
 import Button from '@/components/ui/Button';
+import Alert from '@/components/ui/Alert';
 
 export default function WorkspaceCard({
   workspace,
   onInvite,
+  onConnectionsChanged,
 }: {
   workspace: WorkspaceSummary;
   onInvite: (workspaceId: string) => void;
+  onConnectionsChanged?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [connecting, setConnecting] = useState<'xero' | 'stripe' | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
   const created = new Date(workspace.created_at).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -23,6 +30,21 @@ export default function WorkspaceCard({
   const stripeRows = workspace.stripe.length
     ? workspace.stripe
     : [{ id: 'none', display_name: null, stripe_account_id: '' }];
+
+  const handleConnect = async (provider: 'xero' | 'stripe') => {
+    setConnectError(null);
+    setConnecting(provider);
+    try {
+      await connectWorkspaceProvider(workspace.id, provider);
+      onConnectionsChanged?.();
+    } catch (err) {
+      setConnectError(
+        err instanceof Error ? err.message : 'Connection failed. Try again.'
+      );
+    } finally {
+      setConnecting(null);
+    }
+  };
 
   return (
     <div className="flex flex-col overflow-hidden rounded-[11px] border border-border bg-surface shadow-card">
@@ -62,6 +84,9 @@ export default function WorkspaceCard({
       </div>
 
       <div className="flex flex-col gap-2 px-4 py-3">
+        {connectError && (
+          <Alert variant="error">{connectError}</Alert>
+        )}
         <ConnRow
           provider="xero"
           name={
@@ -79,9 +104,22 @@ export default function WorkspaceCard({
           hint={
             xeroConnected
               ? workspace.xero?.token_expiring
-                ? 'Token expiring soon — reconnect in Excel'
+                ? 'Token expiring soon — reconnect'
                 : 'Connected'
-              : 'Connect in Excel add-in'
+              : 'Connect from dashboard or Excel'
+          }
+          action={
+            !xeroConnected ? (
+              <Button
+                type="button"
+                variant="xero"
+                className="!py-1 !px-2.5 !text-xs shrink-0"
+                disabled={connecting !== null}
+                onClick={() => void handleConnect('xero')}
+              >
+                {connecting === 'xero' ? 'Connecting…' : 'Connect'}
+              </Button>
+            ) : undefined
           }
         />
         {stripeRows.map((s) => (
@@ -97,16 +135,27 @@ export default function WorkspaceCard({
             hint={
               s.stripe_account_id
                 ? 'Connected'
-                : 'Connect in Excel add-in'
+                : 'Connect from dashboard or Excel'
+            }
+            action={
+              !s.stripe_account_id ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="!py-1 !px-2.5 !text-xs shrink-0"
+                  disabled={connecting !== null}
+                  onClick={() => void handleConnect('stripe')}
+                >
+                  {connecting === 'stripe' ? 'Connecting…' : 'Connect'}
+                </Button>
+              ) : undefined
             }
           />
         ))}
       </div>
 
       <div className="mt-auto flex items-center justify-between border-t border-border bg-bg/50 px-4 py-3">
-        <p className="text-[11px] text-text-3">
-          Connections are managed in the Excel add-in
-        </p>
+        <p className="text-[11px] text-text-3">OAuth opens in a new window</p>
         <Button
           variant="secondary"
           className="!py-1 !px-2.5 !text-xs"

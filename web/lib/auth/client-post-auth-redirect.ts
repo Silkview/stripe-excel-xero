@@ -47,5 +47,5 @@ export async function resolvePostAuthRedirect(
   const returnPath = safeReturnPath(options?.returnPath ?? null);
   if (returnPath) return returnPath;
 
-  return excelMode ? '/auth/excel-complete' : '/dashboard';
+  return excelMode ? '/api/auth/excel-finish' : '/dashboard';
 }

@@ -5,11 +5,13 @@ export default function ConnRow({
   name,
   status,
   hint,
+  action,
 }: {
   provider: 'xero' | 'stripe';
   name: string;
   status: 'connected' | 'disconnected' | 'warning';
   hint?: string;
+  action?: React.ReactNode;
 }) {
   const icon =
     provider === 'xero' ? (
@@ -38,6 +40,7 @@ export default function ConnRow({
           <div className="truncate text-[11px] text-text-3">{hint}</div>
         )}
       </div>
+      {action}
       <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot}`} />
     </div>
   );

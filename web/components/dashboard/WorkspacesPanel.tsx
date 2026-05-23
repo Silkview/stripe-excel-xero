@@ -42,7 +42,7 @@ export default function WorkspacesPanel() {
     <>
       <PageHeader
         title="Workspaces"
-        subtitle="Manage client workspaces and connections. Connect Xero and Stripe in the Excel add-in."
+        subtitle="Manage workspaces and connect Xero or Stripe for each client."
       />
       <PlanLimitBar />
       {loading ? (
@@ -53,6 +53,7 @@ export default function WorkspacesPanel() {
           canManage={ctx.isAdmin}
           onInvite={openInvite}
           onAdd={() => setCreateOpen(true)}
+          onConnectionsChanged={load}
         />
       )}
       {ctx.isAdmin && (
