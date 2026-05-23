@@ -1,7 +1,13 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
+  "/api/onboarding/status/route": "app/api/onboarding/status/route.js",
+  "/api/workspace/route": "app/api/workspace/route.js",
+  "/api/xero/connections/route": "app/api/xero/connections/route.js",
+  "/api/stripe/status/route": "app/api/stripe/status/route.js",
   "/auth/login/page": "app/auth/login/page.js",
   "/auth/mfa/verify/page": "app/auth/mfa/verify/page.js",
   "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
-  "/(dashboard)/dashboard/settings/page": "app/(dashboard)/dashboard/settings/page.js"
+  "/(dashboard)/dashboard/settings/page": "app/(dashboard)/dashboard/settings/page.js",
+  "/auth/excel/page": "app/auth/excel/page.js"
 }

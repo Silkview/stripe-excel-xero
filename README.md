@@ -130,7 +130,7 @@ After email confirmation, users are prompted to enroll MFA (can skip), then land
 
 ## Deploy (Vercel)
 
-1. Create a Vercel project with **Root Directory** = `web`. Leave **Output Directory** empty (do not set `.next` — that causes platform 404 on all routes). [`web/vercel.json`](web/vercel.json) runs `npm install` from the monorepo root and builds the web workspace only; host the add-in separately (see step 6).
+1. Create a Vercel project with **Root Directory** = `web`, **Framework** = Next.js. Leave **Output Directory** empty (do not set `.next` — that causes platform 404 on all routes). In Build & Development Settings, leave **Build Command** and **Install Command** empty so [`web/vercel.json`](web/vercel.json) applies (`cd .. && npm install`, `cd .. && npm run build -w web`). Do not override with `build -w addin` — the add-in is a separate Vercel project (see step 6).
 2. Set all `web/.env` variables in Vercel.
 3. Point Stripe/Xero redirect URIs to production:
 
