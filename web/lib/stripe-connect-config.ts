@@ -73,9 +73,14 @@ export async function isStripeConnectApiEnabled(): Promise<boolean> {
   }
 }
 
-/** Stripe Connect OAuth cannot attach the platform account to itself; use direct API link instead. */
+/** Stripe Connect OAuth cannot attach the Connect platform account to a connected workspace. */
 export function isStripePlatformSelfConnectError(message: string): boolean {
   return message.includes('does not belong to you');
+}
+
+/** Dev-only escape hatch; never used for OAuth callback fallback. */
+export function isPlatformSelfConnectAllowed(): boolean {
+  return process.env.STRIPE_ALLOW_PLATFORM_SELF_CONNECT === 'true';
 }
 
 export function formatStripeConnectConfigError(
@@ -84,7 +89,7 @@ export function formatStripeConnectConfigError(
 ): string {
   if (isStripePlatformSelfConnectError(message)) {
     return (
-      'Could not link this Stripe account via OAuth. Try Connect again — your platform account will be linked automatically.'
+      'That Stripe account is the same one that runs Silkview Connect and cannot be linked to your workspace. Sign in with a different Stripe account (not the Connect platform owner), or use another Standard account.'
     );
   }
   if (message.includes('redirect_uri')) {

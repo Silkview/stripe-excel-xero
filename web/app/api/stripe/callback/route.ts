@@ -7,20 +7,12 @@ import {
   authCallbackErrorHtml,
   authCallbackHtml,
 } from '@/lib/api-response';
-import {
-  formatStripeConnectConfigError,
-  getStripePlatformAccountId,
-  isStripePlatformSelfConnectError,
-} from '@/lib/stripe-connect-config';
-import { connectPlatformStripeAccount } from '@/lib/stripe-platform-connect';
+import { formatStripeConnectConfigError } from '@/lib/stripe-connect-config';
 import { exchangeStripeCode } from '@/lib/services/stripe-data';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'stripe/callback/route.ts:entry',message:'callback hit',data:{hasCode:!!url.searchParams.get('code'),hasError:!!url.searchParams.get('error')},timestamp:Date.now(),hypothesisId:'S1'})}).catch(()=>{});
-  // #endregion
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
   const error_description = url.searchParams.get('error_description');
@@ -106,55 +98,6 @@ export async function GET(request: Request) {
     );
   } catch (err) {
     const raw = err instanceof Error ? err.message : 'Failed to connect Stripe.';
-
-    if (isStripePlatformSelfConnectError(raw)) {
-      // #region agent log
-      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'stripe/callback/route.ts:platform-fallback',message:'oauth platform self — linking via API key',data:{workspaceId:payload.workspaceId},timestamp:Date.now(),hypothesisId:'S2',runId:'post-fix'})}).catch(()=>{});
-      // #endregion
-      try {
-        const platformAccountId = await getStripePlatformAccountId();
-
-        if (ws?.account_id) {
-          const check = await enforceStripeConnect(
-            ws.account_id,
-            payload.workspaceId,
-            platformAccountId ?? undefined
-          );
-          if (!check.allowed) {
-            return new NextResponse(
-              authCallbackErrorHtml('stripe', check.reason!),
-              { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-            );
-          }
-        }
-
-        const platform = await connectPlatformStripeAccount(
-          payload.workspaceId,
-          payload.userId
-        );
-
-        // #region agent log
-        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'49b4e5'},body:JSON.stringify({sessionId:'49b4e5',location:'stripe/callback/route.ts:platform-success',message:'platform linked',data:{stripeAccountId:platform.stripeAccountId},timestamp:Date.now(),hypothesisId:'S2',runId:'post-fix'})}).catch(()=>{});
-        // #endregion
-        return new NextResponse(
-          authCallbackHtml({
-            status: 'stripe_connected',
-            stripe_user_id: platform.stripeAccountId,
-            connection_type: 'platform',
-          }),
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-        );
-      } catch (fallbackErr) {
-        const message =
-          fallbackErr instanceof Error
-            ? fallbackErr.message
-            : 'Could not link your Stripe platform account.';
-        return new NextResponse(authCallbackErrorHtml('stripe', message), {
-          headers: { 'Content-Type': 'text/html; charset=utf-8' },
-        });
-      }
-    }
-
     const message = formatStripeConnectConfigError(raw);
     return new NextResponse(authCallbackErrorHtml('stripe', message), {
       headers: { 'Content-Type': 'text/html; charset=utf-8' },

@@ -60,7 +60,7 @@ export async function deleteAccountTaxNamedRanges(
   context: Excel.RequestContext,
   names: Excel.NamedItemCollection
 ): Promise<void> {
-  names.loadItems();
+  names.load('items');
   await context.sync();
   for (const item of names.items) {
     item.load('name');

@@ -1,6 +1,9 @@
 import { requireWorkspace, getAccountMembership } from '@/lib/api-auth';
 import { enforceStripeConnect } from '@/lib/plan-limits';
-import { getStripePlatformAccount } from '@/lib/stripe-connect-config';
+import {
+  getStripePlatformAccount,
+  isPlatformSelfConnectAllowed,
+} from '@/lib/stripe-connect-config';
 import { connectPlatformStripeAccount } from '@/lib/stripe-platform-connect';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
@@ -10,9 +13,23 @@ export async function OPTIONS(request: Request) {
   return handleOptions(request);
 }
 
-/** Link workspace to the Stripe account behind STRIPE_SECRET_KEY (no Connect OAuth). */
+/**
+ * Dev-only: link workspace to STRIPE_SECRET_KEY account without OAuth.
+ * Disabled in production unless STRIPE_ALLOW_PLATFORM_SELF_CONNECT=true.
+ */
 export async function POST(request: Request) {
   try {
+    if (!isPlatformSelfConnectAllowed()) {
+      return withCors(
+        request,
+        jsonError(
+          'NOT_IMPLEMENTED',
+          'Platform self-connect is disabled. Connect Stripe via OAuth and choose your account.',
+          403
+        )
+      );
+    }
+
     const { user, workspaceId } = await requireWorkspace(request);
     const membership = await getAccountMembership(user.id);
     if (!membership) {

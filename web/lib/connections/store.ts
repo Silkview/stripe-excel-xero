@@ -90,6 +90,12 @@ export async function saveStripeConnection(
   options?: { scope?: string; displayName?: string }
 ): Promise<void> {
   const admin = createSupabaseAdmin();
+  await core(admin)
+    .from('stripe_connections')
+    .update({ is_active: false })
+    .eq('workspace_id', workspaceId)
+    .neq('stripe_account_id', tokens.stripe_user_id);
+
   const stripeRow: StripeInsert = {
     workspace_id: workspaceId,
     stripe_account_id: tokens.stripe_user_id,
