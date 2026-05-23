@@ -18,6 +18,7 @@ export interface Database {
           max_users: number;
           max_workspaces: number;
           max_stripe_connections: number;
+          max_stripe_connections_per_workspace: number;
           max_xero_connections_per_workspace: number;
           stripe_price_id: string | null;
           sort_order: number;
@@ -31,6 +32,7 @@ export interface Database {
           max_users: number;
           max_workspaces: number;
           max_stripe_connections: number;
+          max_stripe_connections_per_workspace?: number;
           max_xero_connections_per_workspace?: number;
           stripe_price_id?: string | null;
           sort_order?: number;
@@ -125,6 +127,8 @@ export interface Database {
           connected_at: string | null;
           last_refreshed_at: string | null;
           is_active: boolean | null;
+          refresh_failed_at: string | null;
+          refresh_error_code: string | null;
         };
         Insert: {
           id?: string;
@@ -139,6 +143,8 @@ export interface Database {
           connected_by?: string | null;
           last_refreshed_at?: string | null;
           is_active?: boolean | null;
+          refresh_failed_at?: string | null;
+          refresh_error_code?: string | null;
         };
         Update: Partial<Database['core']['Tables']['xero_connections']['Insert']>;
         Relationships: [];
@@ -155,6 +161,7 @@ export interface Database {
           connected_by: string | null;
           connected_at: string | null;
           is_active: boolean | null;
+          is_default: boolean;
         };
         Insert: {
           id?: string;
@@ -166,6 +173,7 @@ export interface Database {
           scope?: string | null;
           connected_by?: string | null;
           is_active?: boolean | null;
+          is_default?: boolean;
         };
         Update: Partial<Database['core']['Tables']['stripe_connections']['Insert']>;
         Relationships: [];

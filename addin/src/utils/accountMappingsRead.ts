@@ -1,7 +1,12 @@
+import type { XeroAccountOption } from '@stripesync/shared';
 import {
   ACCOUNT_MAPPING_HEADERS,
   ACCOUNT_MAPPING_STRIPE_OBJECTS,
 } from '../config/workbookSheets';
+import {
+  accountCodeFromInternalTaxRangeName,
+  isInternalTaxRangeName,
+} from './xeroAccountTaxDropdowns';
 
 export const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
 const FIRST_DATA_ROW = 2;
@@ -24,9 +29,28 @@ export function extractMappingCode(label: unknown): string {
   if (typeof label === 'number') return String(label);
   const s = String(label ?? '').trim();
   if (!s || s === '0') return '';
+  if (isInternalTaxRangeName(s)) {
+    return accountCodeFromInternalTaxRangeName(s);
+  }
   const idx = s.indexOf(LABEL_SEP);
   if (idx > 0) return s.slice(0, idx).trim();
   return s;
+}
+
+/** Resolve a mapping cell to the dropdown display label (Code — Name). */
+export function resolveAccountDisplayLabel(
+  value: unknown,
+  accounts: XeroAccountOption[]
+): string | null {
+  const s = String(value ?? '').trim();
+  if (!s || s === '0') return null;
+  if (s.includes(LABEL_SEP)) return s;
+
+  const code = isInternalTaxRangeName(s)
+    ? accountCodeFromInternalTaxRangeName(s)
+    : s;
+  const match = accounts.find((a) => a.Code === code);
+  return match?.displayLabel ?? null;
 }
 
 export function parseAccountMappingRows(rows: unknown[][]): AccountMappingRow[] {

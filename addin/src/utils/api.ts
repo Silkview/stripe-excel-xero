@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { ApiResponse } from '@stripesync/shared';
 import { getApiBase, getOfficeAuthOrigin } from './officeAuthUrl';
-import { getAccessToken, getWorkspaceId } from './session';
+import { getAccessToken, getStripeAccountId, getWorkspaceId } from './session';
 
 export const api = axios.create({
   withCredentials: true,
@@ -17,6 +17,10 @@ api.interceptors.request.use((config) => {
   const ws = getWorkspaceId();
   if (ws) {
     config.headers['X-Workspace-Id'] = ws;
+  }
+  const stripeAcct = getStripeAccountId();
+  if (stripeAcct) {
+    config.headers['X-Stripe-Account-Id'] = stripeAcct;
   }
   return config;
 });

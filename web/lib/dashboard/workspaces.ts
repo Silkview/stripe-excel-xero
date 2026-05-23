@@ -1,4 +1,7 @@
-import { listStripeConnections } from '@/lib/connections/store';
+import {
+  getXeroConnectionMeta,
+  listStripeConnections,
+} from '@/lib/connections/store';
 import { getPrimaryAccountMembership } from '@/lib/auth/account-membership';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
@@ -51,18 +54,12 @@ export async function listWorkspacesForUser(
   const summaries: WorkspaceSummary[] = [];
 
   for (const ws of workspaces) {
-    const { data: xero } = await core(admin)
-      .from('xero_connections')
-      .select('tenant_name, token_expires_at')
-      .eq('workspace_id', ws.id)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    let tokenExpiring = false;
-    if (xero?.token_expires_at) {
-      const expires = new Date(xero.token_expires_at).getTime();
-      tokenExpiring = expires - Date.now() < 7 * 86400000;
-    }
+    const xeroMeta = await getXeroConnectionMeta(ws.id);
+    const staleRefreshMs = 50 * 86400000;
+    const staleRefresh =
+      xeroMeta.status === 'connected' &&
+      !!xeroMeta.lastRefreshedAt &&
+      Date.now() - new Date(xeroMeta.lastRefreshedAt).getTime() > staleRefreshMs;
 
     const stripe = await listStripeConnections(ws.id);
 
@@ -70,13 +67,15 @@ export async function listWorkspacesForUser(
       id: ws.id,
       name: ws.name,
       created_at: ws.created_at ?? new Date().toISOString(),
-      xero: xero
-        ? {
-            connected: true,
-            tenant_name: xero.tenant_name,
-            token_expiring: tokenExpiring,
-          }
-        : null,
+      xero:
+        xeroMeta.status !== 'disconnected'
+          ? {
+              connected: xeroMeta.status === 'connected',
+              status: xeroMeta.status,
+              tenant_name: xeroMeta.tenantName,
+              stale_refresh: staleRefresh,
+            }
+          : null,
       stripe: stripe.map((s) => ({
         id: s.id,
         stripe_account_id: s.stripe_account_id,

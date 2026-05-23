@@ -13,12 +13,16 @@ import { setupWorkbookSheets } from '../utils/officeHelpers';
 
 interface SetupPanelProps {
   xeroConnected: boolean;
+  workspaceName?: string;
+  tenantName?: string;
   baseCurrency?: string;
   onBack: () => void;
 }
 
 export default function SetupPanel({
   xeroConnected,
+  workspaceName,
+  tenantName,
   baseCurrency,
   onBack,
 }: SetupPanelProps) {
@@ -31,7 +35,16 @@ export default function SetupPanel({
     await migrateAccountMappingsSheet();
     const res = await apiGet<XeroMappingOptions>('/api/xero/mapping-options');
     if (!res.success || !res.data) {
-      setStatusMessage(friendlyError(res, 'Failed to load Xero mapping options.'));
+      const code = res.error?.code;
+      if (code === 'XERO_AUTH_REQUIRED') {
+        setStatusMessage(
+          `This workspace's Xero connection needs reconnect. Select workspace "${workspaceName ?? 'current'}" and connect Xero for that workspace.`
+        );
+      } else {
+        setStatusMessage(
+          friendlyError(res, 'Failed to load Xero mapping options.')
+        );
+      }
       setStatusError(true);
       return false;
     }
@@ -112,7 +125,26 @@ export default function SetupPanel({
       </div>
 
       <div className="p-3 overflow-y-auto flex-1">
-        <Card title="Default currency" icon="💱" iconClass="bg-xero-light text-xero-dark">
+        {(workspaceName || tenantName) && (
+          <Card title="Workspace" icon="🏢" iconClass="bg-bg text-text-2">
+            {workspaceName && (
+              <InfoRow>
+                Workspace: <strong>{workspaceName}</strong>
+              </InfoRow>
+            )}
+            {tenantName && (
+              <InfoRow className="mt-1">
+                Xero org: <strong>{tenantName}</strong>
+              </InfoRow>
+            )}
+            <InfoRow className="mt-2 text-text-3">
+              Dropdowns use the Xero organisation connected to the selected
+              workspace.
+            </InfoRow>
+          </Card>
+        )}
+
+        <Card title="Default currency" icon="💱" iconClass="bg-xero-light text-xero-dark mt-3">
           <Field label="Organisation currency">
             <input
               type="text"

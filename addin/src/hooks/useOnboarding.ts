@@ -16,9 +16,10 @@ export type OnboardingState = {
   hasStripe: boolean;
   limits: {
     maxStripeConnections: number;
+    maxStripeConnectionsPerWorkspace: number;
     maxWorkspaces: number;
   } | null;
-  accountStripeCount: number;
+  workspaceStripeCount: number;
   loading: boolean;
   error: string | null;
   refresh: (options?: { silent?: boolean }) => Promise<void>;
@@ -39,7 +40,7 @@ export function useOnboarding(enabled: boolean): OnboardingState {
     hasXero: false,
     hasStripe: false,
     limits: null as OnboardingState['limits'],
-    accountStripeCount: 0,
+    workspaceStripeCount: 0,
   });
 
   const loadStatus = useCallback(async (tryAutoProvision: boolean) => {
@@ -53,8 +54,10 @@ export function useOnboarding(enabled: boolean): OnboardingState {
       hasStripe: boolean;
       limits: {
         maxStripeConnections: number;
+        maxStripeConnectionsPerWorkspace: number;
         maxWorkspaces: number;
       } | null;
+      workspaceStripeCount: number;
     }>('/api/onboarding/status');
 
     if (!res.success || !res.data) {
@@ -100,23 +103,16 @@ export function useOnboarding(enabled: boolean): OnboardingState {
       limits: d.limits
         ? {
             maxStripeConnections: d.limits.maxStripeConnections,
+            maxStripeConnectionsPerWorkspace:
+              d.limits.maxStripeConnectionsPerWorkspace,
             maxWorkspaces: d.limits.maxWorkspaces,
           }
         : null,
-      accountStripeCount: 0,
+      workspaceStripeCount: d.workspaceStripeCount ?? 0,
     });
 
     if (d.workspaceId) {
       setWorkspaceId(d.workspaceId);
-      const stripeRes = await apiGet<{ accountStripeCount: number }>(
-        '/api/stripe/connections'
-      );
-      if (stripeRes.success && stripeRes.data) {
-        setStatus((s) => ({
-          ...s,
-          accountStripeCount: stripeRes.data!.accountStripeCount ?? 0,
-        }));
-      }
     }
 
     return provisionError;
@@ -178,7 +174,7 @@ export function useOnboarding(enabled: boolean): OnboardingState {
     hasXero: status.hasXero,
     hasStripe: status.hasStripe,
     limits: status.limits,
-    accountStripeCount: status.accountStripeCount,
+    workspaceStripeCount: status.workspaceStripeCount,
     loading,
     error,
     refresh,

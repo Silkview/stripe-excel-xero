@@ -3,6 +3,7 @@ import { ensureXeroBaseCurrency } from '@/lib/services/xero';
 import {
   disconnectXeroForWorkspace,
   getXeroConnection,
+  getXeroConnectionMeta,
 } from '@/lib/connections/store';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
@@ -16,20 +17,33 @@ export async function OPTIONS(request: Request) {
 export async function GET(request: Request) {
   try {
     const { workspaceId } = await requireWorkspace(request);
-    const xero = await getXeroConnection(workspaceId);
-    if (!xero) {
-      return ok(request, { connected: false });
+    const meta = await getXeroConnectionMeta(workspaceId);
+    if (meta.status === 'disconnected') {
+      return ok(request, { connected: false, status: 'disconnected' });
     }
     try {
       const baseCurrency = await ensureXeroBaseCurrency(workspaceId);
-      const updated = await getXeroConnection(workspaceId);
+      const refreshed = await getXeroConnectionMeta(workspaceId);
+      const xero = await getXeroConnection(workspaceId);
       return ok(request, {
-        connected: true,
-        tenantName: updated?.tenantName,
-        tenantId: updated?.tenantId,
+        connected: refreshed.status === 'connected',
+        status: refreshed.status,
+        tenantName: xero?.tenantName ?? refreshed.tenantName,
+        tenantId: xero?.tenantId ?? refreshed.tenantId,
         baseCurrency,
+        refreshErrorCode: refreshed.refreshErrorCode,
       });
     } catch (err) {
+      const failedMeta = await getXeroConnectionMeta(workspaceId);
+      if (failedMeta.status === 'reconnect_required') {
+        return ok(request, {
+          connected: false,
+          status: 'reconnect_required',
+          tenantName: failedMeta.tenantName,
+          tenantId: failedMeta.tenantId,
+          refreshErrorCode: failedMeta.refreshErrorCode,
+        });
+      }
       if (err instanceof XeroServiceError) {
         return withCors(request, jsonError(err.code, err.message, 502));
       }

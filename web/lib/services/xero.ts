@@ -19,7 +19,9 @@ import type {
   XeroTrackingCategoryOption,
 } from '@stripesync/shared';
 import {
+  clearXeroRefreshFailure,
   getXeroConnection,
+  markXeroRefreshFailure,
   saveXeroConnection,
   type XeroTokens,
 } from '../connections/store';
@@ -152,6 +154,58 @@ export async function fetchXeroConnections(
   }
 }
 
+const XERO_CONNECT_SCOPES = [
+  'accounting.transactions',
+  'accounting.settings',
+  'accounting.reports.read',
+  'offline_access',
+];
+
+function parseXeroTokenError(err: unknown): {
+  code: string;
+  permanent: boolean;
+} {
+  if (axios.isAxiosError(err) && err.response?.data) {
+    const body = err.response.data as {
+      error?: string;
+      error_description?: string;
+    };
+    const code = body.error ?? 'unknown';
+    const permanent =
+      code === 'invalid_grant' ||
+      code === 'invalid_client' ||
+      code === 'unauthorized_client';
+    return { code, permanent };
+  }
+  if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
+    return { code: 'timeout', permanent: false };
+  }
+  return { code: 'network', permanent: false };
+}
+
+async function refreshXeroToken(
+  xero: XeroTokens
+): Promise<{
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}> {
+  const response = await axios.post(
+    XERO_IDENTITY,
+    new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: process.env.XERO_CLIENT_ID || '',
+      client_secret: process.env.XERO_CLIENT_SECRET || '',
+      refresh_token: xero.refresh_token,
+    }),
+    {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: REQUEST_TIMEOUT_MS,
+    }
+  );
+  return response.data;
+}
+
 export async function ensureValidToken(workspaceId: string): Promise<XeroTokens> {
   const xero = await getXeroConnection(workspaceId);
   if (!xero) {
@@ -165,35 +219,49 @@ export async function ensureValidToken(workspaceId: string): Promise<XeroTokens>
     return xero;
   }
 
-  try {
-    const response = await axios.post(
-      XERO_IDENTITY,
-      new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: process.env.XERO_CLIENT_ID || '',
-        client_secret: process.env.XERO_CLIENT_SECRET || '',
-        refresh_token: xero.refresh_token,
-      }),
-      {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: REQUEST_TIMEOUT_MS,
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const data = await refreshXeroToken(xero);
+      const updated: XeroTokens = {
+        ...xero,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || xero.refresh_token,
+        expires_at: Date.now() + data.expires_in * 1000,
+      };
+      await saveXeroConnection(workspaceId, updated, undefined, {
+        scopes: xero.scopes ?? XERO_CONNECT_SCOPES,
+      });
+      await clearXeroRefreshFailure(workspaceId);
+      return updated;
+    } catch (err) {
+      const { code, permanent } = parseXeroTokenError(err);
+      console.error(
+        '[xero-token-refresh]',
+        JSON.stringify({
+          workspaceId,
+          attempt,
+          error: code,
+          permanent,
+        })
+      );
+      if (permanent || attempt === 1) {
+        if (permanent) {
+          await markXeroRefreshFailure(workspaceId, code);
+        }
+        throw new XeroServiceError(
+          'XERO_AUTH_REQUIRED',
+          permanent
+            ? 'Your Xero connection has expired. Please reconnect.'
+            : 'Could not refresh Xero connection. Please try again or reconnect.'
+        );
       }
-    );
-
-    const updated: XeroTokens = {
-      ...xero,
-      access_token: response.data.access_token,
-      refresh_token: response.data.refresh_token || xero.refresh_token,
-      expires_at: Date.now() + response.data.expires_in * 1000,
-    };
-    await saveXeroConnection(workspaceId, updated);
-    return updated;
-  } catch {
-    throw new XeroServiceError(
-      'XERO_AUTH_REQUIRED',
-      'Your Xero connection has expired. Please reconnect.'
-    );
+    }
   }
+
+  throw new XeroServiceError(
+    'XERO_AUTH_REQUIRED',
+    'Your Xero connection has expired. Please reconnect.'
+  );
 }
 
 function xeroHeaders(xero: XeroTokens): Record<string, string> {

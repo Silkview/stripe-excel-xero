@@ -32,6 +32,8 @@ export async function listPlans(): Promise<PlanRow[]> {
     max_users: row.max_users,
     max_workspaces: row.max_workspaces,
     max_stripe_connections: row.max_stripe_connections,
+    max_stripe_connections_per_workspace:
+      row.max_stripe_connections_per_workspace ?? 1,
     max_xero_connections_per_workspace:
       row.max_xero_connections_per_workspace ?? 1,
     stripe_price_id: row.stripe_price_id,

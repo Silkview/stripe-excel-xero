@@ -76,6 +76,8 @@ export async function loadDashboardContext(
       maxWorkspaces: plan?.max_workspaces ?? account.max_workspaces,
       maxUsers: plan?.max_users ?? account.max_users,
       maxStripeConnections: plan?.max_stripe_connections ?? 1,
+      maxStripeConnectionsPerWorkspace:
+        plan?.max_stripe_connections_per_workspace ?? 1,
       workspaceCount: workspaceCount ?? 0,
       userCount: (userCount ?? 0) + (pendingInvites ?? 0),
       stripeConnectionCount,

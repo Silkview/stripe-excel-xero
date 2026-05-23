@@ -9,10 +9,12 @@ import Alert from '@/components/ui/Alert';
 
 export default function WorkspaceCard({
   workspace,
+  maxStripePerWorkspace = 1,
   onInvite,
   onConnectionsChanged,
 }: {
   workspace: WorkspaceSummary;
+  maxStripePerWorkspace?: number;
   onInvite: (workspaceId: string) => void;
   onConnectionsChanged?: () => void;
 }) {
@@ -26,10 +28,14 @@ export default function WorkspaceCard({
     year: 'numeric',
   });
 
-  const xeroConnected = !!workspace.xero?.connected;
+  const xeroStatus = workspace.xero?.status;
+  const xeroConnected = workspace.xero?.connected ?? false;
+  const xeroReconnect = xeroStatus === 'reconnect_required';
   const stripeRows = workspace.stripe.length
     ? workspace.stripe
     : [{ id: 'none', display_name: null, stripe_account_id: '' }];
+  const canAddStripe =
+    workspace.stripe.length < maxStripePerWorkspace;
 
   const handleConnect = async (provider: 'xero' | 'stripe') => {
     setConnectError(null);
@@ -95,21 +101,25 @@ export default function WorkspaceCard({
               : 'Xero — not connected'
           }
           status={
-            xeroConnected
-              ? workspace.xero?.token_expiring
-                ? 'warning'
-                : 'connected'
-              : 'disconnected'
+            xeroReconnect
+              ? 'warning'
+              : xeroConnected
+                ? workspace.xero?.stale_refresh
+                  ? 'warning'
+                  : 'connected'
+                : 'disconnected'
           }
           hint={
-            xeroConnected
-              ? workspace.xero?.token_expiring
-                ? 'Token expiring soon — reconnect'
-                : 'Connected'
-              : 'Connect from dashboard or Excel'
+            xeroReconnect
+              ? 'Reconnect required — refresh failed'
+              : xeroConnected
+                ? workspace.xero?.stale_refresh
+                  ? 'Inactive — use soon or reconnect'
+                  : 'Connected'
+                : 'Connect from dashboard or Excel'
           }
           action={
-            !xeroConnected ? (
+            !xeroConnected || xeroReconnect ? (
               <Button
                 type="button"
                 variant="xero"
@@ -117,7 +127,11 @@ export default function WorkspaceCard({
                 disabled={connecting !== null}
                 onClick={() => void handleConnect('xero')}
               >
-                {connecting === 'xero' ? 'Connecting…' : 'Connect'}
+                {connecting === 'xero'
+                  ? 'Connecting…'
+                  : xeroReconnect
+                    ? 'Reconnect'
+                    : 'Connect'}
               </Button>
             ) : undefined
           }
@@ -152,6 +166,19 @@ export default function WorkspaceCard({
             }
           />
         ))}
+        {canAddStripe && workspace.stripe.length > 0 && (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              className="!py-1 !px-2.5 !text-xs"
+              disabled={connecting !== null}
+              onClick={() => void handleConnect('stripe')}
+            >
+              {connecting === 'stripe' ? 'Connecting…' : 'Add Stripe account'}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="mt-auto flex items-center justify-between border-t border-border bg-bg/50 px-4 py-3">

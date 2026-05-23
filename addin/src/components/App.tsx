@@ -15,6 +15,7 @@ import { useStripeAuth } from '../hooks/useStripeAuth';
 import { useXeroAuth } from '../hooks/useXeroAuth';
 import { useDefaultCurrency } from '../hooks/useDefaultCurrency';
 import { getAppUrl } from '../utils/api';
+import { clearStripeAccountId } from '../utils/session';
 
 export default function App() {
   const auth = useAuth();
@@ -46,11 +47,16 @@ export default function App() {
 
   const handleWorkspaceChange = (id: string) => {
     workspace.selectWorkspace(id);
+    clearStripeAccountId();
     stripeAuth.setError(null);
     xeroAuth.setError(null);
     void stripeAuth.refresh();
     void xeroAuth.refresh();
   };
+
+  const workspaceName =
+    workspace.workspaces.find((w) => w.id === workspace.workspaceId)?.name ??
+    'this workspace';
 
   const headerWorkspaceProps =
     workspace.ready && workspace.workspaces.length > 0
@@ -179,7 +185,16 @@ export default function App() {
         stripeWaiting={stripeAuth.waitingForBrowser}
         xeroWaiting={xeroAuth.waitingForBrowser}
         onConnectStripe={() => void stripeAuth.connect('login')}
-        onConnectXero={xeroAuth.connect}
+        onConnectAnotherStripe={
+          stripeAuth.canAddAnother
+            ? () => void stripeAuth.connect('login')
+            : undefined
+        }
+        canAddAnotherStripe={stripeAuth.canAddAnother}
+        selectedStripeAccountId={stripeAuth.selectedStripeAccountId}
+        onSelectStripeAccount={stripeAuth.selectStripeAccount}
+        onConnectXero={() => void xeroAuth.connect()}
+        xeroNeedsReconnect={xeroAuth.needsReconnect}
         dimmed={showSetup}
         defaultCurrency={currencyReady ? currency : undefined}
       />
@@ -192,7 +207,11 @@ export default function App() {
 
       {showSetup ? (
         <SetupPanel
-          xeroConnected={xeroAuth.status.connected}
+          xeroConnected={
+            xeroAuth.status.connected && !xeroAuth.needsReconnect
+          }
+          workspaceName={workspaceName}
+          tenantName={xeroAuth.status.tenantName}
           baseCurrency={currency}
           onBack={closeSetup}
         />

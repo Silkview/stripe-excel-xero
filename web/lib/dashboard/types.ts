@@ -6,6 +6,7 @@ export type DashboardLimits = {
   maxWorkspaces: number;
   maxUsers: number;
   maxStripeConnections: number;
+  maxStripeConnectionsPerWorkspace: number;
   workspaceCount: number;
   userCount: number;
   stripeConnectionCount: number;
@@ -33,8 +34,9 @@ export type WorkspaceSummary = {
   created_at: string;
   xero: {
     connected: boolean;
+    status: 'connected' | 'reconnect_required' | 'disconnected';
     tenant_name: string | null;
-    token_expiring?: boolean;
+    stale_refresh?: boolean;
   } | null;
   stripe: Array<{
     id: string;

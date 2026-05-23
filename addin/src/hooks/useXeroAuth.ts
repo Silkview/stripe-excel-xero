@@ -18,6 +18,11 @@ export function useXeroAuth(enabled: boolean, workspaceId?: string | null) {
       const res = await apiGet<XeroConnectionStatus>('/api/xero/connections');
       if (res.success && res.data) {
         setStatus(res.data);
+        if (res.data.status === 'reconnect_required') {
+          setError(
+            'This workspace needs Xero reconnect. Use Connect Xero for this workspace.'
+          );
+        }
       }
     } catch {
       // ignore on initial load
@@ -42,7 +47,11 @@ export function useXeroAuth(enabled: boolean, workspaceId?: string | null) {
       setWaitingForBrowser(true);
       await openAuthFlow(connectRes.data.url, async () => {
         const res = await apiGet<XeroConnectionStatus>('/api/xero/connections');
-        return !!(res.success && res.data?.connected);
+        return !!(
+          res.success &&
+          res.data?.connected &&
+          res.data.status !== 'reconnect_required'
+        );
       });
       await refresh();
     } catch (err) {
@@ -53,5 +62,16 @@ export function useXeroAuth(enabled: boolean, workspaceId?: string | null) {
     }
   }, [refresh]);
 
-  return { status, loading, waitingForBrowser, error, connect, refresh, setError };
+  const needsReconnect = status.status === 'reconnect_required';
+
+  return {
+    status,
+    needsReconnect,
+    loading,
+    waitingForBrowser,
+    error,
+    connect,
+    refresh,
+    setError,
+  };
 }

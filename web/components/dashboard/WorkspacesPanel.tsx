@@ -51,6 +51,7 @@ export default function WorkspacesPanel() {
         <WorkspaceGrid
           workspaces={workspaces}
           canManage={ctx.isAdmin}
+          maxStripePerWorkspace={ctx.limits.maxStripeConnectionsPerWorkspace}
           onInvite={openInvite}
           onAdd={() => setCreateOpen(true)}
           onConnectionsChanged={load}

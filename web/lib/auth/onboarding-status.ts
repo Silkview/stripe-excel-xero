@@ -23,8 +23,10 @@ export type OnboardingStatus = {
     maxUsers: number;
     maxWorkspaces: number;
     maxStripeConnections: number;
+    maxStripeConnectionsPerWorkspace: number;
     maxXeroConnectionsPerWorkspace: number;
   } | null;
+  workspaceStripeCount: number;
   prefill?: OnboardingPrefill;
 };
 
@@ -77,6 +79,7 @@ export async function getOnboardingStatusForUser(
       hasXero: false,
       hasStripe: false,
       limits: null,
+      workspaceStripeCount: 0,
       prefill,
     };
   }
@@ -109,6 +112,7 @@ export async function getOnboardingStatusForUser(
 
   let hasXero = false;
   let hasStripe = false;
+  let workspaceStripeCount = 0;
 
   if (workspaceId) {
     const { data: xero } = await core(admin)
@@ -119,13 +123,13 @@ export async function getOnboardingStatusForUser(
       .maybeSingle();
     hasXero = !!xero;
 
-    const { data: stripe } = await core(admin)
+    const { count: stripeCount } = await core(admin)
       .from('stripe_connections')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
       .eq('workspace_id', workspaceId)
-      .eq('is_active', true)
-      .maybeSingle();
-    hasStripe = !!stripe;
+      .eq('is_active', true);
+    workspaceStripeCount = stripeCount ?? 0;
+    hasStripe = workspaceStripeCount > 0;
   }
 
   const needsAccountSetup = !workspaceId;
@@ -149,10 +153,13 @@ export async function getOnboardingStatusForUser(
           maxUsers: plan.max_users,
           maxWorkspaces: plan.max_workspaces,
           maxStripeConnections: plan.max_stripe_connections,
+          maxStripeConnectionsPerWorkspace:
+            plan.max_stripe_connections_per_workspace,
           maxXeroConnectionsPerWorkspace:
             plan.max_xero_connections_per_workspace,
         }
       : null,
+    workspaceStripeCount,
     prefill,
   };
 }

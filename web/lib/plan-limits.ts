@@ -30,7 +30,7 @@ export async function enforceLimit(
     };
   }
 
-  if (resource === 'xero' && !workspaceId) {
+  if ((resource === 'xero' || resource === 'stripe') && !workspaceId) {
     return { allowed: false, reason: 'Workspace is required.' };
   }
 
@@ -62,7 +62,7 @@ export async function enforceLimit(
         : resource === 'workspace'
           ? `workspace${(plan?.max_workspaces ?? 1) === 1 ? '' : 's'}`
           : resource === 'stripe'
-            ? `Stripe account${(plan?.max_stripe_connections ?? 1) === 1 ? '' : 's'}`
+            ? `Stripe account${(plan?.max_stripe_connections_per_workspace ?? 1) === 1 ? '' : 's'} per workspace`
             : 'Xero organisation';
 
     const cap =
@@ -71,12 +71,20 @@ export async function enforceLimit(
         : resource === 'workspace'
           ? plan?.max_workspaces
           : resource === 'stripe'
-            ? plan?.max_stripe_connections
+            ? plan?.max_stripe_connections_per_workspace
             : plan?.max_xero_connections_per_workspace;
+
+    const accountCap =
+      resource === 'stripe' ? plan?.max_stripe_connections : null;
+
+    const reason =
+      resource === 'stripe' && accountCap != null
+        ? `Your ${planCode} plan allows ${cap} Stripe account${(cap ?? 1) === 1 ? '' : 's'} per workspace (${accountCap} total across the account). Upgrade to increase limits.`
+        : `Your ${planCode} plan allows ${cap} ${label}. Upgrade to increase limits.`;
 
     return {
       allowed: false,
-      reason: `Your ${planCode} plan allows ${cap} ${label}. Upgrade to increase limits.`,
+      reason,
     };
   }
 

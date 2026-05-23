@@ -59,7 +59,15 @@ async function saveXeroTenantForWorkspace(
       tenantName: tenant.tenantName,
       baseCurrency,
     },
-    userId
+    userId,
+    {
+      scopes: [
+        'accounting.transactions',
+        'accounting.settings',
+        'accounting.reports.read',
+        'offline_access',
+      ],
+    }
   );
 }
 

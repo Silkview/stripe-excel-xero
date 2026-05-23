@@ -20,7 +20,20 @@ function sanitizeNamedRangePart(name: string): string {
 }
 
 export function accountTaxRangeName(accountCode: string): string {
-  return `${NAMED_TAX_ACCT_PREFIX}${sanitizeNamedRangePart(accountCode)}`;
+  const part = sanitizeNamedRangePart(accountCode).replace(/^_/, '');
+  return `${NAMED_TAX_ACCT_PREFIX}${part}`;
+}
+
+/** Internal tax-dropdown range id (e.g. XeroTaxAcct_090), not a Xero account label. */
+export function isInternalTaxRangeName(value: string): boolean {
+  return value.trim().startsWith(NAMED_TAX_ACCT_PREFIX);
+}
+
+/** Extract GL code from XeroTaxAcct_090 or legacy XeroTaxAcct__090. */
+export function accountCodeFromInternalTaxRangeName(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith(NAMED_TAX_ACCT_PREFIX)) return trimmed;
+  return trimmed.slice(NAMED_TAX_ACCT_PREFIX.length).replace(/^_/, '');
 }
 
 export function taxDisplayLabelForAccount(

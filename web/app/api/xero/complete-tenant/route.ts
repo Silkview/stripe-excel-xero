@@ -81,7 +81,15 @@ export async function POST(request: Request) {
         tenantName: tenant.tenantName,
         baseCurrency,
       },
-      payload.userId
+      payload.userId,
+      {
+        scopes: [
+          'accounting.transactions',
+          'accounting.settings',
+          'accounting.reports.read',
+          'offline_access',
+        ],
+      }
     );
 
     return new NextResponse(

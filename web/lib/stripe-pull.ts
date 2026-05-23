@@ -21,13 +21,22 @@ type FetchFn = (
   to: string
 ) => Promise<Array<{ currency: string }>>;
 
+function resolveStripeAccountId(request: Request): string | null {
+  return (
+    request.headers.get('x-stripe-account-id') ||
+    request.headers.get('X-Stripe-Account-Id') ||
+    new URL(request.url).searchParams.get('stripeAccountId')
+  );
+}
+
 export async function handleStripePull(
   request: Request,
   workspaceId: string,
   fetchFn: FetchFn,
   errorFallback: string
 ) {
-  const stripe = await getStripeConnection(workspaceId);
+  const stripeAccountId = resolveStripeAccountId(request);
+  const stripe = await getStripeConnection(workspaceId, stripeAccountId);
   if (!stripe) {
     return withCors(
       request,

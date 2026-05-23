@@ -108,17 +108,33 @@ export interface XeroAuthMessage {
   message?: string;
 }
 
+export type XeroConnectionStatusValue =
+  | 'connected'
+  | 'reconnect_required'
+  | 'disconnected';
+
+export interface StripeConnectionItem {
+  id: string;
+  stripeAccountId: string;
+  displayName: string | null;
+  isDefault?: boolean;
+}
+
 export interface StripeConnectionStatus {
   connected: boolean;
   stripe_user_id?: string;
+  defaultStripeAccountId?: string;
+  connections?: StripeConnectionItem[];
 }
 
 export interface XeroConnectionStatus {
   connected: boolean;
+  status?: XeroConnectionStatusValue;
   tenantName?: string;
   tenantId?: string;
   /** Organisation base currency (uppercase ISO), set when Xero is connected */
   baseCurrency?: string;
+  refreshErrorCode?: string | null;
 }
 
 export interface StripePullResponse<T> {

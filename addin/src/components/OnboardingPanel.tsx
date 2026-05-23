@@ -15,8 +15,9 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
   const xeroAuth = useXeroAuth(apiReady);
   const stripeAuth = useStripeAuth(apiReady);
 
-  const maxStripe = onboarding.limits?.maxStripeConnections ?? 1;
-  const canAddStripe = onboarding.accountStripeCount < maxStripe;
+  const maxStripe =
+    onboarding.limits?.maxStripeConnectionsPerWorkspace ?? 1;
+  const canAddStripe = onboarding.workspaceStripeCount < maxStripe;
 
   const refreshOnboarding = onboarding.refresh;
   const wasXeroConnected = useRef(false);
@@ -99,8 +100,8 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
       <section className="mb-4 rounded border border-border bg-surface p-3">
         <h3 className="text-sm font-semibold mb-2">2. Connect Stripe</h3>
         <p className="text-xs text-text-2 mb-2">
-          {onboarding.accountStripeCount} of {maxStripe} Stripe account
-          {maxStripe > 1 ? 's' : ''} on your plan (account-wide).
+          {onboarding.workspaceStripeCount} of {maxStripe} Stripe account
+          {maxStripe > 1 ? 's' : ''} for this workspace.
         </p>
         <p className="text-xs text-text-3 mb-2">
           Opens Stripe so you sign in with the account you want to sync (use the

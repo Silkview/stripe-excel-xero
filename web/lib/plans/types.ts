@@ -8,6 +8,7 @@ export type PlanRow = {
   max_users: number;
   max_workspaces: number;
   max_stripe_connections: number;
+  max_stripe_connections_per_workspace: number;
   max_xero_connections_per_workspace: number;
   stripe_price_id: string | null;
   sort_order: number;
@@ -18,5 +19,6 @@ export type PlanLimits = {
   maxUsers: number;
   maxWorkspaces: number;
   maxStripeConnections: number;
+  maxStripeConnectionsPerWorkspace: number;
   maxXeroConnectionsPerWorkspace: number;
 };

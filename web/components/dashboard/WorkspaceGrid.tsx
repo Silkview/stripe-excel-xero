@@ -6,12 +6,14 @@ import WorkspaceCard from './WorkspaceCard';
 export default function WorkspaceGrid({
   workspaces,
   canManage,
+  maxStripePerWorkspace = 1,
   onInvite,
   onAdd,
   onConnectionsChanged,
 }: {
   workspaces: WorkspaceSummary[];
   canManage: boolean;
+  maxStripePerWorkspace?: number;
   onInvite: (workspaceId: string) => void;
   onAdd: () => void;
   onConnectionsChanged?: () => void;
@@ -50,6 +52,7 @@ export default function WorkspaceGrid({
         <WorkspaceCard
           key={ws.id}
           workspace={ws}
+          maxStripePerWorkspace={maxStripePerWorkspace}
           onInvite={onInvite}
           onConnectionsChanged={onConnectionsChanged}
         />

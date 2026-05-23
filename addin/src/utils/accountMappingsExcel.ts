@@ -15,8 +15,10 @@ import {
   applyAccountMappingsTaxValidation,
   applyXeroJournalsTaxDropdowns,
   deleteAccountTaxNamedRanges,
+  isInternalTaxRangeName,
   setupAccountTaxDropdowns,
 } from './xeroAccountTaxDropdowns';
+import { resolveAccountDisplayLabel } from './accountMappingsRead';
 
 const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
 const MAPPING_ROW_COUNT = ACCOUNT_MAPPING_STRIPE_OBJECTS.length;
@@ -271,6 +273,30 @@ export async function applyAccountMappingsDropdowns(
     mappingsSheet.getRange(`A1:${colLetter(ACCOUNT_MAPPING_HEADERS.length)}1`).format.autofitColumns();
 
     await applyXeroJournalsTaxDropdowns(context);
+
+    const accountRange = mappingsSheet.getRange(
+      `B${FIRST_DATA_ROW}:B${LAST_DATA_ROW}`
+    );
+    accountRange.load('values');
+    await context.sync();
+    const existing = (accountRange.values as unknown[][]) ?? [];
+    const allAccounts = options.accounts;
+    const accountColValues = existing.map((row, i) => {
+      const stripeObject = ACCOUNT_MAPPING_STRIPE_OBJECTS[i];
+      if (stripeObject === 'stripe_payout_contact') return [''];
+      const raw = row[0];
+      const resolved = resolveAccountDisplayLabel(raw, allAccounts);
+      // #region agent log
+      if (raw && isInternalTaxRangeName(String(raw))) {
+        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel:normalize',message:'fixed_internal_tax_range_in_account_col',data:{stripeObject,raw:String(raw).slice(0,60),resolved:resolved?.slice(0,60)??null},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      }
+      // #endregion
+      if (resolved && resolved !== String(raw ?? '').trim()) {
+        return [resolved];
+      }
+      return [String(raw ?? '')];
+    });
+    accountRange.values = accountColValues;
 
     await context.sync();
   });
