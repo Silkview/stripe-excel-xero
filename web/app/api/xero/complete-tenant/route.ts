@@ -1,5 +1,5 @@
 import { saveXeroConnection } from '@/lib/connections/store';
-import { enforceLimit } from '@/lib/plan-limits';
+import { enforceXeroConnect } from '@/lib/plan-limits';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
 import { verifyXeroTenantPick } from '@/lib/oauth-state';
@@ -58,9 +58,8 @@ export async function POST(request: Request) {
       .single();
 
     if (ws?.account_id) {
-      const check = await enforceLimit(
+      const check = await enforceXeroConnect(
         ws.account_id,
-        'xero',
         payload.workspaceId
       );
       if (!check.allowed) {

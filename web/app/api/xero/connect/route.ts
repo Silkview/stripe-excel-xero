@@ -1,5 +1,5 @@
 import { requireWorkspace, getAccountMembership } from '@/lib/api-auth';
-import { enforceLimit } from '@/lib/plan-limits';
+import { enforceXeroConnect } from '@/lib/plan-limits';
 import {
   newNonce,
   setPkceVerifier,
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     if (!membership) {
       return withCors(request, jsonError('ACCOUNT_REQUIRED', 'No account.', 403));
     }
-    const check = await enforceLimit(membership.account_id, 'xero', workspaceId);
+    const check = await enforceXeroConnect(membership.account_id, workspaceId);
     if (!check.allowed) {
       return withCors(
         request,

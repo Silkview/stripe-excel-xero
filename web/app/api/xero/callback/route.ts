@@ -1,5 +1,5 @@
 import { saveXeroConnection } from '@/lib/connections/store';
-import { enforceLimit } from '@/lib/plan-limits';
+import { enforceXeroConnect } from '@/lib/plan-limits';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
 import { getAppBaseUrl } from '@/lib/app-url';
@@ -43,7 +43,7 @@ async function saveXeroTenantForWorkspace(
     .single();
 
   if (ws?.account_id) {
-    const check = await enforceLimit(ws.account_id, 'xero', workspaceId);
+    const check = await enforceXeroConnect(ws.account_id, workspaceId);
     if (!check.allowed) {
       throw new Error(check.reason ?? 'Plan limit reached.');
     }
