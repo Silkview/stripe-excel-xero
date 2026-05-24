@@ -26,7 +26,12 @@ export default function SecurityPanel() {
       try {
         const supabase = createSupabaseBrowser();
         const status = await getMfaStatus(supabase);
-        if (!cancelled) setMfa(status);
+        if (!cancelled) {
+          // #region agent log
+          fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'SecurityPanel.tsx:mfaStatus',message:'security panel mfa status',data:{hasVerifiedTotp:status.hasVerifiedTotp,needsVerification:status.needsVerification},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          setMfa(status);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -88,7 +93,7 @@ export default function SecurityPanel() {
                 signing in.
               </p>
               <Button
-                href="/auth/mfa/enroll"
+                href="/auth/mfa/enroll?return=/dashboard/security&voluntary=1"
                 variant="primary"
                 className="mt-4 !bg-accent"
               >

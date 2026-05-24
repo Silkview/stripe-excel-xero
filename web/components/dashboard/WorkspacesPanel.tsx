@@ -33,6 +33,24 @@ export default function WorkspacesPanel() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (
+        data &&
+        typeof data === 'object' &&
+        data.type === 'silkview_oauth' &&
+        typeof data.status === 'string' &&
+        data.status.includes('connected')
+      ) {
+        void load();
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [load]);
+
   const openInvite = (workspaceId: string) => {
     setInviteWorkspaceId(workspaceId);
     setInviteOpen(true);

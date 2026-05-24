@@ -28,14 +28,14 @@ export function formatAuthError(error: AuthError): string {
     code === 'email_not_confirmed' ||
     /email not confirmed/i.test(msg)
   ) {
-    return 'Confirm your email before signing in. Check your inbox for the signup link, or resend confirmation below.';
+    return 'Confirm your email before signing in. Check your inbox for the signup link.';
   }
 
   if (
     code === 'invalid_credentials' ||
     /invalid login credentials/i.test(msg)
   ) {
-    return 'Email or password is incorrect, or your email is not confirmed yet. If you just signed up, open the confirmation link in your inbox first.';
+    return 'Email or password is incorrect. If you forgot your password, use Forgot password on the sign-in page.';
   }
 
   if (code === 'user_not_found' || /user not found/i.test(msg)) {
@@ -140,5 +140,27 @@ export async function resendSignupConfirmation(
   return {
     ok: true,
     message: 'Confirmation email sent. Open the link, then sign in again.',
+  };
+}
+
+export async function requestPasswordReset(
+  supabase: SupabaseClient,
+  email: string
+): Promise<{ ok: boolean; message: string }> {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    normalizeAuthEmail(email),
+    {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    }
+  );
+
+  if (error) {
+    return { ok: false, message: formatAuthError(error) };
+  }
+
+  return {
+    ok: true,
+    message:
+      'If an account exists for that email, we sent a password reset link. Check your inbox.',
   };
 }

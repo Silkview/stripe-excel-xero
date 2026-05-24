@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { WorkspaceSummary } from '@/lib/dashboard/types';
-import { connectWorkspaceProvider } from '@/lib/dashboard/oauth-connect';
+import { connectWorkspaceProvider, prepareOAuthPopup } from '@/lib/dashboard/oauth-connect';
 import ConnRow from './ConnRow';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
@@ -62,9 +62,22 @@ export default function WorkspaceCard({
 
   const handleConnect = async (provider: 'xero' | 'stripe') => {
     setConnectError(null);
+
+    const popup = prepareOAuthPopup();
+    if (!popup) {
+      setConnectError(
+        'Pop-up blocked. Allow pop-ups for this site to connect accounts.'
+      );
+      return;
+    }
+
     setConnecting(provider);
     try {
-      const result = await connectWorkspaceProvider(workspace.id, provider);
+      const result = await connectWorkspaceProvider(
+        workspace.id,
+        provider,
+        popup
+      );
       if (result.provider === 'stripe' && result.newConnection) {
         const { connectionId, displayName, stripeAccountId } =
           result.newConnection;
@@ -77,6 +90,8 @@ export default function WorkspaceCard({
                 ? stripeAccountId
                 : '',
         });
+      } else if (result.provider === 'xero') {
+        toast('Xero connected');
       }
       refresh();
     } catch (err) {

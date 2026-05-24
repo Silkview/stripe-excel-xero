@@ -14,23 +14,20 @@ import {
   signInWithPassword,
   syncBrowserSessionToServer,
 } from '@/lib/auth/credentials';
-import ResendConfirmation from '@/components/auth/ResendConfirmation';
 import AuthCard from '@/components/ui/AuthCard';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 
-type Tab = 'password' | 'excel';
 type ExcelAuthMode = 'password' | 'magic';
 
 function LoginFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const excelMode = searchParams.get('return') === 'excel';
+  const resetSuccess = searchParams.get('reset') === 'success';
   const returnPath = excelMode ? null : safeReturnPath(searchParams.get('return'));
-  const defaultTab: Tab = excelMode ? 'excel' : 'password';
 
-  const [tab, setTab] = useState<Tab>(defaultTab);
   const [excelAuthMode, setExcelAuthMode] = useState<ExcelAuthMode>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -133,34 +130,15 @@ function LoginFormInner() {
         )
       }
     >
-      {!excelMode && (
-        <div className="mb-6 flex rounded-sm border border-border p-0.5 bg-bg">
-          <button
-            type="button"
-            onClick={() => setTab('password')}
-            className={`flex-1 rounded-sm py-2 text-sm font-medium transition-colors ${
-              tab === 'password'
-                ? 'bg-surface text-text shadow-sm'
-                : 'text-text-2 hover:text-text'
-            }`}
-          >
-            Email &amp; password
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('excel')}
-            className={`flex-1 rounded-sm py-2 text-sm font-medium transition-colors ${
-              tab === 'excel'
-                ? 'bg-surface text-text shadow-sm'
-                : 'text-text-2 hover:text-text'
-            }`}
-          >
-            Excel add-in
-          </button>
+      {!excelMode && resetSuccess && (
+        <div className="mb-4">
+          <Alert variant="success">
+            Password updated. Sign in with your new password.
+          </Alert>
         </div>
       )}
 
-      {tab === 'password' && !excelMode && (
+      {!excelMode && (
         <form onSubmit={handlePasswordLogin} className="space-y-4">
           <Input
             label="Email"
@@ -178,15 +156,22 @@ function LoginFormInner() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <div className="flex justify-end">
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm text-stripe font-medium hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           {error && <Alert variant="error">{error}</Alert>}
           <Button type="submit" variant="primary" className="w-full" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
-          <ResendConfirmation email={email} />
         </form>
       )}
 
-      {(tab === 'excel' || excelMode) && (
+      {excelMode && (
         <>
           {magicSent ? (
             <Alert variant="success">
@@ -214,7 +199,6 @@ function LoginFormInner() {
               <Button type="submit" variant="primary" className="w-full" disabled={loading}>
                 {loading ? 'Signing in…' : 'Sign in'}
               </Button>
-              <ResendConfirmation email={email} />
               <button
                 type="button"
                 onClick={() => {

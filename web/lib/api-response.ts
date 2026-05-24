@@ -54,10 +54,17 @@ export function authCallbackHtml(payload: object): string {
       ? (payload as { message: string }).message
       : null;
   const title = callbackProviderTitle(payload, isSuccess);
+  const excelMessage = 'You can close this tab and return to Excel.';
+  const dashboardMessage =
+    'You can close this tab and return to the dashboard.';
   const message = isSuccess
-    ? 'You can close this tab and return to Excel.'
-    : errorMessage ??
-      'Please close this tab and try again from the add-in.';
+    ? excelMessage
+    : errorMessage ?? 'Please close this tab and try again from the add-in.';
+  const dashboardMessageJs = JSON.stringify(dashboardMessage).replace(
+    /</g,
+    '\\u003c'
+  );
+  const excelMessageJs = JSON.stringify(excelMessage).replace(/</g, '\\u003c');
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -68,12 +75,30 @@ export function authCallbackHtml(payload: object): string {
 </head>
 <body>
 <h1>${title}</h1>
-<p>${message}</p>
+<p id="status">${message}</p>
 <script>
+  (function() {
+    var payload = ${json};
+    var isSuccess = ${isSuccess ? 'true' : 'false'};
+    if (isSuccess && window.opener && !window.opener.closed) {
+      var statusEl = document.getElementById('status');
+      if (statusEl) statusEl.textContent = ${dashboardMessageJs};
+      try {
+        window.opener.postMessage(
+          { type: 'silkview_oauth', ...payload },
+          window.location.origin
+        );
+      } catch (e) { }
+    }
+  })();
   Office.onReady(function() {
     try {
       if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
         Office.context.ui.messageParent(${json});
+        var statusEl = document.getElementById('status');
+        if (statusEl && ${isSuccess ? 'true' : 'false'}) {
+          statusEl.textContent = ${excelMessageJs};
+        }
       }
     } catch (e) { }
   });

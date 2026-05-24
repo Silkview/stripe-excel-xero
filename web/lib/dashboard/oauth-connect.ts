@@ -12,6 +12,32 @@ export type ConnectWorkspaceResult =
   | { provider: 'xero'; connected: true }
   | { provider: 'stripe'; connected: true; newConnection: StripeConnectResult };
 
+const OAUTH_POPUP_NAME = 'silkview_oauth';
+const OAUTH_POPUP_FEATURES = 'width=520,height=720';
+
+/** Open synchronously from a click handler; null only when the browser blocks pop-ups. */
+export function prepareOAuthPopup(): Window | null {
+  const popup = window.open('about:blank', OAUTH_POPUP_NAME, OAUTH_POPUP_FEATURES);
+  if (!popup) return null;
+  try {
+    popup.document.write(
+      '<!DOCTYPE html><html><head><title>Connecting…</title></head><body style="font-family:system-ui,sans-serif;padding:2rem"><p>Redirecting…</p></body></html>'
+    );
+    popup.document.close();
+  } catch {
+    // cross-origin or restricted; navigation still works
+  }
+  return popup;
+}
+
+function closeOAuthPopup(popup: Window): void {
+  try {
+    if (!popup.closed) popup.close();
+  } catch {
+    // ignore
+  }
+}
+
 async function fetchConnectUrl(
   workspaceId: string,
   provider: 'xero' | 'stripe'
@@ -34,18 +60,8 @@ async function fetchConnectUrl(
   return data.data.url as string;
 }
 
-export function openOAuthPopup(url: string): Window {
-  const win = window.open(
-    url,
-    '_blank',
-    'noopener,noreferrer,width=520,height=720'
-  );
-  if (!win) {
-    throw new Error(
-      'Pop-up blocked. Allow pop-ups for this site to connect accounts.'
-    );
-  }
-  return win;
+function navigateOAuthPopup(popup: Window, url: string): void {
+  popup.location.href = url;
 }
 
 async function waitForXero(workspaceId: string, maxMs = 120000): Promise<boolean> {
@@ -103,15 +119,23 @@ async function waitForNewStripeConnection(
 
 export async function connectWorkspaceProvider(
   workspaceId: string,
-  provider: 'xero' | 'stripe'
+  provider: 'xero' | 'stripe',
+  popup: Window
 ): Promise<ConnectWorkspaceResult> {
   const beforeStripeIds =
     provider === 'stripe'
       ? new Set((await fetchStripeConnections(workspaceId)).map((c) => c.id))
       : new Set<string>();
 
-  const url = await fetchConnectUrl(workspaceId, provider);
-  openOAuthPopup(url);
+  let url: string;
+  try {
+    url = await fetchConnectUrl(workspaceId, provider);
+  } catch (err) {
+    closeOAuthPopup(popup);
+    throw err;
+  }
+
+  navigateOAuthPopup(popup, url);
 
   if (provider === 'xero') {
     const connected = await waitForXero(workspaceId);

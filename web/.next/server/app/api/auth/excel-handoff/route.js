@@ -1,29 +1,47 @@
-"use strict";(()=>{var e={};e.id=6290,e.ids=[6290],e.modules={20399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},30517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},52426:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>g,patchFetch:()=>x,requestAsyncStorage:()=>h,routeModule:()=>p,serverHooks:()=>m,staticGenerationAsyncStorage:()=>y});var s={};n.r(s),n.d(s,{GET:()=>u,OPTIONS:()=>l,POST:()=>d});var r=n(93277),o=n(15265),a=n(55356),i=n(78793),c=n(21985),f=n(86771);async function l(){return(0,f.N4)()}async function u(e){let t=new URL(e.url),n=t.searchParams.get("nonce")?.trim();if(!n)return(0,f.i6)((0,c.bg)("INVALID_REQUEST","Missing handoff nonce.",400));if(!await (0,i.do)(n))return(0,f.i6)((0,c.jsonSuccess)({ready:!1}));let s=await (0,i.KB)(n);return s?(0,f.i6)((0,c.jsonSuccess)({ready:!0,accessToken:s})):(0,f.i6)((0,c.jsonSuccess)({ready:!1}))}async function d(e){try{let t=await e.json().catch(()=>({})),n="string"==typeof t.nonce?t.nonce.trim():"",s="string"==typeof t.accessToken?t.accessToken.trim():"";if(!n||!s)return(0,f.o3)(e,(0,c.bg)("INVALID_REQUEST","Missing nonce or access token.",400));return await (0,i.Lc)(n,s),(0,f.o3)(e,(0,c.jsonSuccess)({ok:!0}))}catch{return(0,f.o3)(e,(0,c.bg)("AUTH_REQUIRED","Please sign in.",401))}}let p=new r.AppRouteRouteModule({definition:{kind:o.x.APP_ROUTE,page:"/api/auth/excel-handoff/route",pathname:"/api/auth/excel-handoff",filename:"route",bundlePath:"app/api/auth/excel-handoff/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/excel-handoff/route.ts",nextConfigOutput:"",userland:s}),{requestAsyncStorage:h,staticGenerationAsyncStorage:y,serverHooks:m}=p,g="/api/auth/excel-handoff/route";function x(){return(0,a.patchFetch)({serverHooks:m,staticGenerationAsyncStorage:y})}},21985:(e,t,n)=>{n.d(t,{tb:()=>o,ff:()=>f,hd:()=>c,ds:()=>u,bx:()=>l,bg:()=>i,jsonSuccess:()=>a});var s=n(67076);let r="Silkview Connect",o=15e3;function a(e,t=200){return s.NextResponse.json({success:!0,data:e},{status:t})}function i(e,t,n=400,r){let o={success:!1,error:{code:e,message:t,...r}};return s.NextResponse.json(o,{status:n})}function c(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),n="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),s="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null,o=function(e,t){if(t)return`${r} connected`;let n="object"==typeof e&&null!==e&&"provider"in e&&"string"==typeof e.provider?e.provider.toLowerCase():"";return"xero"===n?"Xero not connected":"stripe"===n?"Stripe not connected":"Connection failed"}(e,n),a=n?"You can close this tab and return to Excel.":s??"Please close this tab and try again from the add-in.";return`<!DOCTYPE html>
+"use strict";(()=>{var e={};e.id=6290,e.ids=[6290],e.modules={20399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},30517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},52426:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>g,patchFetch:()=>x,requestAsyncStorage:()=>h,routeModule:()=>p,serverHooks:()=>m,staticGenerationAsyncStorage:()=>y});var s={};n.r(s),n.d(s,{GET:()=>f,OPTIONS:()=>l,POST:()=>d});var a=n(93277),o=n(15265),r=n(55356),i=n(78793),c=n(21985),u=n(86771);async function l(){return(0,u.N4)()}async function f(e){let t=new URL(e.url),n=t.searchParams.get("nonce")?.trim();if(!n)return(0,u.i6)((0,c.bg)("INVALID_REQUEST","Missing handoff nonce.",400));if(!await (0,i.do)(n))return(0,u.i6)((0,c.jsonSuccess)({ready:!1}));let s=await (0,i.KB)(n);return s?(0,u.i6)((0,c.jsonSuccess)({ready:!0,accessToken:s})):(0,u.i6)((0,c.jsonSuccess)({ready:!1}))}async function d(e){try{let t=await e.json().catch(()=>({})),n="string"==typeof t.nonce?t.nonce.trim():"",s="string"==typeof t.accessToken?t.accessToken.trim():"";if(!n||!s)return(0,u.o3)(e,(0,c.bg)("INVALID_REQUEST","Missing nonce or access token.",400));return await (0,i.Lc)(n,s),(0,u.o3)(e,(0,c.jsonSuccess)({ok:!0}))}catch{return(0,u.o3)(e,(0,c.bg)("AUTH_REQUIRED","Please sign in.",401))}}let p=new a.AppRouteRouteModule({definition:{kind:o.x.APP_ROUTE,page:"/api/auth/excel-handoff/route",pathname:"/api/auth/excel-handoff",filename:"route",bundlePath:"app/api/auth/excel-handoff/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/excel-handoff/route.ts",nextConfigOutput:"",userland:s}),{requestAsyncStorage:h,staticGenerationAsyncStorage:y,serverHooks:m}=p,g="/api/auth/excel-handoff/route";function x(){return(0,r.patchFetch)({serverHooks:m,staticGenerationAsyncStorage:y})}},21985:(e,t,n)=>{n.d(t,{tb:()=>o,ff:()=>u,hd:()=>c,ds:()=>f,bx:()=>l,bg:()=>i,jsonSuccess:()=>r});var s=n(67076);let a="Silkview Connect",o=15e3;function r(e,t=200){return s.NextResponse.json({success:!0,data:e},{status:t})}function i(e,t,n=400,a){let o={success:!1,error:{code:e,message:t,...a}};return s.NextResponse.json(o,{status:n})}function c(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),n="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),s="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null,o=function(e,t){if(t)return`${a} connected`;let n="object"==typeof e&&null!==e&&"provider"in e&&"string"==typeof e.provider?e.provider.toLowerCase():"";return"xero"===n?"Xero not connected":"stripe"===n?"Stripe not connected":"Connection failed"}(e,n),r="You can close this tab and return to Excel.",i=n?r:s??"Please close this tab and try again from the add-in.",c=JSON.stringify("You can close this tab and return to the dashboard.").replace(/</g,"\\u003c"),u=JSON.stringify(r).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${r}</title>
+  <title>${a}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
 <body>
 <h1>${o}</h1>
-<p>${a}</p>
+<p id="status">${i}</p>
 <script>
+  (function() {
+    var payload = ${t};
+    var isSuccess = ${n?"true":"false"};
+    if (isSuccess && window.opener && !window.opener.closed) {
+      var statusEl = document.getElementById('status');
+      if (statusEl) statusEl.textContent = ${c};
+      try {
+        window.opener.postMessage(
+          { type: 'silkview_oauth', ...payload },
+          window.location.origin
+        );
+      } catch (e) { }
+    }
+  })();
   Office.onReady(function() {
     try {
       if (Office.context && Office.context.ui && Office.context.ui.messageParent) {
         Office.context.ui.messageParent(${t});
+        var statusEl = document.getElementById('status');
+        if (statusEl && ${n?"true":"false"}) {
+          statusEl.textContent = ${u};
+        }
       }
     } catch (e) { }
   });
 </script>
 </body>
-</html>`}function f(e,t){return c({status:"error",provider:e,message:t})}function l(e,t){let n=JSON.stringify(t??"").replace(/</g,"\\u003c"),s=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),o=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function u(e,t){return c({status:"error",provider:e,message:t})}function l(e,t){let n=JSON.stringify(t??"").replace(/</g,"\\u003c"),s=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),o=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${r}</title>
+  <title>${a}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
@@ -68,11 +86,11 @@
   });
 </script>
 </body>
-</html>`}function u(e){let t=JSON.stringify({status:"error",message:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function f(e){let t=JSON.stringify({status:"error",message:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>${r}</title>
+  <title>${a}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
@@ -89,4 +107,4 @@
   });
 </script>
 </body>
-</html>`}},78793:(e,t,n)=>{n.d(t,{KB:()=>i,Lc:()=>o,do:()=>a});var s=n(26140),r=n(20438);async function o(e,t){let n=(0,s.S)(),o=new Date(Date.now()+18e4).toISOString();await (0,r.v)(n).from("excel_auth_handoffs").upsert({nonce:e,access_token:t,expires_at:o})}async function a(e){let t=(0,s.S)(),{data:n,error:o}=await (0,r.v)(t).from("excel_auth_handoffs").select("access_token, expires_at").eq("nonce",e).maybeSingle();return o||!n?.access_token||new Date(n.expires_at).getTime()<Date.now()?null:n.access_token}async function i(e){let t=await a(e);if(!t)return null;let n=(0,s.S)();return await (0,r.v)(n).from("excel_auth_handoffs").delete().eq("nonce",e),t}},86771:(e,t,n)=>{n.d(t,{N4:()=>c,i6:()=>i,o3:()=>o,ty:()=>a});var s=n(67076);let r=[process.env.FRONTEND_URL,"http://localhost:4003",process.env.NEXT_PUBLIC_ADDIN_URL,"https://localhost:4000","http://localhost:4000","https://addin.silkview.org"].filter(Boolean).map(e=>e.replace(/\/$/,""));function o(e,t){let n=e.headers.get("origin");return n&&r.includes(n)&&(t.headers.set("Access-Control-Allow-Origin",n),t.headers.set("Access-Control-Allow-Credentials","true"),t.headers.set("Access-Control-Allow-Headers","Content-Type, Authorization, X-Workspace-Id"),t.headers.set("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS")),t}function a(e){return o(e,new s.NextResponse(null,{status:204}))}function i(e){return e.headers.set("Access-Control-Allow-Origin","*"),e.headers.set("Access-Control-Allow-Headers","Content-Type, Authorization, X-Workspace-Id"),e.headers.set("Access-Control-Allow-Methods","GET, OPTIONS"),e}function c(){return i(new s.NextResponse(null,{status:204}))}},26140:(e,t,n)=>{n.d(t,{S:()=>o});var s=n(40218),r=n(31328);function o(){let{url:e}=(0,r.j)(),t=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!t)throw Error("Missing SUPABASE_SERVICE_ROLE_KEY in web/.env.local. Restart the dev server after adding it.");return(0,s.eI)(e,t,{auth:{persistSession:!1,autoRefreshToken:!1}})}},20438:(e,t,n)=>{n.d(t,{v:()=>s});function s(e){return"function"==typeof e.schema?e.schema("core"):e}},31328:(e,t,n)=>{n.d(t,{j:()=>s});function s(){let e="https://szbfksebywhkalejxkgs.supabase.co",t="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6YmZrc2VieXdoa2FsZWp4a2dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjQ0MDcsImV4cCI6MjA5NTAwMDQwN30.LFAguTH_aKGvvn6JQKiCaxp7ZN79BQxs2lRyJ3m3_aY";if(!e||!t)throw Error("Missing Supabase env vars. Copy web/.env.example to web/.env.local and set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then restart the dev server.");return{url:e,anonKey:t}}}};var t=require("../../../../webpack-runtime.js");t.C(e);var n=e=>t(t.s=e),s=t.X(0,[5942,3084,3786],()=>n(52426));module.exports=s})();
+</html>`}},78793:(e,t,n)=>{n.d(t,{KB:()=>i,Lc:()=>o,do:()=>r});var s=n(26140),a=n(20438);async function o(e,t){let n=(0,s.S)(),o=new Date(Date.now()+18e4).toISOString();await (0,a.v)(n).from("excel_auth_handoffs").upsert({nonce:e,access_token:t,expires_at:o})}async function r(e){let t=(0,s.S)(),{data:n,error:o}=await (0,a.v)(t).from("excel_auth_handoffs").select("access_token, expires_at").eq("nonce",e).maybeSingle();return o||!n?.access_token||new Date(n.expires_at).getTime()<Date.now()?null:n.access_token}async function i(e){let t=await r(e);if(!t)return null;let n=(0,s.S)();return await (0,a.v)(n).from("excel_auth_handoffs").delete().eq("nonce",e),t}},86771:(e,t,n)=>{n.d(t,{N4:()=>c,i6:()=>i,o3:()=>o,ty:()=>r});var s=n(67076);let a=[process.env.FRONTEND_URL,"http://localhost:4003",process.env.NEXT_PUBLIC_ADDIN_URL,"https://localhost:4000","http://localhost:4000","https://addin.silkview.org"].filter(Boolean).map(e=>e.replace(/\/$/,""));function o(e,t){let n=e.headers.get("origin");return n&&a.includes(n)&&(t.headers.set("Access-Control-Allow-Origin",n),t.headers.set("Access-Control-Allow-Credentials","true"),t.headers.set("Access-Control-Allow-Headers","Content-Type, Authorization, X-Workspace-Id"),t.headers.set("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS")),t}function r(e){return o(e,new s.NextResponse(null,{status:204}))}function i(e){return e.headers.set("Access-Control-Allow-Origin","*"),e.headers.set("Access-Control-Allow-Headers","Content-Type, Authorization, X-Workspace-Id"),e.headers.set("Access-Control-Allow-Methods","GET, OPTIONS"),e}function c(){return i(new s.NextResponse(null,{status:204}))}},26140:(e,t,n)=>{n.d(t,{S:()=>o});var s=n(40218),a=n(31328);function o(){let{url:e}=(0,a.j)(),t=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!t)throw Error("Missing SUPABASE_SERVICE_ROLE_KEY in web/.env.local. Restart the dev server after adding it.");return(0,s.eI)(e,t,{auth:{persistSession:!1,autoRefreshToken:!1}})}},20438:(e,t,n)=>{n.d(t,{v:()=>s});function s(e){return"function"==typeof e.schema?e.schema("core"):e}},31328:(e,t,n)=>{n.d(t,{j:()=>s});function s(){let e="https://szbfksebywhkalejxkgs.supabase.co",t="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6YmZrc2VieXdoa2FsZWp4a2dzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MjQ0MDcsImV4cCI6MjA5NTAwMDQwN30.LFAguTH_aKGvvn6JQKiCaxp7ZN79BQxs2lRyJ3m3_aY";if(!e||!t)throw Error("Missing Supabase env vars. Copy web/.env.example to web/.env.local and set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then restart the dev server.");return{url:e,anonKey:t}}}};var t=require("../../../../webpack-runtime.js");t.C(e);var n=e=>t(t.s=e),s=t.X(0,[5942,3084,3786],()=>n(52426));module.exports=s})();
