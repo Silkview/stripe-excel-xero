@@ -1,5 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react';
-import Header from './ui/Header';
+import { useCallback, useEffect, useState } from 'react';
 import WorkspaceBar from './ui/WorkspaceBar';
 import SetupStrip from './SetupStrip';
 import ConnectionsSection from './ConnectionsSection';
@@ -8,7 +7,7 @@ import StripePanel from './StripePanel';
 import BuildPanel from './BuildPanel';
 import PushPanel from './PushPanel';
 import Button from './ui/Button';
-import ResultBar from './ui/ResultBar';
+import TaskPaneShell from './TaskPaneShell';
 import { useAuth } from '../hooks/useAuth';
 import { useOnboarding } from '../hooks/useOnboarding';
 import OnboardingPanel from './OnboardingPanel';
@@ -22,42 +21,10 @@ import { getAppUrl } from '../utils/api';
 import { clearStripeAccountId } from '../utils/session';
 import NameStripeConnectionModal from './NameStripeConnectionModal';
 import BillingRequiredPanel from './BillingRequiredPanel';
-import UpgradePlanBanner from './UpgradePlanBanner';
-
-type AppShellProps = {
-  children: ReactNode;
-  signedIn?: boolean;
-  refreshing?: boolean;
-  refreshError?: string | null;
-  onRefresh?: () => void;
-  onSignOut?: () => void;
-};
-
-function AppShell({
-  children,
-  signedIn = false,
-  refreshing = false,
-  refreshError = null,
-  onRefresh,
-  onSignOut,
-}: AppShellProps) {
-  return (
-    <div className="min-h-screen bg-bg flex flex-col font-sans text-ink">
-      <Header
-        signedIn={signedIn}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        onSignOut={onSignOut}
-      />
-      {refreshError && (
-        <p className="px-3.5 py-1.5 text-[11px] text-warn-text bg-warn-bg border-b border-[#fde68a]">
-          {refreshError}
-        </p>
-      )}
-      {children}
-    </div>
-  );
-}
+import {
+  useNotifications,
+  useNotifyEffect,
+} from '../context/NotificationContext';
 
 export default function App() {
   const auth = useAuth();
@@ -85,10 +52,13 @@ export default function App() {
     xeroFeaturesEnabled: onboarding.xeroFeaturesEnabled,
   });
 
+  const { publish, clear } = useNotifications();
   const [activeTab, setActiveTab] = useState<StepTabId>('pull');
   const [done, setDone] = useState<Partial<Record<StepTabId, boolean>>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+
+  const isFreePlan = onboarding.planCode === 'free';
 
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
@@ -116,10 +86,52 @@ export default function App() {
   const shellProps = {
     signedIn: auth.signedIn,
     refreshing,
-    refreshError,
     onRefresh: auth.signedIn ? handleRefresh : undefined,
     onSignOut: auth.signedIn ? auth.signOut : undefined,
+    showUpgradeBanner: auth.signedIn && isFreePlan,
+    billingUrl: onboarding.billingUrl,
   };
+
+  useNotifyEffect('auth-signin', auth.error, 'error');
+  useNotifyEffect('refresh', refreshError, 'error');
+  useNotifyEffect('stripe-auth', stripeAuth.error, 'error');
+  useNotifyEffect('xero-auth', xeroAuth.error, 'error');
+
+  useEffect(() => {
+    if (setupActions.statusMessage) {
+      publish({
+        kind: setupActions.statusError ? 'error' : 'success',
+        message: setupActions.statusMessage,
+        source: 'setup',
+      });
+    } else {
+      clear('setup');
+    }
+  }, [setupActions.statusMessage, setupActions.statusError, publish, clear]);
+
+  useEffect(() => {
+    if (onboarding.error) {
+      publish({
+        kind: 'error',
+        message: onboarding.error,
+        source: 'onboarding',
+      });
+    } else {
+      clear('onboarding');
+    }
+  }, [onboarding.error, publish, clear]);
+
+  useEffect(() => {
+    if (workspace.error && !workspace.loading) {
+      publish({
+        kind: 'error',
+        message: workspace.error,
+        source: 'workspace',
+      });
+    } else {
+      clear('workspace');
+    }
+  }, [workspace.error, workspace.loading, publish, clear]);
 
   const handleWorkspaceChange = (id: string) => {
     workspace.selectWorkspace(id);
@@ -148,9 +160,9 @@ export default function App() {
 
   if (needsSignIn) {
     return (
-      <AppShell {...shellProps} signedIn={false}>
+      <TaskPaneShell {...shellProps} signedIn={false} showUpgradeBanner={false}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
-        <div className="p-3.5 flex-1">
+        <div className="p-3.5">
           <p className="text-sm text-ink-2 mb-3">
             {workspace.sessionExpired
               ? 'Your session expired. Sign in again to sync Stripe and Xero data.'
@@ -159,22 +171,19 @@ export default function App() {
           <Button variant="build" onClick={auth.signIn} disabled={auth.loading}>
             {auth.loading ? 'Signing in…' : 'Sign in'}
           </Button>
-          {auth.error && (
-            <p className="text-xs text-warn-text mt-2">{auth.error}</p>
-          )}
         </div>
-      </AppShell>
+      </TaskPaneShell>
     );
   }
 
   if (onboarding.loading || onboarding.provisioning) {
     return (
-      <AppShell {...shellProps}>
+      <TaskPaneShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <p className="text-sm text-ink-2 p-3.5">
           {onboarding.provisioning ? 'Creating your account…' : 'Loading…'}
         </p>
-      </AppShell>
+      </TaskPaneShell>
     );
   }
 
@@ -185,9 +194,9 @@ export default function App() {
       onboarding.error?.includes('Exposed schemas') ||
       onboarding.error?.includes('Invalid schema');
     return (
-      <AppShell {...shellProps}>
+      <TaskPaneShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
-        <div className="p-3.5 flex-1">
+        <div className="p-3.5">
           <h2 className="text-lg font-semibold">
             {isSupabaseSchemaConfig
               ? 'Supabase configuration required'
@@ -198,9 +207,6 @@ export default function App() {
               ? 'The app database schema is not exposed on your Supabase project, so accounts and workspaces cannot be created. Fix this in the Supabase Dashboard, then retry.'
               : 'We could not create your workspace automatically. Open onboarding in your browser to finish setup, then return here to connect Xero and Stripe.'}
           </p>
-          {onboarding.error && (
-            <p className="text-xs text-warn-text mb-3">{onboarding.error}</p>
-          )}
           {!isSupabaseSchemaConfig && (
             <Button
               variant="build"
@@ -219,7 +225,7 @@ export default function App() {
             Retry
           </Button>
         </div>
-      </AppShell>
+      </TaskPaneShell>
     );
   }
 
@@ -243,37 +249,34 @@ export default function App() {
 
   if (billingBlocked) {
     return (
-      <AppShell {...shellProps}>
+      <TaskPaneShell {...shellProps} showUpgradeBanner={false}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <BillingRequiredPanel
           billingUrl={onboarding.billingUrl}
           billingAccess={onboarding.billingAccess}
           needsDowngradeSelection={onboarding.needsDowngradeSelection}
         />
-      </AppShell>
+      </TaskPaneShell>
     );
   }
 
   if (!workspace.ready) {
     return (
-      <AppShell {...shellProps}>
+      <TaskPaneShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
-        <div className="p-3.5 flex-1">
-          <p className="text-sm text-ink-2 mb-3">
+        <div className="p-3.5">
+          <p className="text-sm text-ink-2">
             {workspace.loading
               ? 'Loading workspace…'
-              : (workspace.error ?? 'No workspace available.')}
+              : 'No workspace available.'}
           </p>
         </div>
-      </AppShell>
+      </TaskPaneShell>
     );
   }
 
   return (
-    <AppShell {...shellProps}>
-      {onboarding.planCode === 'free' && (
-        <UpgradePlanBanner billingUrl={onboarding.billingUrl} />
-      )}
+    <TaskPaneShell {...shellProps}>
       {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
 
       <SetupStrip
@@ -310,50 +313,34 @@ export default function App() {
         xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
       />
 
-      {(stripeAuth.error || xeroAuth.error) && (
-        <div className="mx-3.5 mt-2 text-xs text-warn-text bg-warn-bg px-2.5 py-2 rounded-lg border border-[#fde68a]">
-          {stripeAuth.error || xeroAuth.error}
-        </div>
-      )}
-
-      {setupActions.statusMessage && (
-        <div className="px-3.5">
-          <ResultBar variant={setupActions.statusError ? 'warn' : 'success'}>
-            {setupActions.statusMessage}
-          </ResultBar>
-        </div>
-      )}
-
       <StepTabs active={activeTab} onChange={setActiveTab} done={done} />
 
-      <div className="flex-1 overflow-y-auto bg-bg">
-        {activeTab === 'pull' && (
-          <StripePanel
-            stripeConnected={stripeAuth.status.connected}
-            selectedList={stripeSelection.selectedList}
-            currencyReady={currencyReady}
-            defaultCurrency={currency}
-            onPulled={() => setDone((d) => ({ ...d, pull: true }))}
-          />
-        )}
-        {activeTab === 'build' && (
-          <BuildPanel
-            currencyReady={currencyReady}
-            defaultCurrency={currency}
-            xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
-            onBuilt={() => setDone((d) => ({ ...d, build: true }))}
-          />
-        )}
-        {activeTab === 'push' && (
-          <PushPanel
-            xeroConnected={xeroAuth.status.connected}
-            currencyReady={currencyReady}
-            xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
-            defaultCurrency={currency}
-            manualJournalPostMode={manualJournalPostMode}
-          />
-        )}
-      </div>
+      {activeTab === 'pull' && (
+        <StripePanel
+          stripeConnected={stripeAuth.status.connected}
+          selectedList={stripeSelection.selectedList}
+          currencyReady={currencyReady}
+          defaultCurrency={currency}
+          onPulled={() => setDone((d) => ({ ...d, pull: true }))}
+        />
+      )}
+      {activeTab === 'build' && (
+        <BuildPanel
+          currencyReady={currencyReady}
+          defaultCurrency={currency}
+          xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
+          onBuilt={() => setDone((d) => ({ ...d, build: true }))}
+        />
+      )}
+      {activeTab === 'push' && (
+        <PushPanel
+          xeroConnected={xeroAuth.status.connected}
+          currencyReady={currencyReady}
+          xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
+          defaultCurrency={currency}
+          manualJournalPostMode={manualJournalPostMode}
+        />
+      )}
 
       {stripeAuth.pendingName && (
         <NameStripeConnectionModal
@@ -363,6 +350,6 @@ export default function App() {
           onSkip={stripeAuth.dismissNamePrompt}
         />
       )}
-    </AppShell>
+    </TaskPaneShell>
   );
 }

@@ -1,11 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Card from './ui/Card';
 import Button from './ui/Button';
-import ResultBar from './ui/ResultBar';
-import InfoRow from './ui/InfoRow';
-import {
-  BANK_TXN_SHEET_ALIASES,
-} from '../config/xeroBankTransactionBuilder';
+import { BANK_TXN_SHEET_ALIASES } from '../config/xeroBankTransactionBuilder';
 import { JOURNAL_SHEET } from '../config/xeroJournalBuilder';
 import { buildXeroBankTransactionsFromBalanceTransactions } from '../utils/xeroBankTransactionsExcel';
 import { applyAccountMappingsDropdowns } from '../utils/accountMappingsExcel';
@@ -16,6 +12,7 @@ import {
   activateFirstAvailableWorksheet,
   activateWorksheet,
 } from '../utils/officeHelpers';
+import { useNotifications } from '../context/NotificationContext';
 
 interface BuildPanelProps {
   currencyReady: boolean;
@@ -30,27 +27,76 @@ export default function BuildPanel({
   xeroFeaturesEnabled = true,
   onBuilt,
 }: BuildPanelProps) {
+  const { publish, clear } = useNotifications();
   const [building, setBuilding] = useState(false);
   const [buildingBank, setBuildingBank] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [statusError, setStatusError] = useState(false);
 
   const busy = building || buildingBank;
 
+  useEffect(() => {
+    let prereq: string | null = null;
+    if (!xeroFeaturesEnabled) {
+      prereq = 'Upgrade to Pro or Firm to build Xero journals and bank transactions.';
+    } else if (!currencyReady) {
+      prereq =
+        'Connect Xero first to set your organisation currency. Build is disabled until then.';
+    }
+    if (prereq) {
+      publish({ kind: 'warn', message: prereq, source: 'build-prereq' });
+    } else {
+      clear('build-prereq');
+    }
+  }, [xeroFeaturesEnabled, currencyReady, publish, clear]);
+
+  useEffect(() => {
+    if (currencyReady && defaultCurrency) {
+      publish({
+        kind: 'success',
+        message: `Only balance transactions in ${defaultCurrency} are included.`,
+        source: 'build-info',
+      });
+    } else {
+      clear('build-info');
+    }
+  }, [currencyReady, defaultCurrency, publish, clear]);
+
+  useEffect(() => {
+    publish({
+      kind: 'success',
+      message:
+        'Manual journals summarise balance transactions on Xero_Journals. Bank transactions create one RECEIVE line per payout on Xero_Bank_Transaction.',
+      source: 'build-help',
+    });
+    return () => {
+      clear('build');
+      clear('build-prereq');
+      clear('build-info');
+      clear('build-help');
+    };
+  }, [publish, clear]);
+
+  const notifyBuild = (message: string, isError: boolean) => {
+    publish({
+      kind: isError ? 'error' : 'success',
+      message,
+      source: 'build',
+    });
+  };
+
   const handleBuildJournals = async () => {
     if (!xeroFeaturesEnabled) {
-      setStatusMessage('Upgrade to Pro or Firm to build Xero journals.');
-      setStatusError(true);
+      notifyBuild('Upgrade to Pro or Firm to build Xero journals.', true);
       return;
     }
     if (!currencyReady || !defaultCurrency) {
-      setStatusMessage('Connect Xero to set your organisation currency before building.');
-      setStatusError(true);
+      notifyBuild(
+        'Connect Xero to set your organisation currency before building.',
+        true
+      );
       return;
     }
     setBuilding(true);
-    setStatusMessage(null);
-    setStatusError(false);
+    clear('build');
     try {
       const result = await buildXeroJournalsFromBalanceTransactions(defaultCurrency);
       const optRes = await apiGet<XeroMappingOptions>('/api/xero/mapping-options');
@@ -60,15 +106,16 @@ export default function BuildPanel({
       await activateWorksheet(JOURNAL_SHEET, 'A2');
       const dateCount =
         result.chargeDates + result.refundDates + result.feeDates;
-      setStatusMessage(
-        `${result.lineCount} journal line${result.lineCount === 1 ? '' : 's'} → Xero_Journals (${dateCount} date${dateCount === 1 ? '' : 's'}).`
+      notifyBuild(
+        `${result.lineCount} journal line${result.lineCount === 1 ? '' : 's'} → Xero_Journals (${dateCount} date${dateCount === 1 ? '' : 's'}).`,
+        false
       );
       onBuilt?.();
     } catch (err) {
-      setStatusMessage(
-        err instanceof Error ? err.message : 'Failed to build journals.'
+      notifyBuild(
+        err instanceof Error ? err.message : 'Failed to build journals.',
+        true
       );
-      setStatusError(true);
     } finally {
       setBuilding(false);
     }
@@ -76,33 +123,34 @@ export default function BuildPanel({
 
   const handleBuildBankTransactions = async () => {
     if (!xeroFeaturesEnabled) {
-      setStatusMessage('Upgrade to Pro or Firm to build bank transactions.');
-      setStatusError(true);
+      notifyBuild('Upgrade to Pro or Firm to build bank transactions.', true);
       return;
     }
     if (!currencyReady || !defaultCurrency) {
-      setStatusMessage('Connect Xero to set your organisation currency before building.');
-      setStatusError(true);
+      notifyBuild(
+        'Connect Xero to set your organisation currency before building.',
+        true
+      );
       return;
     }
     setBuildingBank(true);
-    setStatusMessage(null);
-    setStatusError(false);
+    clear('build');
     try {
       const result =
         await buildXeroBankTransactionsFromBalanceTransactions(defaultCurrency);
       await activateFirstAvailableWorksheet(BANK_TXN_SHEET_ALIASES, 'A2');
-      setStatusMessage(
-        `${result.rowCount} bank transaction row${result.rowCount === 1 ? '' : 's'} → Xero_Bank_Transaction.`
+      notifyBuild(
+        `${result.rowCount} bank transaction row${result.rowCount === 1 ? '' : 's'} → Xero_Bank_Transaction.`,
+        false
       );
       onBuilt?.();
     } catch (err) {
-      setStatusMessage(
+      notifyBuild(
         err instanceof Error
           ? err.message
-          : 'Failed to build bank transactions.'
+          : 'Failed to build bank transactions.',
+        true
       );
-      setStatusError(true);
     } finally {
       setBuildingBank(false);
     }
@@ -112,25 +160,11 @@ export default function BuildPanel({
 
   return (
     <div className="p-3.5 flex flex-col gap-0">
-      {!currencyReady && (
-        <InfoRow className="mb-2 text-warn">
-          Connect Xero first to set your organisation currency. Build is disabled until then.
-        </InfoRow>
-      )}
-      {currencyReady && defaultCurrency && (
-        <InfoRow className="mb-2">
-          Only balance transactions in {defaultCurrency} are included.
-        </InfoRow>
-      )}
       <Card
         title="Manual journals"
         icon="📒"
         iconClass="bg-stripe-light text-stripe"
       >
-        <InfoRow>
-          Summarise balance transactions into formula-driven lines on Xero_Journals
-          (charges, refunds, fees + clearing). Uses Account_Mappings.
-        </InfoRow>
         <Button
           variant="build"
           onClick={handleBuildJournals}
@@ -146,10 +180,6 @@ export default function BuildPanel({
         icon="🏦"
         iconClass="bg-xero-light text-xero-dark"
       >
-        <InfoRow>
-          One RECEIVE line per payout on Xero_Bank_Transaction. Bank, clearing, and
-          contact from Account_Mappings.
-        </InfoRow>
         <Button
           variant="build"
           onClick={handleBuildBankTransactions}
@@ -161,12 +191,6 @@ export default function BuildPanel({
             : 'Build bank transactions from balance transactions'}
         </Button>
       </Card>
-
-      {statusMessage && (
-        <ResultBar variant={statusError ? 'warn' : 'success'}>
-          {statusMessage}
-        </ResultBar>
-      )}
     </div>
   );
 }

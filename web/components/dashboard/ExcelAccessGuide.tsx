@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { PRODUCT_NAME } from '@stripesync/shared/brand';
-import { getAddinManifestUrl } from '@/lib/excel-launch';
+import { getAddinManifestDownloadUrl } from '@/lib/excel-launch';
 
 const steps = [
   'Open Microsoft Excel (desktop or Excel on the web) and open or create a workbook.',
@@ -12,7 +12,7 @@ const steps = [
 ];
 
 export default function ExcelAccessGuide() {
-  const manifestUrl = getAddinManifestUrl();
+  const manifestDownloadUrl = getAddinManifestDownloadUrl();
 
   return (
     <section
@@ -37,10 +37,9 @@ export default function ExcelAccessGuide() {
       <p className="mt-5 text-sm text-text-2">
         First-time setup or sideloading?{' '}
         <a
-          href={manifestUrl}
+          href={manifestDownloadUrl}
+          download="silkview-connect-manifest.xml"
           className="font-medium text-accent underline hover:text-accent-hover"
-          target="_blank"
-          rel="noreferrer"
         >
           Download the add-in manifest
         </a>

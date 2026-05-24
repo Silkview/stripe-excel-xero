@@ -9,7 +9,7 @@ import {
 } from '@/lib/auth/mfa';
 import Button from '@/components/ui/Button';
 import { DashboardModal, PageHeader, useDashboard } from './dashboard-ui';
-import { getAddinManifestUrl } from '@/lib/excel-launch';
+import { getAddinManifestDownloadUrl } from '@/lib/excel-launch';
 
 export default function SecurityPanel() {
   const ctx = useDashboard();
@@ -135,12 +135,11 @@ export default function SecurityPanel() {
             workspace. Connect only from the sideloaded add-in.
           </p>
           <a
-            href={getAddinManifestUrl()}
+            href={getAddinManifestDownloadUrl()}
+            download="silkview-connect-manifest.xml"
             className="mt-3 inline-block text-sm text-accent underline"
-            target="_blank"
-            rel="noreferrer"
           >
-            View add-in manifest
+            Download add-in manifest
           </a>
         </section>
       </div>

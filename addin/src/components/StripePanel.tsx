@@ -9,8 +9,6 @@ import type {
 } from '@stripesync/shared';
 import Button from './ui/Button';
 import Field from './ui/Field';
-import ResultBar from './ui/ResultBar';
-import InfoRow from './ui/InfoRow';
 import { apiGetWithStripeAccount } from '../utils/api';
 import { friendlyError } from '../utils/errorMessages';
 import { STRIPE_PULL_OBJECTS, type StripePullObjectType } from '../config/workbookSheets';
@@ -26,6 +24,7 @@ import {
   activateWorksheet,
 } from '../utils/officeHelpers';
 import { formatBalanceTrxPayoutsTaggedForSheet } from '../utils/stripeBalanceTrxPayoutsSheet';
+import { useNotifications } from '../context/NotificationContext';
 
 function getCurrentMonthRange(): { from: string; to: string } {
   const now = new Date();
@@ -196,37 +195,84 @@ export default function StripePanel({
   defaultCurrency,
   onPulled,
 }: StripePanelProps) {
+  const { publish, clear } = useNotifications();
   const monthRange = getCurrentMonthRange();
   const [objectType, setObjectType] = useState<StripePullObjectType>('payouts');
   const [from, setFrom] = useState(monthRange.from);
   const [to, setTo] = useState(monthRange.to);
   const [destination, setDestination] = useState(defaultDestination('payouts'));
   const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [statusError, setStatusError] = useState(false);
 
   useEffect(() => {
     setDestination(defaultDestination(objectType));
   }, [objectType]);
 
+  useEffect(() => {
+    let prereq: string | null = null;
+    if (!stripeConnected) {
+      prereq = 'Connect Stripe above to pull data.';
+    } else if (selectedList.length === 0) {
+      prereq = 'Select one or more Stripe accounts above.';
+    } else if (!currencyReady) {
+      prereq =
+        'Connect Xero first to set your organisation currency. Pull is disabled until then.';
+    }
+    if (prereq) {
+      publish({ kind: 'warn', message: prereq, source: 'pull-prereq' });
+    } else {
+      clear('pull-prereq');
+    }
+  }, [stripeConnected, selectedList.length, currencyReady, publish, clear]);
+
+  useEffect(() => {
+    if (currencyReady && defaultCurrency) {
+      publish({
+        kind: 'success',
+        message: `Only ${defaultCurrency} rows are pulled (from your Xero organisation).`,
+        source: 'pull-info',
+      });
+    } else {
+      clear('pull-info');
+    }
+  }, [currencyReady, defaultCurrency, publish, clear]);
+
+  useEffect(() => {
+    publish({
+      kind: 'success',
+      message: `Max ${MAX_STRIPE_PULL_DAYS} days per pull and ${MAX_STRIPE_PULL_ROWS.toLocaleString()} rows total. Each selected account is pulled separately, then merged and sorted.`,
+      source: 'pull-limits',
+    });
+    return () => {
+      clear('pull');
+      clear('pull-prereq');
+      clear('pull-info');
+      clear('pull-limits');
+    };
+  }, [publish, clear]);
+
   const pullConfig = STRIPE_PULL_OBJECTS[objectType];
+
+  const notifyPull = (message: string, isError: boolean) => {
+    publish({
+      kind: isError ? 'error' : 'success',
+      message,
+      source: 'pull',
+    });
+  };
 
   const handlePull = async () => {
     if (!selectedList.length) {
-      setStatusMessage('Select at least one Stripe account.');
-      setStatusError(true);
+      notifyPull('Select at least one Stripe account.', true);
       return;
     }
 
     setLoading(true);
-    setStatusMessage(null);
-    setStatusError(false);
+    clear('pull');
 
     try {
       const rangeError = stripePullRangeError(from, to);
       if (rangeError) {
-        setStatusMessage(rangeError);
-        setStatusError(true);
+        notifyPull(rangeError, true);
         return;
       }
 
@@ -238,9 +284,11 @@ export default function StripePanel({
       for (let i = 0; i < selectedList.length; i++) {
         const conn = selectedList[i];
         const label = conn.displayName ?? truncateId(conn.stripeAccountId);
-        setStatusMessage(
-          `Pulling ${i + 1} of ${selectedList.length}: ${label}…`
-        );
+        publish({
+          kind: 'success',
+          message: `Pulling ${i + 1} of ${selectedList.length}: ${label}…`,
+          source: 'pull',
+        });
 
         const res = await apiGetWithStripeAccount<StripePullResponse<PullRow>>(
           endpoint,
@@ -248,8 +296,7 @@ export default function StripePanel({
         );
 
         if (!res.success || !res.data) {
-          setStatusMessage(`Failed for ${label}: ${friendlyError(res)}`);
-          setStatusError(true);
+          notifyPull(`Failed for ${label}: ${friendlyError(res)}`, true);
           return;
         }
 
@@ -282,8 +329,7 @@ export default function StripePanel({
         headers = pullConfig.displayHeaders;
         const rowError = stripePullRowCountError(data.length);
         if (rowError) {
-          setStatusMessage(rowError);
-          setStatusError(true);
+          notifyPull(rowError, true);
           return;
         }
       } else {
@@ -291,8 +337,7 @@ export default function StripePanel({
         const sheetRowCount = allTagged.length;
         const rowError = stripePullRowCountError(sheetRowCount);
         if (rowError) {
-          setStatusMessage(rowError);
-          setStatusError(true);
+          notifyPull(rowError, true);
           return;
         }
         const mapped = mapRowsToSheetData(objectType, allTagged);
@@ -311,15 +356,15 @@ export default function StripePanel({
       if (totalExcluded > 0) {
         msg += ` (${totalExcluded} other currencies excluded)`;
       }
-      setStatusMessage(msg);
+      notifyPull(msg, false);
       onPulled?.();
     } catch (err) {
-      setStatusMessage(
+      notifyPull(
         err instanceof Error
           ? err.message
-          : `Failed to pull ${pullConfig.label.toLowerCase()}.`
+          : `Failed to pull ${pullConfig.label.toLowerCase()}.`,
+        true
       );
-      setStatusError(true);
     } finally {
       setLoading(false);
     }
@@ -327,40 +372,21 @@ export default function StripePanel({
 
   return (
     <div className="p-3.5">
-      {!stripeConnected && (
-        <InfoRow variant="amber">Connect Stripe above to pull data.</InfoRow>
-      )}
-      {stripeConnected && selectedList.length === 0 && (
-        <InfoRow variant="amber">Select one or more Stripe accounts above.</InfoRow>
-      )}
-      {!currencyReady && (
-        <InfoRow variant="amber">
-          Connect Xero first to set your organisation currency. Pull is disabled until then.
-        </InfoRow>
-      )}
-      {currencyReady && defaultCurrency && (
-        <InfoRow>
-          Only {defaultCurrency} rows are pulled (from your Xero organisation).
-        </InfoRow>
-      )}
-
       <Field label="Object">
-          <select
-            value={objectType}
-            onChange={(e) =>
-              setObjectType(e.target.value as StripePullObjectType)
-            }
-            className="w-full border border-border rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(37,99,235,0.07)]"
-          >
-            {(Object.keys(STRIPE_PULL_OBJECTS) as StripePullObjectType[]).map(
-              (key) => (
-                <option key={key} value={key}>
-                  {STRIPE_PULL_OBJECTS[key].label}
-                </option>
-              )
-            )}
-          </select>
-        </Field>
+        <select
+          value={objectType}
+          onChange={(e) => setObjectType(e.target.value as StripePullObjectType)}
+          className="w-full border border-border rounded-lg px-2.5 py-2 text-[13px] bg-white outline-none focus:border-accent focus:shadow-[0_0_0_3px_rgba(37,99,235,0.07)]"
+        >
+          {(Object.keys(STRIPE_PULL_OBJECTS) as StripePullObjectType[]).map(
+            (key) => (
+              <option key={key} value={key}>
+                {STRIPE_PULL_OBJECTS[key].label}
+              </option>
+            )
+          )}
+        </select>
+      </Field>
 
       <div className="grid grid-cols-2 gap-2">
         <Field label="From">
@@ -380,11 +406,6 @@ export default function StripePanel({
           />
         </Field>
       </div>
-
-      <InfoRow>
-        Max {MAX_STRIPE_PULL_DAYS} days per pull and {MAX_STRIPE_PULL_ROWS.toLocaleString()}{' '}
-        rows total. Each selected account is pulled separately, then merged and sorted.
-      </InfoRow>
 
       <Field label="Destination">
         <input
@@ -409,12 +430,6 @@ export default function StripePanel({
       >
         {loading ? 'Pulling…' : 'Pull to sheet'}
       </Button>
-
-      {(statusMessage || loading) && (
-        <ResultBar variant={statusError ? 'warn' : 'success'}>
-          {loading ? (statusMessage ?? 'Fetching from Stripe…') : (statusMessage ?? '')}
-        </ResultBar>
-      )}
     </div>
   );
 }

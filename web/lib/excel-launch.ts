@@ -16,6 +16,11 @@ export function getAddinManifestUrl(): string {
   return `${base}/manifest.xml`;
 }
 
+/** Same-origin route that serves manifest.xml with Content-Disposition: attachment. */
+export function getAddinManifestDownloadUrl(): string {
+  return '/api/addin/manifest';
+}
+
 export function getExcelSignInUrl(appUrl: string): string {
   const base = appUrl.replace(/\/$/, '');
   return `${base}/auth/login?return=excel`;

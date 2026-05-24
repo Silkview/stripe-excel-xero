@@ -8,8 +8,6 @@ import type {
 import Card from './ui/Card';
 import Button from './ui/Button';
 import Field from './ui/Field';
-import ResultBar from './ui/ResultBar';
-import InfoRow from './ui/InfoRow';
 import { apiPost } from '../utils/api';
 import { formatErrorWithDetails } from '../utils/errorMessages';
 import {
@@ -34,6 +32,7 @@ import {
   BANK_PUSH_XERO_ID_COL,
   BANK_PUSH_STATUS_COL,
 } from '../utils/pushRowFeedback';
+import { useNotifications } from '../context/NotificationContext';
 
 const LS_JOURNAL_RANGE = 'stripesync_journal_push_range';
 const LS_BANK_RANGE = 'stripesync_bank_push_range';
@@ -55,14 +54,13 @@ export default function PushPanel({
   defaultCurrency,
   manualJournalPostMode = 'draft_and_post',
 }: PushPanelProps) {
+  const { publish, clear } = useNotifications();
   const draftOnly = manualJournalPostMode === 'draft_only';
   const [pushType, setPushType] = useState<PushType>('journals');
   const [journalRange, setJournalRange] = useState(DEFAULT_JOURNAL_PUSH_RANGE);
   const [bankRange, setBankRange] = useState(DEFAULT_BANK_PUSH_RANGE);
   const [pushStatus, setPushStatus] = useState<XeroManualJournalStatus>('DRAFT');
   const [pushing, setPushing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [statusError, setStatusError] = useState(false);
 
   useEffect(() => {
     const savedJournal = localStorage.getItem(LS_JOURNAL_RANGE);
@@ -79,20 +77,81 @@ export default function PushPanel({
 
   const pushEnabled = xeroFeaturesEnabled && xeroConnected && currencyReady;
 
+  useEffect(() => {
+    let prereq: string | null = null;
+    if (!xeroFeaturesEnabled) {
+      prereq = 'Upgrade to Pro or Firm to push journals and bank transactions to Xero.';
+    } else if (!currencyReady) {
+      prereq =
+        'Connect Xero first to set your organisation currency. Push is disabled until then.';
+    } else if (!xeroConnected) {
+      prereq = 'Connect Xero and set organisation currency to enable push.';
+    }
+    if (prereq) {
+      publish({ kind: 'warn', message: prereq, source: 'push-prereq' });
+    } else {
+      clear('push-prereq');
+    }
+  }, [xeroFeaturesEnabled, currencyReady, xeroConnected, publish, clear]);
+
+  useEffect(() => {
+    if (currencyReady && defaultCurrency) {
+      publish({
+        kind: 'success',
+        message: `Journals and bank transactions post in ${defaultCurrency} only.`,
+        source: 'push-info',
+      });
+    } else {
+      clear('push-info');
+    }
+  }, [currencyReady, defaultCurrency, publish, clear]);
+
+  useEffect(() => {
+    if (pushType === 'journals') {
+      publish({
+        kind: 'success',
+        message: `Rows with Xero ID already set are skipped. Xero IDs written to column ${JOURNAL_PUSH_XERO_ID_COL}; errors in column ${JOURNAL_PUSH_STATUS_COL} (Status).`,
+        source: 'push-help',
+      });
+    } else {
+      publish({
+        kind: 'success',
+        message: `Receive Money · AUTHORISED · skips pushed rows · Xero IDs in column ${BANK_PUSH_XERO_ID_COL}; errors in column ${BANK_PUSH_STATUS_COL} (Status).`,
+        source: 'push-help',
+      });
+    }
+  }, [pushType, publish]);
+
+  useEffect(() => {
+    return () => {
+      clear('push');
+      clear('push-prereq');
+      clear('push-info');
+      clear('push-help');
+    };
+  }, [clear]);
+
+  const notifyPush = (message: string, isError: boolean) => {
+    publish({
+      kind: isError ? 'error' : 'success',
+      message,
+      source: 'push',
+    });
+  };
+
   const handlePushJournals = async () => {
     if (!pushEnabled) {
-      setStatusMessage(
+      notifyPush(
         !xeroConnected
           ? 'Connect Xero before pushing journals.'
-          : 'Connect Xero to set your organisation currency before pushing.'
+          : 'Connect Xero to set your organisation currency before pushing.',
+        true
       );
-      setStatusError(true);
       return;
     }
 
     setPushing(true);
-    setStatusMessage(null);
-    setStatusError(false);
+    clear('push');
     localStorage.setItem(LS_JOURNAL_RANGE, journalRange);
 
     try {
@@ -127,15 +186,16 @@ export default function PushPanel({
             JOURNAL_PUSH_DATA_COLS,
             feedback
           );
-          setStatusMessage(
-            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed validation. See highlighted rows in column ${JOURNAL_PUSH_STATUS_COL} (Status).`
+          notifyPush(
+            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed validation. See highlighted rows in column ${JOURNAL_PUSH_STATUS_COL} (Status).`,
+            true
           );
         } else {
-          setStatusMessage(
-            formatErrorWithDetails(res) || 'Failed to push journals to Xero.'
+          notifyPush(
+            formatErrorWithDetails(res) || 'Failed to push journals to Xero.',
+            true
           );
         }
-        setStatusError(true);
         return;
       }
 
@@ -159,13 +219,12 @@ export default function PushPanel({
       if (skippedCount > 0) {
         msg += ` ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (already pushed).`;
       }
-      setStatusMessage(msg);
-      setStatusError(false);
+      notifyPush(msg, false);
     } catch (err) {
-      setStatusMessage(
-        err instanceof Error ? err.message : 'Failed to push journals to Xero.'
+      notifyPush(
+        err instanceof Error ? err.message : 'Failed to push journals to Xero.',
+        true
       );
-      setStatusError(true);
     } finally {
       setPushing(false);
     }
@@ -173,18 +232,17 @@ export default function PushPanel({
 
   const handlePushBank = async () => {
     if (!pushEnabled) {
-      setStatusMessage(
+      notifyPush(
         !xeroConnected
           ? 'Connect Xero before pushing bank transactions.'
-          : 'Connect Xero to set your organisation currency before pushing.'
+          : 'Connect Xero to set your organisation currency before pushing.',
+        true
       );
-      setStatusError(true);
       return;
     }
 
     setPushing(true);
-    setStatusMessage(null);
-    setStatusError(false);
+    clear('push');
     localStorage.setItem(LS_BANK_RANGE, bankRange);
 
     try {
@@ -219,16 +277,17 @@ export default function PushPanel({
             BANK_PUSH_DATA_COLS,
             feedback
           );
-          setStatusMessage(
-            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed. See highlighted rows in column ${BANK_PUSH_STATUS_COL} (Status).`
+          notifyPush(
+            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed. See highlighted rows in column ${BANK_PUSH_STATUS_COL} (Status).`,
+            true
           );
         } else {
-          setStatusMessage(
+          notifyPush(
             formatErrorWithDetails(res) ||
-              'Failed to push bank transactions to Xero.'
+              'Failed to push bank transactions to Xero.',
+            true
           );
         }
-        setStatusError(true);
         return;
       }
 
@@ -252,15 +311,14 @@ export default function PushPanel({
       if (skippedCount > 0) {
         msg += ` ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (already pushed).`;
       }
-      setStatusMessage(msg);
-      setStatusError(false);
+      notifyPush(msg, false);
     } catch (err) {
-      setStatusMessage(
+      notifyPush(
         err instanceof Error
           ? err.message
-          : 'Failed to push bank transactions to Xero.'
+          : 'Failed to push bank transactions to Xero.',
+        true
       );
-      setStatusError(true);
     } finally {
       setPushing(false);
     }
@@ -268,21 +326,6 @@ export default function PushPanel({
 
   return (
     <div className="p-3.5 flex flex-col gap-0">
-      {!xeroFeaturesEnabled && (
-        <InfoRow className="mb-2 text-warn">
-          Upgrade to Pro or Firm to push journals and bank transactions to Xero.
-        </InfoRow>
-      )}
-      {xeroFeaturesEnabled && !currencyReady && (
-        <InfoRow className="mb-2 text-warn">
-          Connect Xero first to set your organisation currency. Push is disabled until then.
-        </InfoRow>
-      )}
-      {currencyReady && defaultCurrency && (
-        <InfoRow className="mb-2">
-          Journals and bank transactions post in {defaultCurrency} only.
-        </InfoRow>
-      )}
       <div className="grid grid-cols-2 gap-1.5 mb-2.5">
         <button
           type="button"
@@ -321,11 +364,6 @@ export default function PushPanel({
               spellCheck={false}
             />
           </Field>
-          <InfoRow>
-            Rows with Xero ID already set are skipped. Xero IDs written to column{' '}
-            {JOURNAL_PUSH_XERO_ID_COL}; errors in column {JOURNAL_PUSH_STATUS_COL}{' '}
-            (Status).
-          </InfoRow>
           <Field label="Status" className="mt-2">
             {draftOnly ? (
               <div className="w-full rounded-sm border border-border bg-bg px-2 py-1.5 text-sm text-ink-2">
@@ -353,11 +391,6 @@ export default function PushPanel({
           >
             {pushing ? 'Pushing…' : '↑ Push journals to Xero'}
           </Button>
-          {!pushEnabled && (
-            <InfoRow className="text-warn mt-1">
-              Connect Xero and set organisation currency to enable push.
-            </InfoRow>
-          )}
         </Card>
       )}
 
@@ -376,11 +409,6 @@ export default function PushPanel({
               spellCheck={false}
             />
           </Field>
-          <InfoRow>
-            Receive Money · AUTHORISED · skips pushed rows · Xero IDs in column{' '}
-            {BANK_PUSH_XERO_ID_COL}; errors in column {BANK_PUSH_STATUS_COL}{' '}
-            (Status).
-          </InfoRow>
           <Button
             variant="push"
             onClick={handlePushBank}
@@ -389,20 +417,8 @@ export default function PushPanel({
           >
             {pushing ? 'Pushing…' : '↑ Push bank transactions to Xero'}
           </Button>
-          {!pushEnabled && (
-            <InfoRow className="text-warn mt-1">
-              Connect Xero and set organisation currency to enable push.
-            </InfoRow>
-          )}
         </Card>
-      )}
-
-      {statusMessage && (
-        <ResultBar variant={statusError ? 'warn' : 'success'}>
-          {statusMessage}
-        </ResultBar>
       )}
     </div>
   );
 }
-

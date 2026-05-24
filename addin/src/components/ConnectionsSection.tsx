@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import type { StripeConnectionItem, StripeConnectionStatus, XeroConnectionStatus } from '@stripesync/shared';
 import XeroMark from './icons/XeroMark';
 import StripeMark from './icons/StripeMark';
+import { useNotifications } from '../context/NotificationContext';
 
 function truncateId(id: string, len = 14): string {
   if (id.length <= len) return id;
@@ -46,9 +48,23 @@ export default function ConnectionsSection({
   xeroFeaturesEnabled = true,
   dimmed,
 }: ConnectionsSectionProps) {
+  const { publish, clear } = useNotifications();
   const stripeConnections = stripe.connections ?? [];
   const stripeConnected = stripe.connected;
   const xeroConnected = xero.connected && !xeroNeedsReconnect;
+
+  useEffect(() => {
+    if (!xeroFeaturesEnabled) {
+      publish({
+        kind: 'warn',
+        message: 'Upgrade to Pro or Firm to connect Xero and push to your ledger.',
+        source: 'connections-xero-gate',
+      });
+    } else {
+      clear('connections-xero-gate');
+    }
+    return () => clear('connections-xero-gate');
+  }, [xeroFeaturesEnabled, publish, clear]);
 
   return (
     <div
@@ -58,13 +74,11 @@ export default function ConnectionsSection({
       <div className="border border-border rounded overflow-hidden">
         {!xeroFeaturesEnabled ? (
           <div className="px-3 py-2.5 bg-bg">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2">
               <XeroMark size={20} />
               <span className="text-[12.5px] font-semibold text-ink">Xero</span>
+              <span className="text-[11px] text-ink-3">Pro or Firm required</span>
             </div>
-            <p className="text-[11px] text-ink-2 leading-snug">
-              Upgrade to Pro or Firm to connect Xero and push to your ledger.
-            </p>
           </div>
         ) : xeroConnected && xero.tenantName ? (
           <div className="px-3 py-2 bg-xero-light flex items-center gap-2">
