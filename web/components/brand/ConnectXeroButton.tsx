@@ -1,4 +1,4 @@
-import { connectBtnClass, connectBtnHeight } from './connectButtonStyles';
+import { connectBtnClass, connectBtnHeight, connectBtnImgClass } from './connectButtonStyles';
 
 export default function ConnectXeroButton({
   onClick,
@@ -21,7 +21,7 @@ export default function ConnectXeroButton({
       <img
         src="/brand/connect-xero.svg"
         alt={loading ? 'Connecting…' : 'Connect to Xero'}
-        className="h-full w-full object-cover object-left"
+        className={connectBtnImgClass}
       />
     </button>
   );

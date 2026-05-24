@@ -1,3 +1,10 @@
+import {
+  connectBtnClass,
+  connectBtnHeight,
+  connectBtnImgClass,
+  disconnectBtnCompactImgClass,
+} from './connectButtonStyles';
+
 export default function XeroDisconnectButton({
   onClick,
   disabled,
@@ -14,8 +21,8 @@ export default function XeroDisconnectButton({
       disabled={disabled}
       className={
         compact
-          ? 'inline-flex shrink-0 overflow-hidden rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50'
-          : 'block w-full overflow-hidden rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50'
+          ? 'inline-flex shrink-0 items-center overflow-hidden rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50'
+          : `${connectBtnClass} ${connectBtnHeight} border-0 bg-transparent p-0`
       }
       aria-label="Disconnect from Xero"
     >
@@ -23,11 +30,7 @@ export default function XeroDisconnectButton({
       <img
         src="/brand/disconnect-xero.svg"
         alt="Disconnect from Xero"
-        className={
-          compact
-            ? 'h-[26px] w-auto max-w-[140px]'
-            : 'h-auto w-full max-w-full'
-        }
+        className={compact ? disconnectBtnCompactImgClass : connectBtnImgClass}
       />
     </button>
   );
