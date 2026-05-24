@@ -1,14 +1,14 @@
-"use strict";(()=>{var e={};e.id=7603,e.ids=[7603],e.modules={2934:e=>{e.exports=require("next/dist/client/components/action-async-storage.external.js")},4580:e=>{e.exports=require("next/dist/client/components/request-async-storage.external.js")},5869:e=>{e.exports=require("next/dist/client/components/static-generation-async-storage.external.js")},399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},4709:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>h,patchFetch:()=>y,requestAsyncStorage:()=>d,routeModule:()=>u,serverHooks:()=>l,staticGenerationAsyncStorage:()=>p});var s={};n.r(s),n.d(s,{POST:()=>f});var r=n(3277),i=n(5265),a=n(5356),o=n(8009),c=n(8248);async function f(e){let t=await e.json().catch(()=>({})),n="string"==typeof t.access_token?t.access_token:"",s="string"==typeof t.refresh_token?t.refresh_token:"";if(!n||!s)return(0,c.bg)("VALIDATION_ERROR","access_token and refresh_token are required.",400);let r=await (0,o.u)(),{error:i}=await r.auth.setSession({access_token:n,refresh_token:s});return i?(0,c.bg)("AUTH_ERROR",i.message,401):(0,c.jsonSuccess)({ok:!0})}let u=new r.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/auth/session/route",pathname:"/api/auth/session",filename:"route",bundlePath:"app/api/auth/session/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/session/route.ts",nextConfigOutput:"",userland:s}),{requestAsyncStorage:d,staticGenerationAsyncStorage:p,serverHooks:l}=u,h="/api/auth/session/route";function y(){return(0,a.patchFetch)({serverHooks:l,staticGenerationAsyncStorage:p})}},8248:(e,t,n)=>{n.d(t,{bg:()=>a,bx:()=>f,ds:()=>u,ff:()=>c,hd:()=>o,jsonSuccess:()=>i,tb:()=>r});var s=n(7076);let r=15e3;function i(e,t=200){return s.NextResponse.json({success:!0,data:e},{status:t})}function a(e,t,n=400,r){let i={success:!1,error:{code:e,message:t,...r}};return s.NextResponse.json(i,{status:n})}function o(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),n="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),s="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null,r=function(e,t){if(t)return"Silkview Sync connected";let n="object"==typeof e&&null!==e&&"provider"in e&&"string"==typeof e.provider?e.provider.toLowerCase():"";return"xero"===n?"Xero not connected":"stripe"===n?"Stripe not connected":"Connection failed"}(e,n),i=n?"You can close this tab and return to Excel.":s??"Please close this tab and try again from the add-in.";return`<!DOCTYPE html>
+"use strict";(()=>{var e={};e.id=7603,e.ids=[7603],e.modules={2934:e=>{e.exports=require("next/dist/client/components/action-async-storage.external.js")},4580:e=>{e.exports=require("next/dist/client/components/request-async-storage.external.js")},5869:e=>{e.exports=require("next/dist/client/components/static-generation-async-storage.external.js")},399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},4709:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>h,patchFetch:()=>m,requestAsyncStorage:()=>d,routeModule:()=>u,serverHooks:()=>l,staticGenerationAsyncStorage:()=>p});var s={};n.r(s),n.d(s,{POST:()=>f});var r=n(3277),i=n(5265),a=n(5356),o=n(8009),c=n(1985);async function f(e){let t=await e.json().catch(()=>({})),n="string"==typeof t.access_token?t.access_token:"",s="string"==typeof t.refresh_token?t.refresh_token:"";if(!n||!s)return(0,c.bg)("VALIDATION_ERROR","access_token and refresh_token are required.",400);let r=await (0,o.u)(),{error:i}=await r.auth.setSession({access_token:n,refresh_token:s});return i?(0,c.bg)("AUTH_ERROR",i.message,401):(0,c.jsonSuccess)({ok:!0})}let u=new r.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/auth/session/route",pathname:"/api/auth/session",filename:"route",bundlePath:"app/api/auth/session/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/session/route.ts",nextConfigOutput:"",userland:s}),{requestAsyncStorage:d,staticGenerationAsyncStorage:p,serverHooks:l}=u,h="/api/auth/session/route";function m(){return(0,a.patchFetch)({serverHooks:l,staticGenerationAsyncStorage:p})}},1985:(e,t,n)=>{n.d(t,{tb:()=>i,ff:()=>f,hd:()=>c,ds:()=>d,bx:()=>u,bg:()=>o,jsonSuccess:()=>a});var s=n(7076);let r="Silkview Connect",i=15e3;function a(e,t=200){return s.NextResponse.json({success:!0,data:e},{status:t})}function o(e,t,n=400,r){let i={success:!1,error:{code:e,message:t,...r}};return s.NextResponse.json(i,{status:n})}function c(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),n="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),s="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null,i=function(e,t){if(t)return`${r} connected`;let n="object"==typeof e&&null!==e&&"provider"in e&&"string"==typeof e.provider?e.provider.toLowerCase():"";return"xero"===n?"Xero not connected":"stripe"===n?"Stripe not connected":"Connection failed"}(e,n),a=n?"You can close this tab and return to Excel.":s??"Please close this tab and try again from the add-in.";return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${r}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
 <body>
-<h1>${r}</h1>
-<p>${i}</p>
+<h1>${i}</h1>
+<p>${a}</p>
 <script>
   Office.onReady(function() {
     try {
@@ -19,11 +19,11 @@
   });
 </script>
 </body>
-</html>`}function c(e,t){return o({status:"error",provider:e,message:t})}function f(e,t){let n=JSON.stringify(t??"").replace(/</g,"\\u003c"),s=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),r=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function f(e,t){return c({status:"error",provider:e,message:t})}function u(e,t){let n=JSON.stringify(t??"").replace(/</g,"\\u003c"),s=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),i=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${r}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
@@ -33,7 +33,7 @@
 <script>
   Office.onReady(function() {
     var signedInPayload = ${s};
-    var handoffReadyPayload = ${r};
+    var handoffReadyPayload = ${i};
     var handoffNonce = ${n};
     var attempts = 0;
     function persistHandoffThen(cb) {
@@ -68,11 +68,11 @@
   });
 </script>
 </body>
-</html>`}function u(e){let t=JSON.stringify({status:"error",message:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function d(e){let t=JSON.stringify({status:"error",message:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${r}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>

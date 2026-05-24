@@ -8,6 +8,7 @@ import {
   authCallbackHtml,
 } from '@/lib/api-response';
 import { getOrganisationBaseCurrency } from '@/lib/services/xero';
+import { XERO_OAUTH_SCOPES } from '@/lib/xero-scopes';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -82,12 +83,7 @@ export async function POST(request: Request) {
       },
       payload.userId,
       {
-        scopes: [
-          'accounting.transactions',
-          'accounting.settings',
-          'accounting.reports.read',
-          'offline_access',
-        ],
+        scopes: [...XERO_OAUTH_SCOPES],
       }
     );
 

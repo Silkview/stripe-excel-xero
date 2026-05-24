@@ -1,14 +1,14 @@
-"use strict";(()=>{var e={};e.id=6290,e.ids=[6290],e.modules={399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},2426:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>g,patchFetch:()=>x,requestAsyncStorage:()=>h,routeModule:()=>p,serverHooks:()=>m,staticGenerationAsyncStorage:()=>y});var s={};n.r(s),n.d(s,{GET:()=>u,OPTIONS:()=>l,POST:()=>d});var r=n(3277),o=n(5265),a=n(5356),i=n(8793),c=n(8248),f=n(6771);async function l(){return(0,f.N4)()}async function u(e){let t=new URL(e.url),n=t.searchParams.get("nonce")?.trim();if(!n)return(0,f.i6)((0,c.bg)("INVALID_REQUEST","Missing handoff nonce.",400));if(!await (0,i.do)(n))return(0,f.i6)((0,c.jsonSuccess)({ready:!1}));let s=await (0,i.KB)(n);return s?(0,f.i6)((0,c.jsonSuccess)({ready:!0,accessToken:s})):(0,f.i6)((0,c.jsonSuccess)({ready:!1}))}async function d(e){try{let t=await e.json().catch(()=>({})),n="string"==typeof t.nonce?t.nonce.trim():"",s="string"==typeof t.accessToken?t.accessToken.trim():"";if(!n||!s)return(0,f.o3)(e,(0,c.bg)("INVALID_REQUEST","Missing nonce or access token.",400));return await (0,i.Lc)(n,s),(0,f.o3)(e,(0,c.jsonSuccess)({ok:!0}))}catch{return(0,f.o3)(e,(0,c.bg)("AUTH_REQUIRED","Please sign in.",401))}}let p=new r.AppRouteRouteModule({definition:{kind:o.x.APP_ROUTE,page:"/api/auth/excel-handoff/route",pathname:"/api/auth/excel-handoff",filename:"route",bundlePath:"app/api/auth/excel-handoff/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/excel-handoff/route.ts",nextConfigOutput:"",userland:s}),{requestAsyncStorage:h,staticGenerationAsyncStorage:y,serverHooks:m}=p,g="/api/auth/excel-handoff/route";function x(){return(0,a.patchFetch)({serverHooks:m,staticGenerationAsyncStorage:y})}},8248:(e,t,n)=>{n.d(t,{bg:()=>a,bx:()=>f,ds:()=>l,ff:()=>c,hd:()=>i,jsonSuccess:()=>o,tb:()=>r});var s=n(7076);let r=15e3;function o(e,t=200){return s.NextResponse.json({success:!0,data:e},{status:t})}function a(e,t,n=400,r){let o={success:!1,error:{code:e,message:t,...r}};return s.NextResponse.json(o,{status:n})}function i(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),n="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),s="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null,r=function(e,t){if(t)return"Silkview Sync connected";let n="object"==typeof e&&null!==e&&"provider"in e&&"string"==typeof e.provider?e.provider.toLowerCase():"";return"xero"===n?"Xero not connected":"stripe"===n?"Stripe not connected":"Connection failed"}(e,n),o=n?"You can close this tab and return to Excel.":s??"Please close this tab and try again from the add-in.";return`<!DOCTYPE html>
+"use strict";(()=>{var e={};e.id=6290,e.ids=[6290],e.modules={399:e=>{e.exports=require("next/dist/compiled/next-server/app-page.runtime.prod.js")},517:e=>{e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},2426:(e,t,n)=>{n.r(t),n.d(t,{originalPathname:()=>g,patchFetch:()=>x,requestAsyncStorage:()=>h,routeModule:()=>p,serverHooks:()=>m,staticGenerationAsyncStorage:()=>y});var s={};n.r(s),n.d(s,{GET:()=>u,OPTIONS:()=>l,POST:()=>d});var r=n(3277),o=n(5265),a=n(5356),i=n(8793),c=n(1985),f=n(6771);async function l(){return(0,f.N4)()}async function u(e){let t=new URL(e.url),n=t.searchParams.get("nonce")?.trim();if(!n)return(0,f.i6)((0,c.bg)("INVALID_REQUEST","Missing handoff nonce.",400));if(!await (0,i.do)(n))return(0,f.i6)((0,c.jsonSuccess)({ready:!1}));let s=await (0,i.KB)(n);return s?(0,f.i6)((0,c.jsonSuccess)({ready:!0,accessToken:s})):(0,f.i6)((0,c.jsonSuccess)({ready:!1}))}async function d(e){try{let t=await e.json().catch(()=>({})),n="string"==typeof t.nonce?t.nonce.trim():"",s="string"==typeof t.accessToken?t.accessToken.trim():"";if(!n||!s)return(0,f.o3)(e,(0,c.bg)("INVALID_REQUEST","Missing nonce or access token.",400));return await (0,i.Lc)(n,s),(0,f.o3)(e,(0,c.jsonSuccess)({ok:!0}))}catch{return(0,f.o3)(e,(0,c.bg)("AUTH_REQUIRED","Please sign in.",401))}}let p=new r.AppRouteRouteModule({definition:{kind:o.x.APP_ROUTE,page:"/api/auth/excel-handoff/route",pathname:"/api/auth/excel-handoff",filename:"route",bundlePath:"app/api/auth/excel-handoff/route"},resolvedPagePath:"/Users/ruvanfernando/stripe-excel-xero/web/app/api/auth/excel-handoff/route.ts",nextConfigOutput:"",userland:s}),{requestAsyncStorage:h,staticGenerationAsyncStorage:y,serverHooks:m}=p,g="/api/auth/excel-handoff/route";function x(){return(0,a.patchFetch)({serverHooks:m,staticGenerationAsyncStorage:y})}},1985:(e,t,n)=>{n.d(t,{tb:()=>o,ff:()=>f,hd:()=>c,ds:()=>u,bx:()=>l,bg:()=>i,jsonSuccess:()=>a});var s=n(7076);let r="Silkview Connect",o=15e3;function a(e,t=200){return s.NextResponse.json({success:!0,data:e},{status:t})}function i(e,t,n=400,r){let o={success:!1,error:{code:e,message:t,...r}};return s.NextResponse.json(o,{status:n})}function c(e){let t=JSON.stringify(e).replace(/</g,"\\u003c"),n="object"==typeof e&&null!==e&&"status"in e&&String(e.status).includes("connected"),s="object"==typeof e&&null!==e&&"message"in e&&"string"==typeof e.message?e.message:null,o=function(e,t){if(t)return`${r} connected`;let n="object"==typeof e&&null!==e&&"provider"in e&&"string"==typeof e.provider?e.provider.toLowerCase():"";return"xero"===n?"Xero not connected":"stripe"===n?"Stripe not connected":"Connection failed"}(e,n),a=n?"You can close this tab and return to Excel.":s??"Please close this tab and try again from the add-in.";return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${r}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
 <body>
-<h1>${r}</h1>
-<p>${o}</p>
+<h1>${o}</h1>
+<p>${a}</p>
 <script>
   Office.onReady(function() {
     try {
@@ -19,11 +19,11 @@
   });
 </script>
 </body>
-</html>`}function c(e,t){return i({status:"error",provider:e,message:t})}function f(e,t){let n=JSON.stringify(t??"").replace(/</g,"\\u003c"),s=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),r=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function f(e,t){return c({status:"error",provider:e,message:t})}function l(e,t){let n=JSON.stringify(t??"").replace(/</g,"\\u003c"),s=JSON.stringify({status:"signed_in",accessToken:e}).replace(/</g,"\\u003c"),o=JSON.stringify({status:"handoff_ready"}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${r}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
@@ -33,7 +33,7 @@
 <script>
   Office.onReady(function() {
     var signedInPayload = ${s};
-    var handoffReadyPayload = ${r};
+    var handoffReadyPayload = ${o};
     var handoffNonce = ${n};
     var attempts = 0;
     function persistHandoffThen(cb) {
@@ -68,11 +68,11 @@
   });
 </script>
 </body>
-</html>`}function l(e){let t=JSON.stringify({status:"error",message:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
+</html>`}function u(e){let t=JSON.stringify({status:"error",message:e}).replace(/</g,"\\u003c");return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${r}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>

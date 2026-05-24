@@ -27,6 +27,7 @@ import {
 } from '../connections/store';
 import { REQUEST_TIMEOUT_MS } from '../api-response';
 import { getOAuthRedirectUri } from '../oauth-redirect';
+import { XERO_OAUTH_SCOPES } from '../xero-scopes';
 
 const XERO_IDENTITY = 'https://identity.xero.com/connect/token';
 const XERO_API = 'https://api.xero.com';
@@ -154,12 +155,7 @@ export async function fetchXeroConnections(
   }
 }
 
-const XERO_CONNECT_SCOPES = [
-  'accounting.transactions',
-  'accounting.settings',
-  'accounting.reports.read',
-  'offline_access',
-];
+const XERO_CONNECT_SCOPES = [...XERO_OAUTH_SCOPES];
 
 function parseXeroTokenError(err: unknown): {
   code: string;
@@ -1337,12 +1333,25 @@ export async function getContacts(
 export async function getMappingOptions(
   workspaceId: string
 ): Promise<XeroMappingOptions> {
-  const [accounts, taxRates, trackingCategories, contacts] = await Promise.all([
-    getAccounts(workspaceId),
-    getTaxRates(workspaceId),
-    getTrackingCategories(workspaceId),
-    getContacts(workspaceId),
-  ]);
+  const [accounts, taxRates, trackingCategories, contactsResult] =
+    await Promise.all([
+      getAccounts(workspaceId),
+      getTaxRates(workspaceId),
+      getTrackingCategories(workspaceId),
+      getContacts(workspaceId).catch((err) => {
+        if (
+          err instanceof XeroServiceError &&
+          err.code === 'XERO_AUTH_REQUIRED'
+        ) {
+          console.warn(
+            '[xero-mapping-options] Contacts unavailable (reconnect Xero for contacts scope):',
+            workspaceId
+          );
+          return [] as XeroContactOption[];
+        }
+        throw err;
+      }),
+    ]);
 
   const accountOptions: XeroAccountOption[] = accounts.map((a) => ({
     Code: a.Code,
@@ -1354,7 +1363,7 @@ export async function getMappingOptions(
     displayLabel: `${a.Code} — ${a.Name}`,
   }));
 
-  return { accounts: accountOptions, taxRates, trackingCategories, contacts };
+  return { accounts: accountOptions, taxRates, trackingCategories, contacts: contactsResult };
 }
 
 function mapXeroError(err: unknown): XeroServiceError {

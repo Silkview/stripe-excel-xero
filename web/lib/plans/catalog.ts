@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
+import { dashboardDebugLog } from '@/lib/dashboard-debug-log';
 import { FALLBACK_PLANS } from './fallback';
 import type { PlanCode, PlanRow } from './types';
 
@@ -18,6 +19,12 @@ export async function listPlans(): Promise<PlanRow[]> {
     .order('sort_order', { ascending: true });
 
   if (error) {
+    dashboardDebugLog(
+      'catalog.ts:listPlans',
+      'plans query error',
+      { message: error.message, code: error.code ?? null },
+      'B'
+    );
     if (error.message.includes('Invalid schema')) {
       return FALLBACK_PLANS;
     }

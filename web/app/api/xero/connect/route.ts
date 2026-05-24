@@ -7,6 +7,7 @@ import {
 } from '@/lib/oauth-state';
 import { generatePkcePair } from '@/lib/pkce';
 import { getOAuthRedirectUri } from '@/lib/oauth-redirect';
+import { xeroOAuthScopeString } from '@/lib/xero-scopes';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
@@ -50,12 +51,7 @@ export async function GET(request: Request) {
     const state = signOAuthState(payload);
     setPkceVerifier(state, codeVerifier);
 
-    const scopes = [
-      'accounting.transactions',
-      'accounting.settings',
-      'accounting.reports.read',
-      'offline_access',
-    ].join(' ');
+    const scopes = xeroOAuthScopeString();
 
     const params = new URLSearchParams({
       response_type: 'code',

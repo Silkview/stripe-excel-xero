@@ -18,6 +18,7 @@ import {
   fetchXeroConnections,
   getOrganisationBaseCurrency,
 } from '@/lib/services/xero';
+import { XERO_OAUTH_SCOPES } from '@/lib/xero-scopes';
 import { NextResponse } from 'next/server';
 
 async function saveXeroTenantForWorkspace(
@@ -61,12 +62,7 @@ async function saveXeroTenantForWorkspace(
     },
     userId,
     {
-      scopes: [
-        'accounting.transactions',
-        'accounting.settings',
-        'accounting.reports.read',
-        'offline_access',
-      ],
+      scopes: [...XERO_OAUTH_SCOPES],
     }
   );
 }
