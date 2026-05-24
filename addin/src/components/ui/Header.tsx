@@ -78,7 +78,7 @@ export default function Header({
           rel="noopener noreferrer"
           className={`${actionClass} no-underline`}
         >
-          Guide ↗
+          Support ↗
         </a>
         <a
           href={dashboardUrl}

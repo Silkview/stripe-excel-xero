@@ -79,12 +79,19 @@ export async function applyAccountMappingsDropdowns(
       listsSheet.getUsedRangeOrNullObject()?.clear(Excel.ClearApplyTo.all);
     }
 
-    const journalAccountLabels = options.accounts
+    const journalAccounts = options.accounts.filter((a) => isJournalMappingAccount(a));
+    const bankAccounts = options.accounts.filter((a) =>
+      isBankPayoutAccount(a, defaultCurrency)
+    );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel.ts:applyAccountMappingsDropdowns',message:'filter accounts for dropdowns',data:{defaultCurrency:defaultCurrency??null,allAccounts:options.accounts?.length??0,journalAccounts:journalAccounts.length,bankAccounts:bankAccounts.length,bankAccountSamples:bankAccounts.slice(0,8).map((a)=>({Code:a.Code,Name:(a as any).Name,Type:(a as any).Type,CurrencyCode:(a as any).CurrencyCode,displayLabel:(a as any).displayLabel}))},timestamp:Date.now(),hypothesisId:'H2-H3',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
+
+    const journalAccountLabels = journalAccounts
       .filter((a) => isJournalMappingAccount(a))
       .map((a) => a.displayLabel);
-    const bankAccountLabels = options.accounts
-      .filter((a) => isBankPayoutAccount(a, defaultCurrency))
-      .map((a) => a.displayLabel);
+    const bankAccountLabels = bankAccounts.map((a) => a.displayLabel);
     const taxLabels = options.taxRates.map((t) => t.displayLabel);
     const contactLabels = (options.contacts ?? []).map((c) => c.displayLabel);
     const categoryNames = options.trackingCategories.map((c) => c.Name);

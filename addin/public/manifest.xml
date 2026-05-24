@@ -3,14 +3,14 @@
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:type="TaskPaneApp">
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
-  <Version>1.0.0.1</Version>
+  <Version>1.0.0.2</Version>
   <ProviderName>Silkview Connect</ProviderName>
   <DefaultLocale>en-AU</DefaultLocale>
   <DisplayName DefaultValue="Silkview Connect"/>
   <Description DefaultValue="Connect Stripe and Xero to sync financial data with Excel."/>
   <IconUrl DefaultValue="https://addin.silkview.org/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://addin.silkview.org/icon-64.png"/>
-  <SupportUrl DefaultValue="https://github.com"/>
+  <SupportUrl DefaultValue="https://www.silkview.org/support"/>
   <AppDomains>
     <AppDomain>https://addin.silkview.org</AppDomain>
     <AppDomain>https://www.silkview.org</AppDomain>

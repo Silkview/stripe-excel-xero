@@ -43,6 +43,9 @@ export function useSetupActions({
       setStatusError(true);
       return false;
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'useSetupActions.ts:applyDropdowns',message:'loaded mapping options',data:{baseCurrency:baseCurrency??null,accountCount:res.data.accounts?.length??0,taxRateCount:res.data.taxRates?.length??0,trackingCategoryCount:res.data.trackingCategories?.length??0},timestamp:Date.now(),hypothesisId:'H1-H2',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
     await applyAccountMappingsDropdowns(res.data, baseCurrency);
     return true;
   }, [workspaceName, baseCurrency]);
