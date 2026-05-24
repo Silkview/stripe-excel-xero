@@ -1,14 +1,23 @@
 'use client';
 
+import { useState } from 'react';
 import { useDashboard, PageHeader } from './dashboard-ui';
 import { formatPlanSummary } from '@/lib/plans/display';
 import BillingPortalButton from './BillingPortalButton';
+import SubscribeNowButton from './SubscribeNowButton';
 import StripeConnectHealth from './StripeConnectHealth';
+import RenameAccountModal from './RenameAccountModal';
 import Button from '@/components/ui/Button';
 
 export default function AccountSettingsPanel() {
   const ctx = useDashboard();
+  const [accountName, setAccountName] = useState(ctx.accountName);
+  const [renameOpen, setRenameOpen] = useState(false);
   const planSummary = formatPlanSummary(ctx.planCode, ctx.subscriptionStatus);
+
+  const showSubscribe =
+    ctx.isAdmin &&
+    (ctx.subscriptionStatus === 'trialing' || ctx.planCode === 'free');
 
   return (
     <>
@@ -23,7 +32,7 @@ export default function AccountSettingsPanel() {
           <dl className="mt-4 space-y-3 text-sm">
             <div>
               <dt className="text-text-3">Account name</dt>
-              <dd className="font-medium text-ink">{ctx.accountName}</dd>
+              <dd className="font-medium text-ink">{accountName}</dd>
             </div>
             <div>
               <dt className="text-text-3">Owner email</dt>
@@ -34,9 +43,15 @@ export default function AccountSettingsPanel() {
               <dd className="font-medium capitalize text-ink">{ctx.role}</dd>
             </div>
           </dl>
-          <Button variant="secondary" className="mt-4" disabled>
-            Rename account (soon)
-          </Button>
+          {ctx.isAdmin && (
+            <Button
+              variant="secondary"
+              className="mt-4"
+              onClick={() => setRenameOpen(true)}
+            >
+              Rename account
+            </Button>
+          )}
         </section>
 
         <section className="rounded-[11px] border border-border bg-surface p-6 shadow-card">
@@ -53,6 +68,8 @@ export default function AccountSettingsPanel() {
                 month: 'long',
                 year: 'numeric',
               })}
+              {ctx.trialDaysRemaining !== null &&
+                ` (${ctx.trialDaysRemaining} day${ctx.trialDaysRemaining === 1 ? '' : 's'} left)`}
             </p>
           )}
           <ul className="mt-4 space-y-1 font-mono text-xs text-text-2">
@@ -67,7 +84,8 @@ export default function AccountSettingsPanel() {
               {ctx.limits.maxStripeConnections}
             </li>
           </ul>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
+            {showSubscribe && <SubscribeNowButton variant="primary" />}
             <BillingPortalButton />
           </div>
         </section>
@@ -77,13 +95,19 @@ export default function AccountSettingsPanel() {
         <section className="rounded-[11px] border border-red/30 bg-red-light/40 p-6 lg:col-span-2">
           <h2 className="text-[15px] font-semibold text-red">Danger zone</h2>
           <p className="mt-2 text-sm text-text-2">
-            Account deletion and workspace removal are not available yet.
+            Account deletion is not available yet. You can delete individual
+            workspaces from the Workspaces page.
           </p>
-          <Button variant="secondary" className="mt-4" disabled>
-            Delete account
-          </Button>
         </section>
       </div>
+
+      <RenameAccountModal
+        open={renameOpen}
+        currentName={accountName}
+        onClose={() => setRenameOpen(false)}
+        onRenamed={setAccountName}
+      />
     </>
   );
 }
+

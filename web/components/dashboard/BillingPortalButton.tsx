@@ -2,15 +2,17 @@
 
 import { useState } from 'react';
 import Button from '@/components/ui/Button';
-import Alert from '@/components/ui/Alert';
+import SubscribeNowButton from './SubscribeNowButton';
 
 export default function BillingPortalButton() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsSubscribe, setNeedsSubscribe] = useState(false);
 
   const openPortal = async () => {
     setLoading(true);
     setError(null);
+    setNeedsSubscribe(false);
     try {
       const res = await fetch('/api/billing/portal', { method: 'POST' });
       const data = await res.json();
@@ -18,7 +20,15 @@ export default function BillingPortalButton() {
         window.location.href = data.data.url;
         return;
       }
-      setError(data.error?.message ?? 'Could not open billing portal.');
+      const message = data.error?.message ?? 'Could not open billing portal.';
+      setError(message);
+      if (
+        data.error?.code === 'BILLING_REQUIRED' ||
+        message.toLowerCase().includes('customer') ||
+        message.toLowerCase().includes('billing')
+      ) {
+        setNeedsSubscribe(true);
+      }
     } catch {
       setError('Could not open billing portal.');
     } finally {
@@ -32,8 +42,21 @@ export default function BillingPortalButton() {
         {loading ? 'Opening…' : 'Manage billing'}
       </Button>
       {error && (
-        <p className="mt-2 text-xs text-warn">{error}</p>
+        <p className="mt-2 text-xs text-warn">
+          {error}
+          {needsSubscribe && (
+            <span className="mt-2 block">
+              Subscribe first to access billing management.
+            </span>
+          )}
+        </p>
+      )}
+      {needsSubscribe && (
+        <div className="mt-2">
+          <SubscribeNowButton variant="secondary" />
+        </div>
       )}
     </div>
   );
 }
+

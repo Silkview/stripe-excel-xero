@@ -315,6 +315,29 @@ export async function saveXeroConnection(
   }
 }
 
+export async function updateStripeConnectionDisplayName(
+  workspaceId: string,
+  connectionId: string,
+  displayName: string
+): Promise<void> {
+  const admin = createSupabaseAdmin();
+  const trimmed = displayName.trim().slice(0, 80);
+  if (!trimmed) {
+    throw new Error('Display name is required.');
+  }
+  const { error } = await core(admin)
+    .from('stripe_connections')
+    .update({ display_name: trimmed })
+    .eq('id', connectionId)
+    .eq('workspace_id', workspaceId)
+    .eq('is_active', true);
+
+  if (error) {
+    console.error('updateStripeConnectionDisplayName:', error);
+    throw new Error(error.message);
+  }
+}
+
 export async function disconnectStripeConnection(
   workspaceId: string,
   options?: { connectionId?: string; stripeAccountId?: string }

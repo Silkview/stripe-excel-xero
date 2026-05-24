@@ -60,6 +60,17 @@ export async function loadDashboardContext(
   const role = membership.role as DashboardContext['role'];
   const isAdmin = role === 'owner' || role === 'admin';
 
+  const trialEndsAt = account.trial_ends_at;
+  const trialDaysRemaining =
+    account.subscription_status === 'trialing' && trialEndsAt
+      ? Math.max(
+          0,
+          Math.ceil(
+            (new Date(trialEndsAt).getTime() - Date.now()) / 86400000
+          )
+        )
+      : null;
+
   return {
     email,
     displayName: email.split('@')[0] ?? email,
@@ -71,7 +82,8 @@ export async function loadDashboardContext(
     planCode,
     planLabel: planDisplayName(planCode),
     subscriptionStatus: account.subscription_status,
-    trialEndsAt: account.trial_ends_at,
+    trialEndsAt,
+    trialDaysRemaining,
     limits: {
       maxWorkspaces: plan?.max_workspaces ?? account.max_workspaces,
       maxUsers: plan?.max_users ?? account.max_users,

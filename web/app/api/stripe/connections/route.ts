@@ -3,6 +3,7 @@ import {
   listStripeConnections,
   listStripeConnectionsForAccount,
   disconnectStripeConnection,
+  updateStripeConnectionDisplayName,
 } from '@/lib/connections/store';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
@@ -60,6 +61,38 @@ export async function GET(request: Request) {
           }
         : null,
     });
+  } catch (err) {
+    return handleRouteError(request, err);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { workspaceId } = await requireWorkspace(request);
+    const body = (await request.json()) as {
+      connectionId?: string;
+      displayName?: string;
+    };
+
+    if (!body.connectionId?.trim()) {
+      return withCors(
+        request,
+        jsonError('VALIDATION_ERROR', 'connectionId is required.', 400)
+      );
+    }
+    if (!body.displayName?.trim()) {
+      return withCors(
+        request,
+        jsonError('VALIDATION_ERROR', 'displayName is required.', 400)
+      );
+    }
+
+    await updateStripeConnectionDisplayName(
+      workspaceId,
+      body.connectionId.trim(),
+      body.displayName
+    );
+    return ok(request, { updated: true });
   } catch (err) {
     return handleRouteError(request, err);
   }

@@ -21,6 +21,7 @@ import { useStripeAccountSelection } from '../hooks/useStripeAccountSelection';
 import { useSetupActions } from '../hooks/useSetupActions';
 import { getAppUrl } from '../utils/api';
 import { clearStripeAccountId } from '../utils/session';
+import NameStripeConnectionModal from './NameStripeConnectionModal';
 
 function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -296,6 +297,15 @@ export default function App() {
             )}
           </div>
         </>
+      )}
+
+      {stripeAuth.pendingName && (
+        <NameStripeConnectionModal
+          suggestedName={stripeAuth.pendingName.suggestedName}
+          saving={stripeAuth.savingName}
+          onSave={(name) => void stripeAuth.saveConnectionName(name)}
+          onSkip={stripeAuth.dismissNamePrompt}
+        />
       )}
     </AppShell>
   );

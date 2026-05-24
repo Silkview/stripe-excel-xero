@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { StripeConnectionStatus } from '@stripesync/shared';
-import { apiGet } from '../utils/api';
+import { apiGet, apiPatch } from '../utils/api';
 import { openAuthFlow } from '../utils/dialogAuth';
 import { friendlyError } from '../utils/errorMessages';
 import {
@@ -8,6 +8,11 @@ import {
   setStripeAccountId,
   clearStripeAccountId,
 } from '../utils/session';
+
+export type PendingStripeName = {
+  connectionId: string;
+  suggestedName: string;
+};
 
 export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
   const [status, setStatus] = useState<StripeConnectionStatus>({
@@ -21,6 +26,8 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
   const [loading, setLoading] = useState(false);
   const [waitingForBrowser, setWaitingForBrowser] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingName, setPendingName] = useState<PendingStripeName | null>(null);
+  const [savingName, setSavingName] = useState(false);
 
   const syncSelectedAccount = useCallback((data: StripeConnectionStatus) => {
     const list = data.connections ?? [];
@@ -77,12 +84,38 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
     setSelectedStripeAccountIdState(stripeAccountId);
   }, []);
 
+  const detectNewConnection = useCallback(
+    (
+      before: StripeConnectionStatus | undefined,
+      after: StripeConnectionStatus | undefined
+    ) => {
+      const beforeIds = new Set((before?.connections ?? []).map((c) => c.id));
+      const added = (after?.connections ?? []).find((c) => !beforeIds.has(c.id));
+      if (!added) return;
+      setPendingName({
+        connectionId: added.id,
+        suggestedName:
+          added.displayName && added.displayName !== added.stripeAccountId
+            ? added.displayName
+            : added.stripeAccountId.startsWith('acct_')
+              ? added.stripeAccountId
+              : '',
+      });
+    },
+    []
+  );
+
   const connect = useCallback(
     async (flow: 'register' | 'login' = 'login') => {
       setLoading(true);
       setError(null);
       setWaitingForBrowser(false);
       try {
+        const beforeRes = await apiGet<StripeConnectionStatus>(
+          '/api/stripe/status'
+        );
+        const beforeData = beforeRes.success ? beforeRes.data : undefined;
+
         const connectRes = await apiGet<{
           url: string;
           redirectUri?: string;
@@ -101,8 +134,22 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
         setWaitingForBrowser(true);
         await openAuthFlow(connectRes.data.url, async () => {
           const res = await apiGet<StripeConnectionStatus>('/api/stripe/status');
-          return !!(res.success && res.data?.connected);
+          if (!(res.success && res.data?.connected)) return false;
+          const beforeIds = new Set(
+            (beforeData?.connections ?? []).map((c) => c.id)
+          );
+          const hasNew = (res.data.connections ?? []).some(
+            (c) => !beforeIds.has(c.id)
+          );
+          return hasNew || !!(res.success && res.data?.connected && !beforeData?.connected);
         });
+
+        const afterRes = await apiGet<StripeConnectionStatus>(
+          '/api/stripe/status'
+        );
+        if (afterRes.success && afterRes.data) {
+          detectNewConnection(beforeData, afterRes.data);
+        }
         await refresh();
       } catch (err) {
         setError(
@@ -113,8 +160,39 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
         setWaitingForBrowser(false);
       }
     },
-    [refresh]
+    [refresh, detectNewConnection]
   );
+
+  const saveConnectionName = useCallback(
+    async (displayName: string) => {
+      if (!pendingName) return;
+      setSavingName(true);
+      setError(null);
+      try {
+        const res = await apiPatch('/api/stripe/connections', {
+          connectionId: pendingName.connectionId,
+          displayName,
+        });
+        if (!res.success) {
+          setError(res.error?.message ?? 'Could not save name.');
+          return;
+        }
+        setPendingName(null);
+        await refresh();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Could not save name.'
+        );
+      } finally {
+        setSavingName(false);
+      }
+    },
+    [pendingName, refresh]
+  );
+
+  const dismissNamePrompt = useCallback(() => {
+    setPendingName(null);
+  }, []);
 
   const canAddAnother =
     workspaceStripeCount < maxStripePerWorkspace;
@@ -132,5 +210,9 @@ export function useStripeAuth(enabled: boolean, workspaceId?: string | null) {
     connect,
     refresh,
     setError,
+    pendingName,
+    savingName,
+    saveConnectionName,
+    dismissNamePrompt,
   };
 }

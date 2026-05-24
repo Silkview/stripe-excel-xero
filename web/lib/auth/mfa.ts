@@ -80,3 +80,19 @@ export async function verifyMfaLogin(
 ) {
   return verifyTotpEnrollment(supabase, factorId, code);
 }
+
+export async function unenrollVerifiedTotp(supabase: SupabaseClient) {
+  const status = await getMfaStatus(supabase);
+  if (!status.totpFactorId) {
+    throw new Error('No verified MFA factor to remove.');
+  }
+
+  const { error } = await supabase.auth.mfa.unenroll({
+    factorId: status.totpFactorId,
+  });
+  if (error) throw error;
+
+  await supabase.auth.updateUser({
+    data: { mfa_enroll_skipped: null },
+  });
+}

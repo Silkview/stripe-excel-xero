@@ -15,6 +15,9 @@ export async function POST(request: Request) {
     if (!membership) {
       return withCors(request, jsonError('ACCOUNT_REQUIRED', 'No account.', 403));
     }
+    if (membership.role === 'member') {
+      return withCors(request, jsonError('FORBIDDEN', 'Admins only.', 403));
+    }
 
     const { plan } = await request.json();
     if (plan !== 'pro' && plan !== 'firm') {

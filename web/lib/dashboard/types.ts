@@ -24,6 +24,7 @@ export type DashboardContext = {
   planLabel: string;
   subscriptionStatus: string | null;
   trialEndsAt: string | null;
+  trialDaysRemaining: number | null;
   limits: DashboardLimits;
   workspaceCount: number;
 };

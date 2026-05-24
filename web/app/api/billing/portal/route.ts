@@ -17,6 +17,9 @@ export async function POST(request: Request) {
     if (!membership) {
       return withCors(request, jsonError('ACCOUNT_REQUIRED', 'No account.', 403));
     }
+    if (membership.role === 'member') {
+      return withCors(request, jsonError('FORBIDDEN', 'Admins only.', 403));
+    }
 
     const admin = createSupabaseAdmin();
     const { data: account } = await core(admin)
