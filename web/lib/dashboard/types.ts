@@ -1,4 +1,5 @@
 import type { PlanCode } from '@/lib/plans/types';
+import type { BillingAccess } from '@/lib/billing/access';
 
 export type DashboardRole = 'owner' | 'admin' | 'member';
 
@@ -27,6 +28,11 @@ export type DashboardContext = {
   trialDaysRemaining: number | null;
   limits: DashboardLimits;
   workspaceCount: number;
+  billingAccess: BillingAccess;
+  needsDowngradeSelection: boolean;
+  hasStripeCustomer: boolean;
+  billingBlocked: boolean;
+  productBlocked: boolean;
 };
 
 export type WorkspaceSummary = {

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import { useDashboard } from './dashboard-ui';
@@ -7,9 +8,11 @@ import { useDashboard } from './dashboard-ui';
 export default function SubscribeNowButton({
   className = '',
   variant = 'primary',
+  useBillingPage = true,
 }: {
   className?: string;
   variant?: 'primary' | 'secondary';
+  useBillingPage?: boolean;
 }) {
   const ctx = useDashboard();
   const [loading, setLoading] = useState(false);
@@ -43,6 +46,45 @@ export default function SubscribeNowButton({
 
   if (!ctx.isAdmin) return null;
 
+  if (useBillingPage) {
+    return (
+      <Link
+        href="/dashboard/billing"
+        className={
+          variant === 'primary'
+            ? `inline-flex items-center justify-center rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover ${className}`
+            : `inline-flex items-center justify-center rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-medium text-ink hover:border-accent/40 ${className}`
+        }
+      >
+        Subscribe now
+      </Link>
+    );
+  }
+
+  return (
+    <DirectSubscribeButton
+      variant={variant}
+      className={className}
+      loading={loading}
+      error={error}
+      onSubscribe={() => void subscribe()}
+    />
+  );
+}
+
+function DirectSubscribeButton({
+  variant,
+  className,
+  loading,
+  error,
+  onSubscribe,
+}: {
+  variant: 'primary' | 'secondary';
+  className: string;
+  loading: boolean;
+  error: string | null;
+  onSubscribe: () => void;
+}) {
   return (
     <div>
       <Button
@@ -52,7 +94,7 @@ export default function SubscribeNowButton({
             ? `!bg-accent hover:!bg-accent-hover ${className}`
             : className
         }
-        onClick={subscribe}
+        onClick={onSubscribe}
         disabled={loading}
       >
         {loading ? 'Opening checkout…' : 'Subscribe now'}

@@ -1,6 +1,7 @@
 import { createSupabaseAdmin } from './supabase/admin';
 import { core } from './supabase/core';
 import type { PlanCode } from './plans/types';
+import { getBillingAccess } from './billing/access';
 
 export type LimitResource = 'user' | 'workspace' | 'stripe' | 'xero';
 
@@ -19,6 +20,17 @@ export async function enforceLimit(
     .single();
 
   if (!account) return { allowed: false, reason: 'Account not found' };
+
+  const billingAccess = await getBillingAccess(accountId);
+  if (billingAccess !== 'active') {
+    return {
+      allowed: false,
+      reason:
+        billingAccess === 'trial_expired'
+          ? 'Your trial has ended. Subscribe to continue.'
+          : 'Subscription inactive. Please update billing.',
+    };
+  }
 
   if (
     account.subscription_status === 'past_due' ||

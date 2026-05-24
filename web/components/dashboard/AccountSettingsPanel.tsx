@@ -7,6 +7,7 @@ import BillingPortalButton from './BillingPortalButton';
 import SubscribeNowButton from './SubscribeNowButton';
 import StripeConnectHealth from './StripeConnectHealth';
 import RenameAccountModal from './RenameAccountModal';
+import DeleteAccountButton from './DeleteAccountButton';
 import Button from '@/components/ui/Button';
 
 export default function AccountSettingsPanel() {
@@ -95,9 +96,12 @@ export default function AccountSettingsPanel() {
         <section className="rounded-[11px] border border-red/30 bg-red-light/40 p-6 lg:col-span-2">
           <h2 className="text-[15px] font-semibold text-red">Danger zone</h2>
           <p className="mt-2 text-sm text-text-2">
-            Account deletion is not available yet. You can delete individual
-            workspaces from the Workspaces page.
+            Permanently delete your account and all workspaces, connections, and
+            team members. This cannot be undone.
           </p>
+          {ctx.isAdmin && ctx.role === 'owner' && (
+            <DeleteAccountButton accountName={accountName} className="mt-4" />
+          )}
         </section>
       </div>
 

@@ -54,6 +54,7 @@ export interface Database {
           max_users: number;
           max_workspaces: number;
           onboarding_completed_at: string | null;
+          billing_downgrade_completed_at: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -70,6 +71,7 @@ export interface Database {
           max_users?: number;
           max_workspaces?: number;
           onboarding_completed_at?: string | null;
+          billing_downgrade_completed_at?: string | null;
         };
         Update: Partial<Database['core']['Tables']['accounts']['Insert']>;
         Relationships: [];

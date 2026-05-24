@@ -12,6 +12,7 @@ export interface ApiError {
   retry_after?: number;
   details?: string[];
   rowIssues?: PushRowIssue[];
+  billingUrl?: string;
 }
 
 export interface ApiResponse<T = unknown> {

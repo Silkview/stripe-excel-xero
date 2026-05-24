@@ -6,6 +6,7 @@ import { DashboardProvider, ToastProvider } from './dashboard-ui';
 import DashboardSidebar from './DashboardSidebar';
 import DashboardTopbar from './DashboardTopbar';
 import TrialBanner from './TrialBanner';
+import DashboardAccessGate from './DashboardAccessGate';
 
 export default function DashboardShell({
   context,
@@ -24,7 +25,9 @@ export default function DashboardShell({
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <DashboardTopbar pathname={pathname} />
             <TrialBanner />
-            <main className="flex-1 overflow-y-auto p-7">{children}</main>
+            <DashboardAccessGate>
+              <main className="flex-1 overflow-y-auto p-7">{children}</main>
+            </DashboardAccessGate>
           </div>
         </div>
       </ToastProvider>

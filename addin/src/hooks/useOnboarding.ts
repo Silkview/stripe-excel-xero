@@ -20,6 +20,9 @@ export type OnboardingState = {
     maxWorkspaces: number;
   } | null;
   workspaceStripeCount: number;
+  billingAccess: 'active' | 'trial_expired' | 'payment_required';
+  billingUrl: string;
+  needsDowngradeSelection: boolean;
   loading: boolean;
   error: string | null;
   refresh: (options?: { silent?: boolean }) => Promise<void>;
@@ -41,6 +44,9 @@ export function useOnboarding(enabled: boolean): OnboardingState {
     hasStripe: false,
     limits: null as OnboardingState['limits'],
     workspaceStripeCount: 0,
+    billingAccess: 'active' as const,
+    billingUrl: '',
+    needsDowngradeSelection: false,
   });
 
   const loadStatus = useCallback(async (tryAutoProvision: boolean) => {
@@ -58,6 +64,9 @@ export function useOnboarding(enabled: boolean): OnboardingState {
         maxWorkspaces: number;
       } | null;
       workspaceStripeCount: number;
+      billingAccess: 'active' | 'trial_expired' | 'payment_required';
+      billingUrl: string;
+      needsDowngradeSelection: boolean;
     }>('/api/onboarding/status');
 
     if (!res.success || !res.data) {
@@ -109,6 +118,9 @@ export function useOnboarding(enabled: boolean): OnboardingState {
           }
         : null,
       workspaceStripeCount: d.workspaceStripeCount ?? 0,
+      billingAccess: d.billingAccess ?? 'active',
+      billingUrl: d.billingUrl ?? '',
+      needsDowngradeSelection: d.needsDowngradeSelection ?? false,
     });
 
     if (d.workspaceId) {
@@ -175,6 +187,9 @@ export function useOnboarding(enabled: boolean): OnboardingState {
     hasStripe: status.hasStripe,
     limits: status.limits,
     workspaceStripeCount: status.workspaceStripeCount,
+    billingAccess: status.billingAccess,
+    billingUrl: status.billingUrl,
+    needsDowngradeSelection: status.needsDowngradeSelection,
     loading,
     error,
     refresh,

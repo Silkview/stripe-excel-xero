@@ -22,6 +22,7 @@ import { useSetupActions } from '../hooks/useSetupActions';
 import { getAppUrl } from '../utils/api';
 import { clearStripeAccountId } from '../utils/session';
 import NameStripeConnectionModal from './NameStripeConnectionModal';
+import BillingRequiredPanel from './BillingRequiredPanel';
 
 function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -183,6 +184,22 @@ export default function App() {
           void workspace.refresh();
         }}
       />
+    );
+  }
+
+  const billingBlocked =
+    onboarding.billingAccess !== 'active' || onboarding.needsDowngradeSelection;
+
+  if (billingBlocked) {
+    return (
+      <AppShell>
+        {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
+        <BillingRequiredPanel
+          billingUrl={onboarding.billingUrl}
+          billingAccess={onboarding.billingAccess}
+          needsDowngradeSelection={onboarding.needsDowngradeSelection}
+        />
+      </AppShell>
     );
   }
 

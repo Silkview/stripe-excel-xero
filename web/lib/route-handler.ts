@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 import { ApiAuthError } from './api-auth';
 import { jsonError, jsonSuccess } from './api-response';
 import { corsOptions, withCors } from './cors';
+import {
+  BillingRequiredError,
+  DowngradeRequiredError,
+  getBillingUrl,
+} from './billing/access';
 import { XeroServiceError } from './services/xero';
 import { StripeServiceError } from './services/stripe-data';
 import { XeroAuthRequiredError } from './xeroAuth';
@@ -13,6 +18,22 @@ export function handleOptions(request: Request) {
 export function handleRouteError(request: Request, err: unknown) {
   if (err instanceof ApiAuthError) {
     return withCors(request, jsonError(err.code, err.message, err.status));
+  }
+  if (err instanceof BillingRequiredError) {
+    return withCors(
+      request,
+      jsonError(err.code, err.message, 402, {
+        billingUrl: getBillingUrl(),
+      })
+    );
+  }
+  if (err instanceof DowngradeRequiredError) {
+    return withCors(
+      request,
+      jsonError(err.code, err.message, 403, {
+        billingUrl: getBillingUrl(),
+      })
+    );
   }
   if (err instanceof XeroAuthRequiredError) {
     return withCors(

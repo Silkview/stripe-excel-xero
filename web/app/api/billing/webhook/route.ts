@@ -92,10 +92,7 @@ export async function POST(req: Request) {
         .from('accounts')
         .update({
           subscription_status: 'canceled',
-          plan_code: 'free',
-          plan: 'canceled',
-          max_users: 0,
-          max_workspaces: 0,
+          stripe_subscription_id: null,
         })
         .eq('stripe_subscription_id', sub.id);
       break;

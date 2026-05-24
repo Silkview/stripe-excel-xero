@@ -33,11 +33,17 @@ export async function POST(request: Request) {
       membership.account_id,
       user.email!,
       plan,
-      `${returnUrl}/dashboard`
+      `${returnUrl}/dashboard/billing`
     );
 
     return ok(request, { url: session.url });
   } catch (err) {
+    if (err instanceof Error && err.message.includes('Stripe price')) {
+      return withCors(
+        request,
+        jsonError('BILLING_CONFIG', err.message, 400)
+      );
+    }
     return handleRouteError(request, err);
   }
 }

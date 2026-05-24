@@ -1,7 +1,9 @@
 import { getPrimaryAccountMembership } from '@/lib/auth/account-membership';
 import { countAccountStripeConnections } from '@/lib/auth/onboarding-status';
+import { getBillingState } from '@/lib/billing/access';
 import { planDisplayName } from '@/lib/plans/display';
 import type { PlanCode } from '@/lib/plans/types';
+import type { BillingAccess } from '@/lib/billing/access';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
@@ -57,6 +59,8 @@ export async function loadDashboardContext(
     membership.account_id
   );
 
+  const billingState = await getBillingState(membership.account_id);
+
   const role = membership.role as DashboardContext['role'];
   const isAdmin = role === 'owner' || role === 'admin';
 
@@ -95,5 +99,12 @@ export async function loadDashboardContext(
       stripeConnectionCount,
     },
     workspaceCount: workspaceCount ?? 0,
+    billingAccess: billingState.billingAccess,
+    needsDowngradeSelection: billingState.needsDowngradeSelection,
+    hasStripeCustomer: billingState.hasStripeCustomer,
+    billingBlocked: billingState.billingAccess !== 'active',
+    productBlocked:
+      billingState.billingAccess !== 'active' ||
+      billingState.needsDowngradeSelection,
   };
 }

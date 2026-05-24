@@ -2,6 +2,7 @@ import { createSupabaseServer } from './supabase/server';
 import { createSupabaseAdmin } from './supabase/admin';
 import { core } from './supabase/core';
 import { getPrimaryAccountMembership } from './auth/account-membership';
+import { requireProductAccess } from './billing/access';
 
 export class ApiAuthError extends Error {
   constructor(
@@ -127,6 +128,8 @@ export async function requireWorkspace(req: Request) {
       );
     }
   }
+
+  await requireProductAccess(membership.account_id);
 
   return {
     supabase,

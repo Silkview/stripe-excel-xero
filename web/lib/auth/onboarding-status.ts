@@ -3,6 +3,12 @@ import { core } from '@/lib/supabase/core';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import type { PlanCode } from '@/lib/plans/types';
 import { getPrimaryAccountMembership } from './account-membership';
+import {
+  getBillingAccess,
+  getBillingUrl,
+  needsDowngradeSelection,
+  type BillingAccess,
+} from '@/lib/billing/access';
 
 export type OnboardingPrefill = {
   planCode: PlanCode | null;
@@ -28,6 +34,9 @@ export type OnboardingStatus = {
   } | null;
   workspaceStripeCount: number;
   prefill?: OnboardingPrefill;
+  billingAccess: BillingAccess;
+  billingUrl: string;
+  needsDowngradeSelection: boolean;
 };
 
 const VALID_PLANS: PlanCode[] = ['free', 'pro', 'firm'];
@@ -81,6 +90,9 @@ export async function getOnboardingStatusForUser(
       limits: null,
       workspaceStripeCount: 0,
       prefill,
+      billingAccess: 'active',
+      billingUrl: getBillingUrl(),
+      needsDowngradeSelection: false,
     };
   }
 
@@ -139,6 +151,9 @@ export async function getOnboardingStatusForUser(
   const needsOnboarding =
     needsAccountSetup || !account?.onboarding_completed_at;
 
+  const billingAccess = await getBillingAccess(membership.account_id);
+  const downgradeNeeded = await needsDowngradeSelection(membership.account_id);
+
   return {
     needsAccountSetup,
     needsConnectionSetup,
@@ -161,6 +176,9 @@ export async function getOnboardingStatusForUser(
       : null,
     workspaceStripeCount,
     prefill,
+    billingAccess,
+    billingUrl: getBillingUrl(),
+    needsDowngradeSelection: downgradeNeeded,
   };
 }
 

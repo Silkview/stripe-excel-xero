@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:4003';
     const session = await createPortalSession(
       account.stripe_customer_id,
-      `${returnUrl}/dashboard`
+      `${returnUrl}/dashboard/billing`
     );
 
     return ok(request, { url: session.url });
