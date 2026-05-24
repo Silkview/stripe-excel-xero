@@ -7,7 +7,7 @@ import { extractMappingCode } from './accountMappingsRead';
 import { parseSheetRange } from './officeHelpers';
 import { normalizeJournalDate } from './readXeroJournals';
 
-export const DEFAULT_BANK_PUSH_RANGE = `${BANK_TXN_SHEET}!A2:H500`;
+export const DEFAULT_BANK_PUSH_RANGE = `${BANK_TXN_SHEET}!A2:I500`;
 
 const COL_DATE = 0;
 const COL_TYPE = 1;

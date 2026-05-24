@@ -27,8 +27,10 @@ import {
   applyPushRowFeedback,
   resetPushFeedback,
   JOURNAL_PUSH_DATA_COLS,
+  JOURNAL_PUSH_XERO_ID_COL,
   JOURNAL_PUSH_STATUS_COL,
   BANK_PUSH_DATA_COLS,
+  BANK_PUSH_XERO_ID_COL,
   BANK_PUSH_STATUS_COL,
 } from '../utils/pushRowFeedback';
 
@@ -86,6 +88,7 @@ export default function PushPanel({
         await readXeroJournalsForPush(journalRange);
       await resetPushFeedback(
         journalRange,
+        JOURNAL_PUSH_XERO_ID_COL,
         JOURNAL_PUSH_STATUS_COL,
         JOURNAL_PUSH_DATA_COLS
       );
@@ -99,15 +102,21 @@ export default function PushPanel({
 
       if (!res.success || !res.data || res.data.created === 0) {
         if (rowIssues?.length) {
-          const feedback = buildJournalRowFeedback(rowContext, rowIssues, undefined);
+          const feedback = buildJournalRowFeedback(
+            rowContext,
+            rowIssues,
+            undefined,
+            pushStatus
+          );
           await applyPushRowFeedback(
             journalRange,
+            JOURNAL_PUSH_XERO_ID_COL,
             JOURNAL_PUSH_STATUS_COL,
             JOURNAL_PUSH_DATA_COLS,
             feedback
           );
           setStatusMessage(
-            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed validation. See highlighted rows in column ${JOURNAL_PUSH_STATUS_COL}.`
+            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed validation. See highlighted rows in column ${JOURNAL_PUSH_STATUS_COL} (Status).`
           );
         } else {
           setStatusMessage(
@@ -122,17 +131,19 @@ export default function PushPanel({
       const feedback = buildJournalRowFeedback(
         rowContext,
         undefined,
-        journalIdsByDate
+        journalIdsByDate,
+        pushStatus
       );
       await applyPushRowFeedback(
         journalRange,
+        JOURNAL_PUSH_XERO_ID_COL,
         JOURNAL_PUSH_STATUS_COL,
         JOURNAL_PUSH_DATA_COLS,
         feedback
       );
 
       const okRows = feedback.filter((f) => f.status === 'ok').length;
-      let msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully as ${pushStatus} (${created} journal${created === 1 ? '' : 's'} in Xero, highlighted green).`;
+      let msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully as ${pushStatus} (${created} journal${created === 1 ? '' : 's'} in Xero). Xero IDs in column ${JOURNAL_PUSH_XERO_ID_COL}, status in column ${JOURNAL_PUSH_STATUS_COL}.`;
       if (skippedCount > 0) {
         msg += ` ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (already pushed).`;
       }
@@ -169,6 +180,7 @@ export default function PushPanel({
         await readXeroBankTransactionsForPush(bankRange);
       await resetPushFeedback(
         bankRange,
+        BANK_PUSH_XERO_ID_COL,
         BANK_PUSH_STATUS_COL,
         BANK_PUSH_DATA_COLS
       );
@@ -190,12 +202,13 @@ export default function PushPanel({
           );
           await applyPushRowFeedback(
             bankRange,
+            BANK_PUSH_XERO_ID_COL,
             BANK_PUSH_STATUS_COL,
             BANK_PUSH_DATA_COLS,
             feedback
           );
           setStatusMessage(
-            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed. See highlighted rows in column ${BANK_PUSH_STATUS_COL}.`
+            `${feedback.length} row${feedback.length === 1 ? '' : 's'} failed. See highlighted rows in column ${BANK_PUSH_STATUS_COL} (Status).`
           );
         } else {
           setStatusMessage(
@@ -216,13 +229,14 @@ export default function PushPanel({
       );
       await applyPushRowFeedback(
         bankRange,
+        BANK_PUSH_XERO_ID_COL,
         BANK_PUSH_STATUS_COL,
         BANK_PUSH_DATA_COLS,
         feedback
       );
 
       const okRows = feedback.filter((f) => f.status === 'ok').length;
-      let msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully as AUTHORISED (${created} transaction${created === 1 ? '' : 's'} in Xero, highlighted green).`;
+      let msg = `${okRows} row${okRows === 1 ? '' : 's'} pushed successfully as AUTHORISED (${created} transaction${created === 1 ? '' : 's'} in Xero). Xero IDs in column ${BANK_PUSH_XERO_ID_COL}, status in column ${BANK_PUSH_STATUS_COL}.`;
       if (skippedCount > 0) {
         msg += ` ${skippedCount} row${skippedCount === 1 ? '' : 's'} skipped (already pushed).`;
       }
@@ -290,7 +304,11 @@ export default function PushPanel({
               spellCheck={false}
             />
           </Field>
-          <InfoRow>Rows with Xero ID already set are skipped. Errors show in column {JOURNAL_PUSH_STATUS_COL}.</InfoRow>
+          <InfoRow>
+            Rows with Xero ID already set are skipped. Xero IDs written to column{' '}
+            {JOURNAL_PUSH_XERO_ID_COL}; errors in column {JOURNAL_PUSH_STATUS_COL}{' '}
+            (Status).
+          </InfoRow>
           <Field label="Status" className="mt-2">
             <select
               value={pushStatus}
@@ -335,7 +353,11 @@ export default function PushPanel({
               spellCheck={false}
             />
           </Field>
-          <InfoRow>Receive Money · AUTHORISED · skips pushed rows · errors in column {BANK_PUSH_STATUS_COL}.</InfoRow>
+          <InfoRow>
+            Receive Money · AUTHORISED · skips pushed rows · Xero IDs in column{' '}
+            {BANK_PUSH_XERO_ID_COL}; errors in column {BANK_PUSH_STATUS_COL}{' '}
+            (Status).
+          </InfoRow>
           <Button
             variant="push"
             onClick={handlePushBank}
@@ -360,3 +382,4 @@ export default function PushPanel({
     </div>
   );
 }
+

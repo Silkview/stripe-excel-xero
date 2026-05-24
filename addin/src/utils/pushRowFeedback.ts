@@ -6,6 +6,7 @@ const FILL_OK = '#E8F8F1';
 
 export async function resetPushFeedback(
   rangeA1: string,
+  xeroIdCol: string,
   statusCol: string,
   dataColCount: number
 ): Promise<void> {
@@ -18,16 +19,19 @@ export async function resetPushFeedback(
       `A${parsed.startRow}:${lastCol}${parsed.endRow}`
     );
     range.format.fill.clear();
-    const statusRange = sheet.getRange(
-      `${statusCol}${parsed.startRow}:${statusCol}${parsed.endRow}`
-    );
-    statusRange.clear(Excel.ClearApplyTo.contents);
+    sheet
+      .getRange(`${xeroIdCol}${parsed.startRow}:${xeroIdCol}${parsed.endRow}`)
+      .clear(Excel.ClearApplyTo.contents);
+    sheet
+      .getRange(`${statusCol}${parsed.startRow}:${statusCol}${parsed.endRow}`)
+      .clear(Excel.ClearApplyTo.contents);
     await context.sync();
   });
 }
 
 export async function applyPushRowFeedback(
   rangeA1: string,
+  xeroIdCol: string,
   statusCol: string,
   dataColCount: number,
   feedback: RowFeedback[]
@@ -45,8 +49,13 @@ export async function applyPushRowFeedback(
       dataRange.format.fill.color =
         row.status === 'error' ? FILL_ERROR : FILL_OK;
 
-      if (row.message) {
-        sheet.getRange(`${statusCol}${row.excelRow}`).values = [[row.message]];
+      if (row.xeroId) {
+        sheet.getRange(`${xeroIdCol}${row.excelRow}`).values = [[row.xeroId]];
+      }
+      if (row.statusMessage) {
+        sheet.getRange(`${statusCol}${row.excelRow}`).values = [
+          [row.statusMessage],
+        ];
       }
     }
 
@@ -54,7 +63,9 @@ export async function applyPushRowFeedback(
   });
 }
 
-export const JOURNAL_PUSH_DATA_COLS = 9;
-export const JOURNAL_PUSH_STATUS_COL = 'I';
-export const BANK_PUSH_DATA_COLS = 8;
-export const BANK_PUSH_STATUS_COL = 'H';
+export const JOURNAL_PUSH_DATA_COLS = 10;
+export const JOURNAL_PUSH_XERO_ID_COL = 'I';
+export const JOURNAL_PUSH_STATUS_COL = 'J';
+export const BANK_PUSH_DATA_COLS = 9;
+export const BANK_PUSH_XERO_ID_COL = 'H';
+export const BANK_PUSH_STATUS_COL = 'I';

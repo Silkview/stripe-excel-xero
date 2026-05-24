@@ -4,6 +4,7 @@ import { jsonError, jsonSuccess } from './api-response';
 import { corsOptions, withCors } from './cors';
 import { XeroServiceError } from './services/xero';
 import { StripeServiceError } from './services/stripe-data';
+import { XeroAuthRequiredError } from './xeroAuth';
 
 export function handleOptions(request: Request) {
   return corsOptions(request);
@@ -12,6 +13,12 @@ export function handleOptions(request: Request) {
 export function handleRouteError(request: Request, err: unknown) {
   if (err instanceof ApiAuthError) {
     return withCors(request, jsonError(err.code, err.message, err.status));
+  }
+  if (err instanceof XeroAuthRequiredError) {
+    return withCors(
+      request,
+      jsonError('XERO_AUTH_REQUIRED', err.message, 401)
+    );
   }
   if (err instanceof XeroServiceError) {
     const status =

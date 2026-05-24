@@ -9,7 +9,7 @@ import {
 } from './accountMappingsRead';
 import { parseSheetRange } from './officeHelpers';
 
-export const DEFAULT_JOURNAL_PUSH_RANGE = `${JOURNAL_SHEET}!A2:I500`;
+export const DEFAULT_JOURNAL_PUSH_RANGE = `${JOURNAL_SHEET}!A2:J500`;
 
 const COL_DATE = 0;
 const COL_ACCOUNT = 2;

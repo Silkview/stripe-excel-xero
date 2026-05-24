@@ -19,18 +19,27 @@ import type {
   XeroTrackingCategoryOption,
 } from '@stripesync/shared';
 import {
-  clearXeroRefreshFailure,
   getXeroConnection,
-  markXeroRefreshFailure,
   saveXeroConnection,
   type XeroTokens,
 } from '../connections/store';
+import { ensureValidToken, XeroAuthRequiredError } from '../xeroAuth';
 import { REQUEST_TIMEOUT_MS } from '../api-response';
 import { getOAuthRedirectUri } from '../oauth-redirect';
-import { XERO_OAUTH_SCOPES } from '../xero-scopes';
 
 const XERO_IDENTITY = 'https://identity.xero.com/connect/token';
 const XERO_API = 'https://api.xero.com';
+
+async function requireXeroTokens(workspaceId: string): Promise<XeroTokens> {
+  try {
+    return await ensureValidToken(workspaceId);
+  } catch (err) {
+    if (err instanceof XeroAuthRequiredError) {
+      throw new XeroServiceError('XERO_AUTH_REQUIRED', err.message);
+    }
+    throw err;
+  }
+}
 
 export class XeroServiceError extends Error {
   constructor(
@@ -106,7 +115,7 @@ export async function getOrganisationBaseCurrency(
 export async function ensureXeroBaseCurrency(
   workspaceId: string
 ): Promise<string> {
-  const xero = await ensureValidToken(workspaceId);
+  const xero = await requireXeroTokens(workspaceId);
   if (xero.baseCurrency) return xero.baseCurrency;
 
   const baseCurrency = await getOrganisationBaseCurrency(
@@ -155,111 +164,6 @@ export async function fetchXeroConnections(
   }
 }
 
-const XERO_CONNECT_SCOPES = [...XERO_OAUTH_SCOPES];
-
-function parseXeroTokenError(err: unknown): {
-  code: string;
-  permanent: boolean;
-} {
-  if (axios.isAxiosError(err) && err.response?.data) {
-    const body = err.response.data as {
-      error?: string;
-      error_description?: string;
-    };
-    const code = body.error ?? 'unknown';
-    const permanent =
-      code === 'invalid_grant' ||
-      code === 'invalid_client' ||
-      code === 'unauthorized_client';
-    return { code, permanent };
-  }
-  if (axios.isAxiosError(err) && err.code === 'ECONNABORTED') {
-    return { code: 'timeout', permanent: false };
-  }
-  return { code: 'network', permanent: false };
-}
-
-async function refreshXeroToken(
-  xero: XeroTokens
-): Promise<{
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-}> {
-  const response = await axios.post(
-    XERO_IDENTITY,
-    new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: process.env.XERO_CLIENT_ID || '',
-      client_secret: process.env.XERO_CLIENT_SECRET || '',
-      refresh_token: xero.refresh_token,
-    }),
-    {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: REQUEST_TIMEOUT_MS,
-    }
-  );
-  return response.data;
-}
-
-export async function ensureValidToken(workspaceId: string): Promise<XeroTokens> {
-  const xero = await getXeroConnection(workspaceId);
-  if (!xero) {
-    throw new XeroServiceError(
-      'XERO_AUTH_REQUIRED',
-      'Xero is not connected. Please connect your Xero account.'
-    );
-  }
-
-  if (Date.now() < xero.expires_at - 60_000) {
-    return xero;
-  }
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const data = await refreshXeroToken(xero);
-      const updated: XeroTokens = {
-        ...xero,
-        access_token: data.access_token,
-        refresh_token: data.refresh_token || xero.refresh_token,
-        expires_at: Date.now() + data.expires_in * 1000,
-      };
-      await saveXeroConnection(workspaceId, updated, undefined, {
-        scopes: xero.scopes ?? XERO_CONNECT_SCOPES,
-      });
-      await clearXeroRefreshFailure(workspaceId);
-      return updated;
-    } catch (err) {
-      const { code, permanent } = parseXeroTokenError(err);
-      console.error(
-        '[xero-token-refresh]',
-        JSON.stringify({
-          workspaceId,
-          attempt,
-          error: code,
-          permanent,
-        })
-      );
-      if (permanent || attempt === 1) {
-        if (permanent) {
-          await markXeroRefreshFailure(workspaceId, code);
-        }
-        throw new XeroServiceError(
-          'XERO_AUTH_REQUIRED',
-          permanent
-            ? 'Your Xero connection has expired. Please reconnect.'
-            : 'Could not refresh Xero connection. Please try again or reconnect.'
-        );
-      }
-    }
-  }
-
-  throw new XeroServiceError(
-    'XERO_AUTH_REQUIRED',
-    'Your Xero connection has expired. Please reconnect.'
-  );
-}
-
 function xeroHeaders(xero: XeroTokens): Record<string, string> {
   return {
     Authorization: `Bearer ${xero.access_token}`,
@@ -270,7 +174,7 @@ function xeroHeaders(xero: XeroTokens): Record<string, string> {
 }
 
 async function xeroGet<T>(workspaceId: string, path: string): Promise<T> {
-  const xero = await ensureValidToken(workspaceId);
+  const xero = await requireXeroTokens(workspaceId);
   const response = await axios.get(`${XERO_API}${path}`, {
     headers: xeroHeaders(xero),
     timeout: REQUEST_TIMEOUT_MS,
@@ -283,7 +187,7 @@ async function xeroPost<T>(
   path: string,
   body: unknown
 ): Promise<T> {
-  const xero = await ensureValidToken(workspaceId);
+  const xero = await requireXeroTokens(workspaceId);
   const response = await axios.post(`${XERO_API}${path}`, body, {
     headers: xeroHeaders(xero),
     timeout: REQUEST_TIMEOUT_MS,
@@ -836,7 +740,7 @@ export async function pushManualJournals(
   status: XeroManualJournalStatus,
   lines: XeroJournalLineInput[]
 ): Promise<ManualJournalPushResult> {
-  await ensureValidToken(workspaceId);
+  await requireXeroTokens(workspaceId);
   const defaultCurrency = await getWorkspaceDefaultCurrency(workspaceId);
   const mappingOptions = await getMappingOptions(workspaceId);
   enrichLineTaxFromAccounts(lines, mappingOptions.accounts);
@@ -1117,7 +1021,7 @@ export async function pushBankTransactions(
   workspaceId: string,
   lines: XeroBankTransactionInput[]
 ): Promise<BankTransactionPushResult> {
-  await ensureValidToken(workspaceId);
+  await requireXeroTokens(workspaceId);
   const defaultCurrency = await getWorkspaceDefaultCurrency(workspaceId);
   const validationIssues = await collectBankTransactionValidationIssues(
     workspaceId,
@@ -1196,7 +1100,7 @@ export async function pushBankTransactions(
 }
 
 export async function getAccounts(workspaceId: string): Promise<XeroAccount[]> {
-  const xero = await ensureValidToken(workspaceId);
+  const xero = await requireXeroTokens(workspaceId);
 
   try {
     const response = await axios.get(`${XERO_API}/api.xro/2.0/Accounts`, {

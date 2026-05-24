@@ -1,4 +1,8 @@
-import type { PushRowIssue, XeroBankTransactionInput } from '@stripesync/shared';
+import type {
+  PushRowIssue,
+  XeroBankTransactionInput,
+  XeroManualJournalStatus,
+} from '@stripesync/shared';
 import type { JournalRowContext } from './readXeroJournals';
 
 const MAX_STATUS_LEN = 255;
@@ -10,7 +14,8 @@ function truncateMessage(msg: string): string {
 export interface RowFeedback {
   excelRow: number;
   status: 'ok' | 'error';
-  message?: string;
+  xeroId?: string;
+  statusMessage?: string;
 }
 
 function descriptionsMatch(a: string, b: string): boolean {
@@ -59,7 +64,8 @@ export function mapJournalIssuesToRows(
 export function buildJournalRowFeedback(
   rowContext: JournalRowContext[],
   issues: PushRowIssue[] | undefined,
-  journalIdsByDate: Record<string, string> | undefined
+  journalIdsByDate: Record<string, string> | undefined,
+  journalStatus: XeroManualJournalStatus = 'DRAFT'
 ): RowFeedback[] {
   const errorMap = issues?.length
     ? mapJournalIssuesToRows(rowContext, issues)
@@ -70,17 +76,21 @@ export function buildJournalRowFeedback(
   for (const row of rowContext) {
     const err = errorMap.get(row.excelRow);
     if (err) {
-      results.push({ excelRow: row.excelRow, status: 'error', message: err });
+      results.push({
+        excelRow: row.excelRow,
+        status: 'error',
+        statusMessage: err,
+      });
       continue;
     }
 
     const id = journalIdsByDate?.[row.date];
     if (id) {
-      const statusMsg = id.length > 12 ? '✓ pushed' : id;
       results.push({
         excelRow: row.excelRow,
         status: 'ok',
-        message: statusMsg,
+        xeroId: id,
+        statusMessage: journalStatus,
       });
     }
   }
@@ -134,7 +144,7 @@ export function buildBankRowFeedback(
     const excelRow = includedRowNumbers[i];
     const err = errorMap.get(excelRow);
     if (err) {
-      results.push({ excelRow, status: 'error', message: err });
+      results.push({ excelRow, status: 'error', statusMessage: err });
       continue;
     }
 
@@ -143,7 +153,8 @@ export function buildBankRowFeedback(
       results.push({
         excelRow,
         status: 'ok',
-        message: id.length > 12 ? '✓ pushed' : id,
+        xeroId: id,
+        statusMessage: 'AUTHORISED',
       });
     }
   }

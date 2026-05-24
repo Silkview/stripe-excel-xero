@@ -219,6 +219,7 @@ export const WORKBOOK_SHEETS: WorkbookSheetConfig[] = [
       'Tracking Name 1',
       'Tracking Option 1',
       'Xero ID',
+      'Status',
     ],
   },
   {
@@ -232,6 +233,7 @@ export const WORKBOOK_SHEETS: WorkbookSheetConfig[] = [
       'Account Code',
       'Amount',
       'Xero ID',
+      'Status',
     ],
   },
   {
