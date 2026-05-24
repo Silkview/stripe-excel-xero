@@ -1,4 +1,5 @@
 import StripeMark from './StripeMark';
+import { connectBtnClass, connectBtnHeight } from './connectButtonStyles';
 
 export default function ConnectStripeButton({
   onClick,
@@ -16,7 +17,7 @@ export default function ConnectStripeButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className="flex w-full items-center justify-center gap-2 rounded border-none bg-stripe py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-stripe-hover disabled:cursor-not-allowed disabled:opacity-50"
+      className={`${connectBtnClass} ${connectBtnHeight} gap-2 border-none bg-stripe text-[13px] font-semibold text-white transition-colors hover:bg-stripe-hover`}
     >
       <StripeMark size={22} />
       {loading ? 'Connecting…' : label}

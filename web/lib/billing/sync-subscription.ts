@@ -6,10 +6,17 @@ import { core } from '@/lib/supabase/core';
 import type Stripe from 'stripe';
 
 export async function limitsForPriceId(priceId: string) {
-  const proId = process.env.STRIPE_PRO_PRICE_ID ?? '';
-  const firmId = process.env.STRIPE_FIRM_PRICE_ID ?? '';
+  const proMonthly = process.env.STRIPE_PRO_PRICE_ID ?? '';
+  const proAnnual = process.env.STRIPE_PRO_ANNUAL_PRICE_ID ?? '';
+  const firmMonthly = process.env.STRIPE_FIRM_PRICE_ID ?? '';
+  const firmAnnual = process.env.STRIPE_FIRM_ANNUAL_PRICE_ID ?? '';
+
   const code: PlanCode =
-    priceId === firmId ? 'firm' : priceId === proId ? 'pro' : 'pro';
+    priceId === firmMonthly || priceId === firmAnnual
+      ? 'firm'
+      : priceId === proMonthly || priceId === proAnnual
+        ? 'pro'
+        : 'pro';
   const plan = await getPlanByCode(code);
   return {
     plan_code: code,

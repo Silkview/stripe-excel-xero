@@ -2,11 +2,6 @@ import {
   BANK_TXN_SHEET,
   BANK_TXN_SHEET_ALIASES,
   BANK_TXN_TYPE_RECEIVE,
-  BT_IDX_AMOUNT,
-  BT_IDX_AVAILABLE_ON,
-  BT_IDX_CURRENCY,
-  BT_IDX_SOURCE_ID,
-  BT_IDX_TYPE,
   BT_SHEET,
   MAPPING_SHEET,
   MAPPING_STRIPE_PAYOUT_BANK,
@@ -14,17 +9,23 @@ import {
   MAPPING_STRIPE_PAYOUT_CONTACT,
   mappingFormula,
 } from '../config/xeroBankTransactionBuilder';
+import { WORKBOOK_SHEETS } from '../config/workbookSheets';
 import { rowMatchesCurrency } from '@stripesync/shared/currencyFilter';
 import { colLetter } from './officeHelpers';
-import { clearSheetDataArea } from './sheetClear';
+import {
+  columnIndex,
+  loadSheetTable,
+  rowValue,
+} from './sheetHeaders';
+import { clearEntireSheetUsedRange } from './sheetClear';
 
 const BT_FIRST_DATA_ROW = 2;
 const BANK_TXN_FIRST_DATA_ROW = 2;
+/** Data columns A–G; sheet also has Xero ID in H and Status in I. */
 const BANK_TXN_COL_COUNT = 7;
-const BANK_TXN_SHEET_COL_COUNT = 8;
 
-/** Columns with INDEX/MATCH mapping formulas (0-based). */
-const FORMULA_COL_INDEXES = [2, 3, 5];
+/** Columns with INDEX/MATCH mapping formulas (0-based within data cols). */
+const FORMULA_COLS = [2, 3, 5];
 
 export interface BuildBankTransactionsResult {
   rowCount: number;
@@ -34,10 +35,6 @@ function parseAmount(value: unknown): number {
   if (typeof value === 'number') return value;
   const n = parseFloat(String(value).replace(/,/g, ''));
   return Number.isNaN(n) ? 0 : n;
-}
-
-function isPayoutRow(row: unknown[]): boolean {
-  return String(row[BT_IDX_TYPE] ?? '').toLowerCase() === 'payout';
 }
 
 type BankTxnRow = [
@@ -85,11 +82,9 @@ async function resolveBankTransactionSheet(
 export async function buildXeroBankTransactionsFromBalanceTransactions(
   defaultCurrency: string
 ): Promise<BuildBankTransactionsResult> {
-  await clearSheetDataArea(
-    BANK_TXN_SHEET,
-    BANK_TXN_FIRST_DATA_ROW,
-    colLetter(BANK_TXN_SHEET_COL_COUNT)
-  );
+  for (const name of BANK_TXN_SHEET_ALIASES) {
+    await clearEntireSheetUsedRange(name);
+  }
 
   return await Excel.run(async (context) => {
     const btSheet =
@@ -114,37 +109,53 @@ export async function buildXeroBankTransactionsFromBalanceTransactions(
 
     const bankSheet = await resolveBankTransactionSheet(context);
 
-    const used = btSheet.getUsedRangeOrNullObject();
-    used.load(['rowIndex', 'rowCount']);
-    await context.sync();
+    const bankHeaders = WORKBOOK_SHEETS.find((s) => s.name === BANK_TXN_SHEET)
+      ?.headers;
+    if (bankHeaders) {
+      const headerEnd = colLetter(bankHeaders.length);
+      bankSheet.getRange(`A1:${headerEnd}1`).values = [bankHeaders];
+    }
 
-    if (used.isNullObject || used.rowCount <= 1) {
+    const btTable = await loadSheetTable(btSheet, BT_FIRST_DATA_ROW, context);
+    if (!btTable || btTable.rows.length === 0) {
       throw new Error(
         `${BT_SHEET} has no data. Pull balance transactions before building bank transactions.`
       );
     }
 
-    const lastRow = used.rowIndex + used.rowCount;
-    const dataRange = btSheet.getRange(`A${BT_FIRST_DATA_ROW}:K${lastRow}`);
-    dataRange.load('values');
-    await context.sync();
+    const typeIdx = columnIndex(btTable.headerIndex, 'Type');
+    const currencyIdx = columnIndex(btTable.headerIndex, 'Currency');
+    const availableOnIdx = columnIndex(btTable.headerIndex, 'Available On');
+    const amountIdx = columnIndex(btTable.headerIndex, 'Amount');
+    const sourceIdIdx = columnIndex(btTable.headerIndex, 'Source ID');
 
-    const rows = dataRange.values as unknown[][];
+  // #region agent log
+  const samplePayout = btTable.rows.find(
+    (row) => String(rowValue(row, typeIdx) ?? '').toLowerCase() === 'payout'
+  );
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'xeroBankTransactionsExcel.ts:build',message:'bank build bt columns',data:{lastCol:btTable.lastColLetter,sourceIdIdx,sourceIdHeaderFound:sourceIdIdx>=0,sampleSourceId:samplePayout?String(rowValue(samplePayout,sourceIdIdx)??''):null},timestamp:Date.now(),hypothesisId:'H2-H3',runId:'pre-fix'})}).catch(()=>{});
+  // #endregion
+
     const payoutRows: BankTxnRow[] = [];
 
-    for (const row of rows) {
-      if (!isPayoutRow(row)) continue;
+    for (const row of btTable.rows) {
+      if (String(rowValue(row, typeIdx) ?? '').toLowerCase() !== 'payout') {
+        continue;
+      }
       if (
-        !rowMatchesCurrency(String(row[BT_IDX_CURRENCY] ?? ''), defaultCurrency)
+        !rowMatchesCurrency(
+          String(rowValue(row, currencyIdx) ?? ''),
+          defaultCurrency
+        )
       ) {
         continue;
       }
-      const availableOn = row[BT_IDX_AVAILABLE_ON];
+      const availableOn = rowValue(row, availableOnIdx);
       if (availableOn == null || availableOn === '') continue;
-      const btAmount = parseAmount(row[BT_IDX_AMOUNT]);
+      const btAmount = parseAmount(rowValue(row, amountIdx));
       if (btAmount === 0) continue;
       const amount = -btAmount;
-      const sourceId = String(row[BT_IDX_SOURCE_ID] ?? '').trim();
+      const sourceId = String(rowValue(row, sourceIdIdx) ?? '').trim();
       payoutRows.push(
         makePayoutRow(availableOn as string | number, sourceId, amount)
       );
@@ -157,7 +168,6 @@ export async function buildXeroBankTransactionsFromBalanceTransactions(
     }
 
     const lastCol = colLetter(BANK_TXN_COL_COUNT);
-
     const writeEnd = BANK_TXN_FIRST_DATA_ROW + payoutRows.length - 1;
     const allValues: (string | number | null)[][] = [];
     const formulaRows: string[][] = [];
@@ -179,12 +189,11 @@ export async function buildXeroBankTransactionsFromBalanceTransactions(
       formulaRows.push(formulaRow);
     }
 
-    // Write values first (Date, Type, Reference, Amount); formulas only on mapping columns.
     bankSheet
       .getRange(`A${BANK_TXN_FIRST_DATA_ROW}:${lastCol}${writeEnd}`)
       .values = allValues;
 
-    for (const colIdx of FORMULA_COL_INDEXES) {
+    for (const colIdx of FORMULA_COLS) {
       const col = colLetter(colIdx + 1);
       bankSheet
         .getRange(`${col}${BANK_TXN_FIRST_DATA_ROW}:${col}${writeEnd}`)
@@ -200,6 +209,10 @@ export async function buildXeroBankTransactionsFromBalanceTransactions(
 
     bankSheet.getUsedRange().format.autofitColumns();
     await context.sync();
+
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'xeroBankTransactionsExcel.ts:done',message:'bank build complete',data:{rowCount:payoutRows.length,firstReference:payoutRows[0]?.[4]??null},timestamp:Date.now(),hypothesisId:'H3',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
 
     return { rowCount: payoutRows.length };
   });

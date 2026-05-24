@@ -1,4 +1,6 @@
 import type { PlanCode } from './types';
+import type { BillingInterval } from './pricing';
+import { planPriceDisplay } from './pricing';
 
 export type MarketingPlanFeature = {
   text: string;
@@ -76,3 +78,13 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     note: 'One subscription. All your Stripe clients.',
   },
 ];
+
+export function marketingPlansForInterval(
+  interval: BillingInterval
+): MarketingPlan[] {
+  return MARKETING_PLANS.map((plan) => {
+    if (plan.code === 'free') return plan;
+    const { price, period } = planPriceDisplay(plan.code, interval);
+    return { ...plan, price, period };
+  });
+}

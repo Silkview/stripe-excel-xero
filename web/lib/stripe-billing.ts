@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import type { BillingInterval } from '@/lib/plans/pricing';
 import { createSupabaseAdmin } from './supabase/admin';
 import { core } from './supabase/core';
 
@@ -13,18 +14,53 @@ export function getStripe(): Stripe {
   return stripeClient;
 }
 
-export const PLANS = {
+export type PaidPlan = 'pro' | 'firm';
+
+const PLAN_PRICE_ENV: Record<
+  PaidPlan,
+  Record<BillingInterval, string>
+> = {
   pro: {
-    priceId: process.env.STRIPE_PRO_PRICE_ID!,
-    amount: 2900,
-    name: 'Pro',
+    monthly: 'STRIPE_PRO_PRICE_ID',
+    annual: 'STRIPE_PRO_ANNUAL_PRICE_ID',
   },
   firm: {
-    priceId: process.env.STRIPE_FIRM_PRICE_ID!,
-    amount: 7900,
-    name: 'Firm',
+    monthly: 'STRIPE_FIRM_PRICE_ID',
+    annual: 'STRIPE_FIRM_ANNUAL_PRICE_ID',
   },
 };
+
+export const PLANS = {
+  pro: {
+    name: 'Pro',
+    monthly: {
+      priceId: process.env.STRIPE_PRO_PRICE_ID!,
+      amount: 2900,
+    },
+    annual: {
+      priceId: process.env.STRIPE_PRO_ANNUAL_PRICE_ID!,
+      amount: 29000,
+    },
+  },
+  firm: {
+    name: 'Firm',
+    monthly: {
+      priceId: process.env.STRIPE_FIRM_PRICE_ID!,
+      amount: 7900,
+    },
+    annual: {
+      priceId: process.env.STRIPE_FIRM_ANNUAL_PRICE_ID!,
+      amount: 79000,
+    },
+  },
+};
+
+export function getPlanPriceId(
+  plan: PaidPlan,
+  interval: BillingInterval
+): string {
+  return PLANS[plan][interval].priceId;
+}
 
 function stripeKeyMode(): 'test' | 'live' | 'unknown' {
   const key = process.env.STRIPE_SECRET_KEY ?? '';
@@ -34,11 +70,15 @@ function stripeKeyMode(): 'test' | 'live' | 'unknown' {
 }
 
 /** Ensure price exists on the Stripe account tied to STRIPE_SECRET_KEY before checkout. */
-async function validatePlanPrice(plan: 'pro' | 'firm'): Promise<string> {
-  const priceId = PLANS[plan].priceId;
+async function validatePlanPrice(
+  plan: PaidPlan,
+  interval: BillingInterval
+): Promise<string> {
+  const priceId = getPlanPriceId(plan, interval);
+  const envName = PLAN_PRICE_ENV[plan][interval];
   if (!priceId?.trim()) {
     throw new Error(
-      `STRIPE_${plan.toUpperCase()}_PRICE_ID is not configured. Add a price ID from your Stripe Dashboard (same account and mode as STRIPE_SECRET_KEY).`
+      `${envName} is not configured. Add a price ID from your Stripe Dashboard (same account and mode as STRIPE_SECRET_KEY).`
     );
   }
 
@@ -46,7 +86,7 @@ async function validatePlanPrice(plan: 'pro' | 'firm'): Promise<string> {
     const price = await getStripe().prices.retrieve(priceId);
     if (!price.active) {
       throw new Error(
-        `Stripe price ${priceId} for ${plan} is inactive. Reactivate it in Stripe Dashboard or update STRIPE_${plan.toUpperCase()}_PRICE_ID.`
+        `Stripe price ${priceId} for ${plan} (${interval}) is inactive. Reactivate it in Stripe Dashboard or update ${envName}.`
       );
     }
     const mode = stripeKeyMode();
@@ -58,11 +98,15 @@ async function validatePlanPrice(plan: 'pro' | 'firm'): Promise<string> {
     return priceId;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('mode mismatch') || msg.includes('inactive') || msg.includes('not configured')) {
+    if (
+      msg.includes('mode mismatch') ||
+      msg.includes('inactive') ||
+      msg.includes('not configured')
+    ) {
       throw err instanceof Error ? err : new Error(msg);
     }
     throw new Error(
-      `Stripe price not found for ${plan} (${priceId}). Your STRIPE_SECRET_KEY is ${stripeKeyMode()} mode — prices must be created in the same Stripe account with the same Test/Live toggle. Copy price IDs from Product catalog → Pricing (not Product ID). Set STRIPE_${plan.toUpperCase()}_PRICE_ID on your host. Original: ${msg}`
+      `Stripe price not found for ${plan} ${interval} (${priceId}). Your STRIPE_SECRET_KEY is ${stripeKeyMode()} mode — prices must be created in the same Stripe account with the same Test/Live toggle. Copy price IDs from Product catalog → Pricing (not Product ID). Set ${envName} on your host. Original: ${msg}`
     );
   }
 }
@@ -113,10 +157,11 @@ export async function getOrCreateCustomer(
 export async function createCheckoutSession(
   accountId: string,
   userEmail: string,
-  plan: 'pro' | 'firm',
+  plan: PaidPlan,
+  interval: BillingInterval,
   returnUrl: string
 ) {
-  const priceId = await validatePlanPrice(plan);
+  const priceId = await validatePlanPrice(plan, interval);
   const customerId = await getOrCreateCustomer(accountId, userEmail);
   return getStripe().checkout.sessions.create({
     customer: customerId,
@@ -124,9 +169,9 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${returnUrl}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: returnUrl,
-    metadata: { accountId },
+    metadata: { accountId, plan, interval },
     subscription_data: {
-      metadata: { accountId },
+      metadata: { accountId, plan, interval },
     },
   });
 }
@@ -136,4 +181,16 @@ export async function createPortalSession(customerId: string, returnUrl: string)
     customer: customerId,
     return_url: returnUrl,
   });
+}
+
+/** All configured Stripe price IDs for plan resolution. */
+export function allConfiguredPriceIds(): string[] {
+  const ids: string[] = [];
+  for (const plan of ['pro', 'firm'] as const) {
+    for (const interval of ['monthly', 'annual'] as const) {
+      const id = getPlanPriceId(plan, interval)?.trim();
+      if (id) ids.push(id);
+    }
+  }
+  return ids;
 }

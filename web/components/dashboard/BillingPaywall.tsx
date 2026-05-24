@@ -2,21 +2,28 @@
 
 import { useState } from 'react';
 import type { PlanCode } from '@/lib/plans/types';
-import { MARKETING_PLANS } from '@/lib/plans/marketing';
+import type { BillingInterval } from '@/lib/plans/pricing';
+import { billingIntervalLabel } from '@/lib/plans/pricing';
+import { marketingPlansForInterval } from '@/lib/plans/marketing';
+import { startBillingCheckout } from '@/lib/billing/checkout-client';
 import Button from '@/components/ui/Button';
+import BillingIntervalToggle from '@/components/billing/BillingIntervalToggle';
 import { useDashboard, PageHeader } from './dashboard-ui';
 import BillingPortalButton from './BillingPortalButton';
 import DeleteAccountButton from './DeleteAccountButton';
 
-const PAID_PLANS = MARKETING_PLANS.filter(
-  (p) => p.code === 'pro' || p.code === 'firm'
-);
+const PAID_PLAN_CODES: PlanCode[] = ['pro', 'firm'];
 
 export default function BillingPaywall() {
   const ctx = useDashboard();
   const [selectedPlan, setSelectedPlan] = useState<PlanCode>('pro');
+  const [interval, setInterval] = useState<BillingInterval>('monthly');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const plans = marketingPlansForInterval(interval).filter((p) =>
+    PAID_PLAN_CODES.includes(p.code)
+  );
 
   const headline =
     ctx.billingAccess === 'payment_required'
@@ -29,21 +36,16 @@ export default function BillingPaywall() {
       : 'Subscribe to Pro or Firm to keep syncing Stripe and Xero data, or delete your account.';
 
   const subscribe = async () => {
+    if (selectedPlan !== 'pro' && selectedPlan !== 'firm') return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: selectedPlan }),
-      });
-      const data = await res.json();
-      if (data.success && data.data?.url) {
-        window.location.href = data.data.url;
+      const result = await startBillingCheckout(selectedPlan, interval);
+      if (result.url) {
+        window.location.href = result.url;
         return;
       }
-      setError(data.error?.message ?? 'Could not start checkout.');
+      setError(result.error ?? 'Could not start checkout.');
     } catch {
       setError('Could not start checkout.');
     } finally {
@@ -59,8 +61,12 @@ export default function BillingPaywall() {
 
       {ctx.isAdmin ? (
         <>
+          <div className="mb-6">
+            <BillingIntervalToggle value={interval} onChange={setInterval} />
+          </div>
+
           <div className="grid max-w-3xl gap-5 sm:grid-cols-2">
-            {PAID_PLANS.map((p) => {
+            {plans.map((p) => {
               const isSelected = selectedPlan === p.code;
               return (
                 <button
@@ -98,7 +104,9 @@ export default function BillingPaywall() {
               onClick={() => void subscribe()}
               disabled={loading}
             >
-              {loading ? 'Opening checkout…' : `Subscribe to ${selectedPlan}`}
+              {loading
+                ? 'Opening checkout…'
+                : `Subscribe to ${selectedPlan} (${billingIntervalLabel(interval).toLowerCase()})`}
             </Button>
             {ctx.hasStripeCustomer && <BillingPortalButton />}
           </div>

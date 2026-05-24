@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import type { PlanCode } from '@/lib/plans/types';
+import type { BillingInterval } from '@/lib/plans/pricing';
+import { billingIntervalLabel, planPriceDisplay } from '@/lib/plans/pricing';
+import { startBillingCheckout } from '@/lib/billing/checkout-client';
 import Button from '@/components/ui/Button';
+import BillingIntervalToggle from '@/components/billing/BillingIntervalToggle';
 import { useDashboard } from './dashboard-ui';
 
 export default function SubscribeNowButton({
@@ -19,6 +23,7 @@ export default function SubscribeNowButton({
   plan?: PlanCode;
 }) {
   const ctx = useDashboard();
+  const [interval, setInterval] = useState<BillingInterval>('monthly');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,22 +34,18 @@ export default function SubscribeNowButton({
         ? ctx.planCode
         : 'pro';
 
+  const { price, period } = planPriceDisplay(plan, interval);
+
   const subscribe = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (data.success && data.data?.url) {
-        window.location.href = data.data.url;
+      const result = await startBillingCheckout(plan, interval);
+      if (result.url) {
+        window.location.href = result.url;
         return;
       }
-      setError(data.error?.message ?? 'Could not start checkout.');
+      setError(result.error ?? 'Could not start checkout.');
     } catch {
       setError('Could not start checkout.');
     } finally {
@@ -70,27 +71,43 @@ export default function SubscribeNowButton({
   }
 
   return (
-    <DirectSubscribeButton
-      variant={variant}
-      className={className}
-      loading={loading}
-      error={error}
-      onSubscribe={() => void subscribe()}
-    />
+    <div className={className}>
+      <BillingIntervalToggle
+        value={interval}
+        onChange={setInterval}
+        size="sm"
+        className="mb-3"
+      />
+      <p className="mb-2 text-xs text-text-3">
+        {planDisplayName(plan)} — {price}
+        {period} ({billingIntervalLabel(interval).toLowerCase()})
+      </p>
+      <DirectSubscribeButton
+        variant={variant}
+        loading={loading}
+        error={error}
+        interval={interval}
+        onSubscribe={() => void subscribe()}
+      />
+    </div>
   );
+}
+
+function planDisplayName(plan: 'pro' | 'firm'): string {
+  return plan === 'firm' ? 'Firm' : 'Pro';
 }
 
 function DirectSubscribeButton({
   variant,
-  className,
   loading,
   error,
+  interval,
   onSubscribe,
 }: {
   variant: 'primary' | 'secondary';
-  className: string;
   loading: boolean;
   error: string | null;
+  interval: BillingInterval;
   onSubscribe: () => void;
 }) {
   return (
@@ -99,13 +116,15 @@ function DirectSubscribeButton({
         variant={variant}
         className={
           variant === 'primary'
-            ? `!bg-accent hover:!bg-accent-hover ${className}`
-            : className
+            ? '!bg-accent hover:!bg-accent-hover w-full sm:w-auto'
+            : 'w-full sm:w-auto'
         }
         onClick={onSubscribe}
         disabled={loading}
       >
-        {loading ? 'Opening checkout…' : 'Subscribe now'}
+        {loading
+          ? 'Opening checkout…'
+          : `Subscribe ${billingIntervalLabel(interval).toLowerCase()}`}
       </Button>
       {error && <p className="mt-2 text-xs text-warn">{error}</p>}
     </div>

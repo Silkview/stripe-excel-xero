@@ -48,6 +48,10 @@ export async function clearEntireSheetUsedRange(
 
     if (used.isNullObject) return;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'sheetClear.ts:clearEntireSheetUsedRange',message:'clearing sheet used range',data:{sheetName,address:used.address},timestamp:Date.now(),hypothesisId:'H1',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
+
     used.clear(Excel.ClearApplyTo.contents);
     used.clear(Excel.ClearApplyTo.formats);
     await context.sync();

@@ -8,13 +8,13 @@ import BillingPaywall from '@/components/dashboard/BillingPaywall';
 import ProDowngradeWizard from '@/components/dashboard/ProDowngradeWizard';
 import BillingPortalButton from '@/components/dashboard/BillingPortalButton';
 import SubscribeNowButton from '@/components/dashboard/SubscribeNowButton';
+import BillingIntervalToggle from '@/components/billing/BillingIntervalToggle';
 import type { PlanCode } from '@/lib/plans/types';
-import { MARKETING_PLANS } from '@/lib/plans/marketing';
+import type { BillingInterval } from '@/lib/plans/pricing';
+import { billingIntervalLabel } from '@/lib/plans/pricing';
+import { marketingPlansForInterval } from '@/lib/plans/marketing';
+import { startBillingCheckout } from '@/lib/billing/checkout-client';
 import Button from '@/components/ui/Button';
-
-const PAID_PLANS = MARKETING_PLANS.filter(
-  (p) => p.code === 'pro' || p.code === 'firm'
-);
 
 function BillingPageContent() {
   const ctx = useDashboard();
@@ -31,6 +31,7 @@ function BillingPageContent() {
   const [selectedPlan, setSelectedPlan] = useState<PlanCode>(
     ctx.planCode === 'firm' ? 'firm' : 'pro'
   );
+  const [interval, setInterval] = useState<BillingInterval>('monthly');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -77,22 +78,17 @@ function BillingPageContent() {
     };
   }, [checkoutSuccess, sessionId, confirmed, router, refreshBillingContext]);
 
-  const startCheckout = async (plan: PlanCode) => {
+  const startCheckout = async (plan: PlanCode, billingInterval: BillingInterval) => {
+    if (plan !== 'pro' && plan !== 'firm') return;
     setCheckoutLoading(true);
     setCheckoutError(null);
     try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (data.success && data.data?.url) {
-        window.location.href = data.data.url;
+      const result = await startBillingCheckout(plan, billingInterval);
+      if (result.url) {
+        window.location.href = result.url;
         return;
       }
-      setCheckoutError(data.error?.message ?? 'Could not start checkout.');
+      setCheckoutError(result.error ?? 'Could not start checkout.');
     } catch {
       setCheckoutError('Could not start checkout.');
     } finally {
@@ -161,10 +157,12 @@ function BillingPageContent() {
           ) : ctx.needsCheckout ? (
             <CheckoutPlanPicker
               selectedPlan={selectedPlan}
+              interval={interval}
               onSelectPlan={setSelectedPlan}
+              onIntervalChange={setInterval}
               loading={checkoutLoading}
               error={checkoutError}
-              onCheckout={() => void startCheckout(selectedPlan)}
+              onCheckout={() => void startCheckout(selectedPlan, interval)}
             />
           ) : (
             <div className="mt-4">
@@ -183,23 +181,38 @@ function BillingPageContent() {
 
 function CheckoutPlanPicker({
   selectedPlan,
+  interval,
   onSelectPlan,
+  onIntervalChange,
   loading,
   error,
   onCheckout,
 }: {
   selectedPlan: PlanCode;
+  interval: BillingInterval;
   onSelectPlan: (plan: PlanCode) => void;
+  onIntervalChange: (interval: BillingInterval) => void;
   loading: boolean;
   error: string | null;
   onCheckout: () => void;
 }) {
+  const paidPlans = marketingPlansForInterval(interval).filter(
+    (p) => p.code === 'pro' || p.code === 'firm'
+  );
+
   return (
     <div className="mt-4">
       <p className="mb-3 text-sm text-text-2">
-        Select a plan to open Stripe Checkout:
+        Select a plan and billing interval:
       </p>
+      <BillingIntervalToggle
+        value={interval}
+        onChange={onIntervalChange}
+        size="sm"
+        className="mb-4"
+      />
       <PlanSelectGrid
+        plans={paidPlans}
         selectedPlan={selectedPlan}
         onSelectPlan={onSelectPlan}
       />
@@ -209,7 +222,9 @@ function CheckoutPlanPicker({
         disabled={loading}
         onClick={onCheckout}
       >
-        {loading ? 'Opening checkout…' : `Subscribe to ${selectedPlan}`}
+        {loading
+          ? 'Opening checkout…'
+          : `Subscribe to ${selectedPlan} (${billingIntervalLabel(interval).toLowerCase()})`}
       </Button>
       {error && <p className="mt-2 text-sm text-warn">{error}</p>}
     </div>
@@ -217,15 +232,17 @@ function CheckoutPlanPicker({
 }
 
 function PlanSelectGrid({
+  plans,
   selectedPlan,
   onSelectPlan,
 }: {
+  plans: ReturnType<typeof marketingPlansForInterval>;
   selectedPlan: PlanCode;
   onSelectPlan: (plan: PlanCode) => void;
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {PAID_PLANS.map((p) => (
+      {plans.map((p) => (
         <button
           key={p.code}
           type="button"
@@ -237,6 +254,10 @@ function PlanSelectGrid({
           }`}
         >
           <span className="font-semibold text-ink">{p.name}</span>
+          <span className="mt-1 block text-lg font-serif text-ink">
+            {p.price}
+            <span className="text-xs font-sans text-text-3">{p.period}</span>
+          </span>
           <span className="mt-1 block text-xs text-text-3">{p.tagline}</span>
         </button>
       ))}

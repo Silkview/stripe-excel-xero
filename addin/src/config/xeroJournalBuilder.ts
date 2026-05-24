@@ -9,6 +9,13 @@ export const BT_COL_AMOUNT = 'F';
 export const BT_COL_FEE = 'G';
 export const BT_COL_TYPE = 'J';
 
+export interface BtColumnLetters {
+  created: string;
+  amount: string;
+  fee: string;
+  type: string;
+}
+
 export const MAPPING_FIRST_ROW = 2;
 export const MAPPING_LAST_ROW =
   MAPPING_FIRST_ROW + ACCOUNT_MAPPING_STRIPE_OBJECTS.length - 1;
@@ -64,22 +71,24 @@ export function sumifsAmount(
   type: BalanceTxnType,
   dateCellRef: string,
   lastRow: number,
+  cols: BtColumnLetters,
   clearing = false
 ): string {
   const sign = clearing ? '' : '-';
-  return `=${sign}SUMIFS(${btRange(BT_COL_AMOUNT, lastRow)},${btRange(BT_COL_TYPE, lastRow)},"${type}",${btRange(BT_COL_CREATED, lastRow)},${dateCellRef})`;
+  return `=${sign}SUMIFS(${btRange(cols.amount, lastRow)},${btRange(cols.type, lastRow)},"${type}",${btRange(cols.created, lastRow)},${dateCellRef})`;
 }
 
-/** Fee line uses SUMIFS; clearing pair uses negative SUMIFS on column E. */
+/** Fee line uses SUMIFS; clearing pair uses negative SUMIFS on fee column. */
 export function sumifsFee(
   dateCellRef: string,
   lastRow: number,
+  cols: BtColumnLetters,
   clearing = false
 ): string {
   if (clearing) {
-    return `=-SUMIFS(${btRange(BT_COL_FEE, lastRow)},${btRange(BT_COL_CREATED, lastRow)},${dateCellRef})`;
+    return `=-SUMIFS(${btRange(cols.fee, lastRow)},${btRange(cols.created, lastRow)},${dateCellRef})`;
   }
-  return `=SUMIFS(${btRange(BT_COL_FEE, lastRow)},${btRange(BT_COL_CREATED, lastRow)},${dateCellRef})`;
+  return `=SUMIFS(${btRange(cols.fee, lastRow)},${btRange(cols.created, lastRow)},${dateCellRef})`;
 }
 
 export function descriptionFormula(

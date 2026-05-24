@@ -6,17 +6,13 @@ import {
 import { extractMappingCode } from './accountMappingsRead';
 import { parseSheetRange } from './officeHelpers';
 import { normalizeJournalDate } from './readXeroJournals';
+import {
+  columnIndex,
+  loadSheetHeaderIndex,
+  rowValue,
+} from './sheetHeaders';
 
 export const DEFAULT_BANK_PUSH_RANGE = `${BANK_TXN_SHEET}!A2:I500`;
-
-const COL_DATE = 0;
-const COL_TYPE = 1;
-const COL_CONTACT = 2;
-const COL_BANK_ACCOUNT = 3;
-const COL_REFERENCE = 4;
-const COL_ACCOUNT_CODE = 5;
-const COL_AMOUNT = 6;
-const COL_XERO_ID = 7;
 
 export interface ReadBankTransactionsForPushResult {
   transactions: XeroBankTransactionInput[];
@@ -73,7 +69,17 @@ export async function readXeroBankTransactionsForPush(
 
     context.application.calculate(Excel.CalculationType.full);
 
-    const endCol = Math.max(parsed.endCol, 8);
+    const headerIndex = await loadSheetHeaderIndex(sheet, context);
+    const colDate = columnIndex(headerIndex, 'Date');
+    const colType = columnIndex(headerIndex, 'Type');
+    const colContact = columnIndex(headerIndex, 'Contact');
+    const colBankAccount = columnIndex(headerIndex, 'Bank Account');
+    const colReference = columnIndex(headerIndex, 'Reference');
+    const colAccountCode = columnIndex(headerIndex, 'Account Code');
+    const colAmount = columnIndex(headerIndex, 'Amount');
+    const colXeroId = columnIndex(headerIndex, 'Xero ID');
+
+    const endCol = Math.max(parsed.endCol, colXeroId + 1);
     const endColLetter = String.fromCharCode(64 + endCol);
     const range = sheet.getRange(
       `A${parsed.startRow}:${endColLetter}${parsed.endRow}`
@@ -90,17 +96,17 @@ export async function readXeroBankTransactionsForPush(
       const row = rows[i];
       const excelRow = parsed.startRow + i;
 
-      if (row.length > COL_XERO_ID && isAlreadyPushed(row[COL_XERO_ID])) {
+      if (isAlreadyPushed(rowValue(row, colXeroId))) {
         skippedCount += 1;
         continue;
       }
 
-      const date = normalizeJournalDate(row[COL_DATE]);
-      const type = String(row[COL_TYPE] ?? '').trim();
-      const contact = contactName(row[COL_CONTACT]);
-      const bankAccountCode = extractMappingCode(row[COL_BANK_ACCOUNT]);
-      const accountCode = extractMappingCode(row[COL_ACCOUNT_CODE]);
-      const amount = parseAmount(row[COL_AMOUNT]);
+      const date = normalizeJournalDate(rowValue(row, colDate));
+      const type = String(rowValue(row, colType) ?? '').trim();
+      const contact = contactName(rowValue(row, colContact));
+      const bankAccountCode = extractMappingCode(rowValue(row, colBankAccount));
+      const accountCode = extractMappingCode(rowValue(row, colAccountCode));
+      const amount = parseAmount(rowValue(row, colAmount));
 
       if (
         !date ||
@@ -117,7 +123,7 @@ export async function readXeroBankTransactionsForPush(
         type,
         contactName: contact,
         bankAccountCode,
-        reference: String(row[COL_REFERENCE] ?? '').trim(),
+        reference: String(rowValue(row, colReference) ?? '').trim(),
         accountCode,
         amount,
       });

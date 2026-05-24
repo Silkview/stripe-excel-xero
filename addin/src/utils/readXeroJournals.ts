@@ -8,17 +8,13 @@ import {
   parseAccountMappingRows,
 } from './accountMappingsRead';
 import { parseSheetRange } from './officeHelpers';
+import {
+  columnIndex,
+  loadSheetHeaderIndex,
+  rowValue,
+} from './sheetHeaders';
 
 export const DEFAULT_JOURNAL_PUSH_RANGE = `${JOURNAL_SHEET}!A2:J500`;
-
-const COL_DATE = 0;
-const COL_ACCOUNT = 2;
-const COL_DESCRIPTION = 3;
-const COL_GROSS_AMOUNT = 4;
-const COL_TAX = 5;
-const COL_TRACKING_NAME = 6;
-const COL_TRACKING_OPTION = 7;
-const COL_XERO_ID = 8;
 
 export interface JournalRowContext {
   excelRow: number;
@@ -128,7 +124,17 @@ export async function readXeroJournalsForPush(
 
     context.application.calculate(Excel.CalculationType.full);
 
-    const endCol = Math.max(parsed.endCol, 9);
+    const headerIndex = await loadSheetHeaderIndex(sheet, context);
+    const colDate = columnIndex(headerIndex, 'Date');
+    const colAccount = columnIndex(headerIndex, 'Account Code');
+    const colDescription = columnIndex(headerIndex, 'Description');
+    const colGrossAmount = columnIndex(headerIndex, 'Gross Amount');
+    const colTax = columnIndex(headerIndex, 'Tax Type');
+    const colTrackingName = columnIndex(headerIndex, 'Tracking Name 1');
+    const colTrackingOption = columnIndex(headerIndex, 'Tracking Option 1');
+    const colXeroId = columnIndex(headerIndex, 'Xero ID');
+
+    const endCol = Math.max(parsed.endCol, colXeroId + 1);
     const endColLetter = String.fromCharCode(64 + endCol);
     const range = sheet.getRange(
       `A${parsed.startRow}:${endColLetter}${parsed.endRow}`
@@ -160,29 +166,29 @@ export async function readXeroJournalsForPush(
       const row = rows[i];
       const excelRow = parsed.startRow + i;
 
-      if (row.length > COL_XERO_ID && isAlreadyPushed(row[COL_XERO_ID])) {
+      if (isAlreadyPushed(rowValue(row, colXeroId))) {
         skippedCount += 1;
         continue;
       }
 
-      const date = normalizeJournalDate(row[COL_DATE]);
-      const accountCode = extractMappingCode(row[COL_ACCOUNT]);
-      const grossAmount = parseAmount(row[COL_GROSS_AMOUNT]);
+      const date = normalizeJournalDate(rowValue(row, colDate));
+      const accountCode = extractMappingCode(rowValue(row, colAccount));
+      const grossAmount = parseAmount(rowValue(row, colGrossAmount));
 
       if (!date || grossAmount === 0) continue;
 
       const line: XeroJournalLineInput = {
         date,
         accountCode,
-        description: String(row[COL_DESCRIPTION] ?? '').trim(),
+        description: String(rowValue(row, colDescription) ?? '').trim(),
         netAmount: grossAmount,
       };
 
-      const taxType = extractMappingCode(row[COL_TAX]);
+      const taxType = extractMappingCode(rowValue(row, colTax));
       if (taxType) line.taxType = taxType;
 
-      const trackingName = optionalText(row[COL_TRACKING_NAME]);
-      const trackingOption = optionalText(row[COL_TRACKING_OPTION]);
+      const trackingName = optionalText(rowValue(row, colTrackingName));
+      const trackingOption = optionalText(rowValue(row, colTrackingOption));
       if (trackingName) line.trackingName1 = trackingName;
       if (trackingOption) line.trackingOption1 = trackingOption;
 

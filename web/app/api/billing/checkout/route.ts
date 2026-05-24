@@ -19,11 +19,22 @@ export async function POST(request: Request) {
       return withCors(request, jsonError('FORBIDDEN', 'Admins only.', 403));
     }
 
-    const { plan } = await request.json();
+    const body = await request.json();
+    const { plan, interval = 'monthly' } = body;
     if (plan !== 'pro' && plan !== 'firm') {
       return withCors(
         request,
         jsonError('VALIDATION_ERROR', 'Plan must be pro or firm.', 400)
+      );
+    }
+    if (interval !== 'monthly' && interval !== 'annual') {
+      return withCors(
+        request,
+        jsonError(
+          'VALIDATION_ERROR',
+          'Interval must be monthly or annual.',
+          400
+        )
       );
     }
 
@@ -33,6 +44,7 @@ export async function POST(request: Request) {
       membership.account_id,
       user.email!,
       plan,
+      interval,
       `${returnUrl}/dashboard/billing`
     );
 

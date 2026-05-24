@@ -1,5 +1,6 @@
 import { requireAccountAdmin } from '@/lib/api-auth';
 import { PLANS, getStripe } from '@/lib/stripe-billing';
+import type { BillingInterval } from '@/lib/plans/pricing';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 
 function stripeKeyMode(): 'test' | 'live' | 'unknown' {
@@ -9,14 +10,18 @@ function stripeKeyMode(): 'test' | 'live' | 'unknown' {
   return 'unknown';
 }
 
-async function checkPrice(plan: 'pro' | 'firm') {
-  const priceId = PLANS[plan].priceId?.trim() ?? '';
+async function checkPrice(plan: 'pro' | 'firm', interval: BillingInterval) {
+  const priceId = PLANS[plan][interval].priceId?.trim() ?? '';
+  const envSuffix =
+    interval === 'annual' ? '_ANNUAL_PRICE_ID' : '_PRICE_ID';
+  const envName = `STRIPE_${plan.toUpperCase()}${envSuffix}`;
   if (!priceId) {
     return {
       plan,
+      interval,
       configured: false,
       ok: false,
-      error: `STRIPE_${plan.toUpperCase()}_PRICE_ID is not set`,
+      error: `${envName} is not set`,
     };
   }
 
@@ -27,6 +32,7 @@ async function checkPrice(plan: 'pro' | 'firm') {
       keyMode === 'unknown' || price.livemode === (keyMode === 'live');
     return {
       plan,
+      interval,
       configured: true,
       ok: price.active && modeMatch,
       priceIdSuffix: priceId.slice(-8),
@@ -44,6 +50,7 @@ async function checkPrice(plan: 'pro' | 'firm') {
     const msg = err instanceof Error ? err.message : String(err);
     return {
       plan,
+      interval,
       configured: true,
       ok: false,
       priceIdSuffix: priceId.slice(-8),
@@ -66,17 +73,26 @@ export async function GET(request: Request) {
     const keyMode = stripeKeyMode();
     const hasSecretKey = !!process.env.STRIPE_SECRET_KEY?.trim();
 
-    const [pro, firm] = await Promise.all([
-      checkPrice('pro'),
-      checkPrice('firm'),
+    const [proMonthly, proAnnual, firmMonthly, firmAnnual] = await Promise.all([
+      checkPrice('pro', 'monthly'),
+      checkPrice('pro', 'annual'),
+      checkPrice('firm', 'monthly'),
+      checkPrice('firm', 'annual'),
     ]);
+
+    const allOk =
+      hasSecretKey &&
+      proMonthly.ok &&
+      proAnnual.ok &&
+      firmMonthly.ok &&
+      firmAnnual.ok;
 
     return ok(request, {
       hasSecretKey,
       keyMode,
-      allOk: hasSecretKey && pro.ok && firm.ok,
-      pro,
-      firm,
+      allOk,
+      pro: { monthly: proMonthly, annual: proAnnual },
+      firm: { monthly: firmMonthly, annual: firmAnnual },
       hint:
         keyMode === 'live'
           ? 'Production uses live keys — create prices with Test mode OFF in Stripe Dashboard.'

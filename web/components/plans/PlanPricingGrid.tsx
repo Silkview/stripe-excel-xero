@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import type { PlanCode } from '@/lib/plans/types';
-import { MARKETING_PLANS } from '@/lib/plans/marketing';
+import type { BillingInterval } from '@/lib/plans/pricing';
+import { marketingPlansForInterval } from '@/lib/plans/marketing';
+import BillingIntervalToggle from '@/components/billing/BillingIntervalToggle';
 import Button from '@/components/ui/Button';
 
 type Props = {
@@ -20,9 +23,18 @@ export default function PlanPricingGrid({
   onContinue,
   continueLabel,
 }: Props) {
+  const [interval, setInterval] = useState<BillingInterval>('monthly');
+  const plans = marketingPlansForInterval(interval);
+
   return (
-    <div className="grid gap-5 sm:grid-cols-3">
-      {MARKETING_PLANS.map((p) => {
+    <>
+      {mode === 'landing' && (
+        <div className="mb-8 flex justify-center">
+          <BillingIntervalToggle value={interval} onChange={setInterval} />
+        </div>
+      )}
+      <div className="grid gap-5 sm:grid-cols-3">
+        {plans.map((p) => {
         const isSelected = selectedPlan === p.code;
         const cardClass = `relative flex flex-col rounded-lg border p-7 transition-all ${
           p.featured
@@ -164,6 +176,7 @@ export default function PlanPricingGrid({
           </Button>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

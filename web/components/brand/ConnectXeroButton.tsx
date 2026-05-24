@@ -1,3 +1,5 @@
+import { connectBtnClass, connectBtnHeight } from './connectButtonStyles';
+
 export default function ConnectXeroButton({
   onClick,
   disabled,
@@ -12,14 +14,14 @@ export default function ConnectXeroButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className="block w-full overflow-hidden rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50"
+      className={`${connectBtnClass} ${connectBtnHeight} border-0 bg-transparent p-0`}
       aria-label={loading ? 'Connecting to Xero' : 'Connect to Xero'}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/brand/connect-xero.svg"
         alt={loading ? 'Connecting…' : 'Connect to Xero'}
-        className="h-auto w-full max-w-full"
+        className="h-full w-full object-cover object-left"
       />
     </button>
   );

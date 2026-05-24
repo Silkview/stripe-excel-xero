@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useDashboard, PageHeader } from './dashboard-ui';
 import { formatPlanSummary } from '@/lib/plans/display';
+import { PLAN_PRICING } from '@/lib/plans/pricing';
 import BillingPortalButton from './BillingPortalButton';
 import SubscribeNowButton from './SubscribeNowButton';
 import StripeConnectHealth from './StripeConnectHealth';
@@ -85,6 +86,25 @@ export default function AccountSettingsPanel() {
               {ctx.limits.maxStripeConnections}
             </li>
           </ul>
+          {showSubscribe && (
+            <div className="mt-4 rounded-lg border border-rule bg-bg p-3 text-xs text-text-2">
+              <p className="font-medium text-ink">Pricing</p>
+              <ul className="mt-2 space-y-1">
+                <li>
+                  Pro — {PLAN_PRICING.pro.monthly.price}
+                  {PLAN_PRICING.pro.monthly.period} or{' '}
+                  {PLAN_PRICING.pro.annual.price}
+                  {PLAN_PRICING.pro.annual.period}
+                </li>
+                <li>
+                  Firm — {PLAN_PRICING.firm.monthly.price}
+                  {PLAN_PRICING.firm.monthly.period} or{' '}
+                  {PLAN_PRICING.firm.annual.price}
+                  {PLAN_PRICING.firm.annual.period}
+                </li>
+              </ul>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {showSubscribe && <SubscribeNowButton variant="primary" />}
             {ctx.hasPaidSubscription && <BillingPortalButton />}

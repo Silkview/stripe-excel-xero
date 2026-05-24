@@ -1,32 +1,32 @@
 import { rowMatchesCurrency } from '@stripesync/shared/currencyFilter';
-import { BT_IDX_CURRENCY } from '../config/xeroBankTransactionBuilder';
 import {
   BT_SHEET,
   JOURNAL_SHEET,
   MAPPING_SHEET,
   type BalanceTxnType,
+  type BtColumnLetters,
   type JournalDescriptionKind,
   descriptionFormula,
-  narrationFormula,
   journalDateCellRef,
   mappingFormula,
+  narrationFormula,
   sumifsAmount,
   sumifsFee,
 } from '../config/xeroJournalBuilder';
 import { WORKBOOK_SHEETS } from '../config/workbookSheets';
 import { colLetter } from './officeHelpers';
-import { clearSheetDataArea } from './sheetClear';
+import {
+  columnIndex,
+  columnLetterForHeader,
+  loadSheetTable,
+  rowValue,
+} from './sheetHeaders';
+import { clearEntireSheetUsedRange } from './sheetClear';
 
 const BT_FIRST_DATA_ROW = 2;
 const JOURNAL_FIRST_DATA_ROW = 2;
-/** Data columns A–H; sheet also has Xero ID in I. */
+/** Data columns A–H; sheet also has Xero ID in I and Status in J. */
 const JOURNAL_COL_COUNT = 8;
-const JOURNAL_SHEET_COL_COUNT = 9;
-
-/** BT columns: A–B=account, C=transaction_id, D=created, … J=type */
-const BT_IDX_CREATED = 3;
-const BT_IDX_FEE = 6;
-const BT_IDX_TYPE = 9;
 
 export interface BuildJournalsResult {
   lineCount: number;
@@ -46,7 +46,6 @@ type JournalFormulas = [
   string | number | null,
 ];
 
-/** Normalized YYYY-MM-DD key for grouping (local calendar, no UTC shift). */
 function dateKey(value: unknown): string | null {
   if (value == null || value === '') return null;
   if (typeof value === 'number') {
@@ -70,7 +69,6 @@ function formatLocalYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Excel 1900 date serial → local YYYY-MM-DD (matches Excel SUMIFS on date cells). */
 function excelSerialToDateKey(serial: number): string {
   const epoch = Date.UTC(1899, 11, 30);
   const d = new Date(epoch + serial * 86400000);
@@ -79,7 +77,6 @@ function excelSerialToDateKey(serial: number): string {
   );
 }
 
-/** Preserve Excel serial or string so journal Date column matches BT column B. */
 function journalDateValue(
   stored: string | number | undefined,
   key: string
@@ -101,17 +98,19 @@ function sortedUnique(dates: Set<string>): string[] {
 
 function collectDatesFromRows(
   rows: unknown[][],
-  predicate: (row: unknown[]) => boolean,
+  createdIdx: number,
+  typeIdx: number,
+  predicate: (typeValue: unknown) => boolean,
   dateValues: Map<string, string | number>
 ): string[] {
   const dates = new Set<string>();
   for (const row of rows) {
-    if (!predicate(row)) continue;
-    const key = dateKey(row[BT_IDX_CREATED]);
+    if (!predicate(rowValue(row, typeIdx))) continue;
+    const key = dateKey(rowValue(row, createdIdx));
     if (!key) continue;
     dates.add(key);
     if (!dateValues.has(key)) {
-      dateValues.set(key, row[BT_IDX_CREATED] as string | number);
+      dateValues.set(key, rowValue(row, createdIdx) as string | number);
     }
   }
   return sortedUnique(dates);
@@ -119,15 +118,17 @@ function collectDatesFromRows(
 
 function collectFeeDates(
   rows: unknown[][],
+  createdIdx: number,
+  feeIdx: number,
   dateValues: Map<string, string | number>
 ): string[] {
   const feeByDate = new Map<string, number>();
   for (const row of rows) {
-    const key = dateKey(row[BT_IDX_CREATED]);
+    const key = dateKey(rowValue(row, createdIdx));
     if (!key) continue;
-    feeByDate.set(key, (feeByDate.get(key) ?? 0) + parseFee(row[BT_IDX_FEE]));
+    feeByDate.set(key, (feeByDate.get(key) ?? 0) + parseFee(rowValue(row, feeIdx)));
     if (!dateValues.has(key)) {
-      dateValues.set(key, row[BT_IDX_CREATED] as string | number);
+      dateValues.set(key, rowValue(row, createdIdx) as string | number);
     }
   }
   const dates: string[] = [];
@@ -165,7 +166,8 @@ function addTypePair(
   type: BalanceTxnType,
   descriptionKind: JournalDescriptionKind,
   startRow: number,
-  lastRow: number
+  lastRow: number,
+  btCols: BtColumnLetters
 ): number {
   const row = startRow + lines.length;
   const dateRef = journalDateCellRef(row);
@@ -176,7 +178,7 @@ function addTypePair(
       row,
       type,
       descriptionKind,
-      sumifsAmount(type, dateRef, lastRow)
+      sumifsAmount(type, dateRef, lastRow, btCols)
     )
   );
   const clearingRow = startRow + lines.length;
@@ -188,7 +190,7 @@ function addTypePair(
       clearingRow,
       'stripe_clearing',
       descriptionKind,
-      sumifsAmount(type, clearingDateRef, lastRow, true)
+      sumifsAmount(type, clearingDateRef, lastRow, btCols, true)
     )
   );
   return lines.length;
@@ -199,7 +201,8 @@ function addFeePair(
   dateKeyStr: string,
   dateValues: Map<string, string | number>,
   startRow: number,
-  lastRow: number
+  lastRow: number,
+  btCols: BtColumnLetters
 ): number {
   const row = startRow + lines.length;
   const dateRef = journalDateCellRef(row);
@@ -210,7 +213,7 @@ function addFeePair(
       row,
       'fee',
       'Fees',
-      sumifsFee(dateRef, lastRow)
+      sumifsFee(dateRef, lastRow, btCols)
     )
   );
   const clearingRow = startRow + lines.length;
@@ -222,29 +225,16 @@ function addFeePair(
       clearingRow,
       'stripe_clearing',
       'Fees',
-      sumifsFee(clearingDateRef, lastRow, true)
+      sumifsFee(clearingDateRef, lastRow, btCols, true)
     )
   );
   return lines.length;
 }
 
-function filterBtRowsByCurrency(
-  rows: unknown[][],
-  defaultCurrency: string
-): unknown[][] {
-  return rows.filter((row) =>
-    rowMatchesCurrency(String(row[BT_IDX_CURRENCY] ?? ''), defaultCurrency)
-  );
-}
-
 export async function buildXeroJournalsFromBalanceTransactions(
   defaultCurrency: string
 ): Promise<BuildJournalsResult> {
-  await clearSheetDataArea(
-    JOURNAL_SHEET,
-    JOURNAL_FIRST_DATA_ROW,
-    colLetter(JOURNAL_SHEET_COL_COUNT)
-  );
+  await clearEntireSheetUsedRange(JOURNAL_SHEET);
 
   return await Excel.run(async (context) => {
     const btSheet =
@@ -282,23 +272,31 @@ export async function buildXeroJournalsFromBalanceTransactions(
       journalSheet.getRange(`A1:${headerEnd}1`).values = [journalHeaders];
     }
 
-    const used = btSheet.getUsedRangeOrNullObject();
-    used.load(['rowIndex', 'rowCount']);
-    await context.sync();
-
-    if (used.isNullObject || used.rowCount <= 1) {
+    const btTable = await loadSheetTable(btSheet, BT_FIRST_DATA_ROW, context);
+    if (!btTable || btTable.rows.length === 0) {
       throw new Error(
         `${BT_SHEET} has no data. Pull balance transactions before building journals.`
       );
     }
 
-    const lastRow = used.rowIndex + used.rowCount;
-    const dataRange = btSheet.getRange(`A${BT_FIRST_DATA_ROW}:K${lastRow}`);
-    dataRange.load('values');
-    await context.sync();
+    const btCols: BtColumnLetters = {
+      created: columnLetterForHeader(btTable.headerIndex, 'Created'),
+      amount: columnLetterForHeader(btTable.headerIndex, 'Amount'),
+      fee: columnLetterForHeader(btTable.headerIndex, 'Fee'),
+      type: columnLetterForHeader(btTable.headerIndex, 'Type'),
+    };
+    const currencyIdx = columnIndex(btTable.headerIndex, 'Currency');
+    const createdIdx = columnIndex(btTable.headerIndex, 'Created');
+    const typeIdx = columnIndex(btTable.headerIndex, 'Type');
+    const feeIdx = columnIndex(btTable.headerIndex, 'Fee');
 
-    const allRows = dataRange.values as unknown[][];
-    const rows = filterBtRowsByCurrency(allRows, defaultCurrency);
+    const rows = btTable.rows.filter((row) =>
+      rowMatchesCurrency(String(rowValue(row, currencyIdx) ?? ''), defaultCurrency)
+    );
+
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'xeroJournalsExcel.ts:build',message:'journal build bt columns',data:{btCols,lastCol:btTable.lastColLetter,rowCount:rows.length},timestamp:Date.now(),hypothesisId:'H2-H3',runId:'pre-fix'})}).catch(()=>{});
+    // #endregion
 
     if (rows.length === 0) {
       throw new Error(
@@ -307,18 +305,23 @@ export async function buildXeroJournalsFromBalanceTransactions(
     }
 
     const dateValues = new Map<string, string | number>();
+    const lastRow = btTable.lastRow;
 
     const chargeDates = collectDatesFromRows(
       rows,
-      (row) => String(row[BT_IDX_TYPE] ?? '').toLowerCase() === 'charge',
+      createdIdx,
+      typeIdx,
+      (typeValue) => String(typeValue ?? '').toLowerCase() === 'charge',
       dateValues
     );
     const refundDates = collectDatesFromRows(
       rows,
-      (row) => String(row[BT_IDX_TYPE] ?? '').toLowerCase() === 'refund',
+      createdIdx,
+      typeIdx,
+      (typeValue) => String(typeValue ?? '').toLowerCase() === 'refund',
       dateValues
     );
-    const feeDates = collectFeeDates(rows, dateValues);
+    const feeDates = collectFeeDates(rows, createdIdx, feeIdx, dateValues);
 
     if (
       chargeDates.length === 0 &&
@@ -334,13 +337,13 @@ export async function buildXeroJournalsFromBalanceTransactions(
     const startRow = JOURNAL_FIRST_DATA_ROW;
 
     for (const date of chargeDates) {
-      addTypePair(lines, date, dateValues, 'charge', 'Charges', startRow, lastRow);
+      addTypePair(lines, date, dateValues, 'charge', 'Charges', startRow, lastRow, btCols);
     }
     for (const date of refundDates) {
-      addTypePair(lines, date, dateValues, 'refund', 'Refunds', startRow, lastRow);
+      addTypePair(lines, date, dateValues, 'refund', 'Refunds', startRow, lastRow, btCols);
     }
     for (const date of feeDates) {
-      addFeePair(lines, date, dateValues, startRow, lastRow);
+      addFeePair(lines, date, dateValues, startRow, lastRow, btCols);
     }
 
     const lastCol = colLetter(JOURNAL_COL_COUNT);
@@ -368,7 +371,6 @@ export async function buildXeroJournalsFromBalanceTransactions(
         formulaCols.push(formulaRow);
       }
 
-      // Write values first so column A dates are not cleared by empty formula cells.
       journalSheet
         .getRange(`A${JOURNAL_FIRST_DATA_ROW}:${lastCol}${writeEnd}`)
         .values = allValues;
