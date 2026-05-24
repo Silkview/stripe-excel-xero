@@ -62,7 +62,7 @@ async function validatePlanPrice(plan: 'pro' | 'firm'): Promise<string> {
       throw err instanceof Error ? err : new Error(msg);
     }
     throw new Error(
-      `Stripe price not found for ${plan} (${priceId}). Create a subscription price in the same Stripe account and mode as STRIPE_SECRET_KEY, then set STRIPE_${plan.toUpperCase()}_PRICE_ID. Original: ${msg}`
+      `Stripe price not found for ${plan} (${priceId}). Your STRIPE_SECRET_KEY is ${stripeKeyMode()} mode — prices must be created in the same Stripe account with the same Test/Live toggle. Copy price IDs from Product catalog → Pricing (not Product ID). Set STRIPE_${plan.toUpperCase()}_PRICE_ID on your host. Original: ${msg}`
     );
   }
 }
@@ -78,7 +78,24 @@ export async function getOrCreateCustomer(
     .eq('id', accountId)
     .single();
 
-  if (account?.stripe_customer_id) return account.stripe_customer_id;
+  if (account?.stripe_customer_id) {
+    try {
+      await getStripe().customers.retrieve(account.stripe_customer_id);
+      return account.stripe_customer_id;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes('No such customer')) {
+        throw err;
+      }
+      await core(supabase)
+        .from('accounts')
+        .update({
+          stripe_customer_id: null,
+          stripe_subscription_id: null,
+        })
+        .eq('id', accountId);
+    }
+  }
 
   const customer = await getStripe().customers.create({
     email,

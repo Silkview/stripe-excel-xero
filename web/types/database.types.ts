@@ -76,6 +76,48 @@ export interface Database {
         Update: Partial<Database['core']['Tables']['accounts']['Insert']>;
         Relationships: [];
       };
+      billing_webhook_events: {
+        Row: {
+          id: string;
+          source: string;
+          stripe_event_id: string | null;
+          event_type: string;
+          account_id: string | null;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          checkout_session_id: string | null;
+          invoice_id: string | null;
+          amount_cents: number | null;
+          currency: string | null;
+          status: string;
+          processing_error: string | null;
+          payload: Json | null;
+          created_at: string | null;
+          processed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          source?: string;
+          stripe_event_id?: string | null;
+          event_type: string;
+          account_id?: string | null;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          checkout_session_id?: string | null;
+          invoice_id?: string | null;
+          amount_cents?: number | null;
+          currency?: string | null;
+          status?: string;
+          processing_error?: string | null;
+          payload?: Json | null;
+          created_at?: string | null;
+          processed_at?: string | null;
+        };
+        Update: Partial<
+          Database['core']['Tables']['billing_webhook_events']['Insert']
+        >;
+        Relationships: [];
+      };
       account_users: {
         Row: {
           id: string;

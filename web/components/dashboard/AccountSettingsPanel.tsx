@@ -59,7 +59,9 @@ export default function AccountSettingsPanel() {
             Current plan:{' '}
             <span className="font-medium text-ink">{planSummary}</span>
           </p>
-          {ctx.trialEndsAt && (
+          {ctx.trialEndsAt &&
+            !ctx.hasPaidSubscription &&
+            ctx.subscriptionStatus === 'trialing' && (
             <p className="mt-1 text-xs text-text-3">
               Trial ends{' '}
               {new Date(ctx.trialEndsAt).toLocaleDateString('en-GB', {

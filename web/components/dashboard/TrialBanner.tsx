@@ -32,6 +32,10 @@ export default function TrialBanner() {
 
   if (dismissed || ctx.billingBlocked) return null;
 
+  if (ctx.hasPaidSubscription || ctx.subscriptionStatus === 'active') {
+    return null;
+  }
+
   if (trialExpiredInApp || (trialActive && ctx.trialDaysRemaining === 0)) {
     return (
       <UrgentTrialBanner />

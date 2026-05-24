@@ -1,9 +1,53 @@
 'use client';
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { DashboardContext } from '@/lib/dashboard/types';
+import type { BillingStatusPayload } from '@/lib/billing/load-billing-status';
 
-const DashboardCtx = createContext<DashboardContext | null>(null);
+type DashboardContextValue = DashboardContext & {
+  refreshBillingContext: () => Promise<void>;
+};
+
+const DashboardCtx = createContext<DashboardContextValue | null>(null);
+
+function mergeBillingStatus(
+  prev: DashboardContext,
+  billing: BillingStatusPayload
+): DashboardContext {
+  return {
+    ...prev,
+    planCode: billing.planCode,
+    planLabel: billing.planLabel,
+    subscriptionStatus: billing.subscriptionStatus,
+    trialEndsAt: billing.trialEndsAt,
+    trialDaysRemaining: billing.trialDaysRemaining,
+    hasPaidSubscription: billing.hasPaidSubscription,
+    needsCheckout: billing.needsCheckout,
+    billingBlocked: billing.billingBlocked,
+    needsDowngradeSelection: billing.needsDowngradeSelection,
+    hasStripeCustomer: billing.hasStripeCustomer,
+    stripeSubscriptionId: billing.stripeSubscriptionId,
+    billingAccess: billing.billingAccess,
+    productBlocked: billing.productBlocked,
+    workspaceCount: billing.limits.workspaceCount,
+    limits: {
+      ...prev.limits,
+      maxWorkspaces: billing.limits.maxWorkspaces,
+      maxUsers: billing.limits.maxUsers,
+      maxStripeConnections: billing.limits.maxStripeConnections,
+      workspaceCount: billing.limits.workspaceCount,
+      userCount: billing.limits.userCount,
+      stripeConnectionCount: billing.limits.stripeConnectionCount,
+    },
+  };
+}
 
 export function DashboardProvider({
   value,
@@ -12,8 +56,24 @@ export function DashboardProvider({
   value: DashboardContext;
   children: ReactNode;
 }) {
+  const [ctx, setCtx] = useState(value);
+
+  useEffect(() => {
+    setCtx(value);
+  }, [value]);
+
+  const refreshBillingContext = useCallback(async () => {
+    const res = await fetch('/api/billing/status', { credentials: 'include' });
+    const data = await res.json();
+    if (data.success && data.data) {
+      setCtx((prev) => mergeBillingStatus(prev, data.data));
+    }
+  }, []);
+
   return (
-    <DashboardCtx.Provider value={value}>{children}</DashboardCtx.Provider>
+    <DashboardCtx.Provider value={{ ...ctx, refreshBillingContext }}>
+      {children}
+    </DashboardCtx.Provider>
   );
 }
 

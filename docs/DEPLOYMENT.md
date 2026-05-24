@@ -64,7 +64,7 @@ Add-in project per environment: `VITE_API_URL` = that environment’s web URL.
 
 ## Supabase
 
-1. Apply **all** migrations `001` through `008` in order.
+1. Apply **all** migrations `001` through `011` in order.
 2. **Project Settings → API → Exposed schemas** → add `core`.
 3. **Authentication → URL configuration:** Site URL = `NEXT_PUBLIC_APP_URL`; redirect URLs for `/auth/callback`.
 4. Optional webhook on `auth.users` INSERT → `POST /api/auth/signup` (email confirm only; **does not** create accounts).
@@ -79,8 +79,13 @@ Account + workspace creation happens in **`POST /api/onboarding/complete`** afte
 4. **Connect → Redirects** — register exactly:
    - `https://<your-web-host>/api/stripe/callback`
 5. **Billing webhook** → `https://<your-web-host>/api/billing/webhook`
-   - Events to enable: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
-   - Copy signing secret to `STRIPE_WEBHOOK_SECRET`
+   - Enable these events (minimum recommended set):
+     - **Checkout:** `checkout.session.completed`
+     - **Subscriptions:** `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+     - **Invoices:** `invoice.paid`, `invoice.payment_failed`
+   - Optional (not required for v1): `invoice.payment_succeeded` (legacy alias), `charge.succeeded`, `customer.subscription.trial_will_end`
+   - Copy signing secret to `STRIPE_WEBHOOK_SECRET`. Use a **separate** webhook endpoint for test vs live mode (each has its own secret).
+   - Webhook and checkout-confirm events are logged to `core.billing_webhook_events` for debugging (query via Supabase SQL; no dashboard UI).
 6. **Billing prices** — create Pro and Firm subscription prices in the **same** Stripe account and mode as `STRIPE_SECRET_KEY`. Set `STRIPE_PRO_PRICE_ID` and `STRIPE_FIRM_PRICE_ID`. Test and live price IDs differ; production env must use live prices with `sk_live_`.
 7. **Customer portal** (optional, for Manage billing after subscribe): Stripe Dashboard → Settings → Billing → Customer portal — enable **Invoice history** and **Payment methods**.
 
@@ -110,6 +115,7 @@ Or open (when signed in as account owner):
 
 - `GET /api/oauth/redirect-uris`
 - `GET /api/stripe/connect/verify` (dashboard Settings)
+- `GET /api/billing/config-check` — confirms `STRIPE_SECRET_KEY` mode matches Pro/Firm price IDs (no secrets returned)
 
 ## Manual E2E checklist
 

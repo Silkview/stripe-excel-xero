@@ -18,6 +18,7 @@ const PAID_PLANS = MARKETING_PLANS.filter(
 
 function BillingPageContent() {
   const ctx = useDashboard();
+  const { refreshBillingContext } = ctx;
   const router = useRouter();
   const searchParams = useSearchParams();
   const step = searchParams.get('step');
@@ -34,7 +35,7 @@ function BillingPageContent() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!checkoutSuccess || !sessionId || confirmed || confirming) return;
+    if (!checkoutSuccess || !sessionId || confirmed) return;
 
     let cancelled = false;
     setConfirming(true);
@@ -55,7 +56,13 @@ function BillingPageContent() {
           return;
         }
         setConfirmed(true);
+        await refreshBillingContext();
         router.refresh();
+        if (data.data?.needsDowngradeSelection) {
+          router.replace('/dashboard/billing?step=downgrade');
+          return;
+        }
+        router.replace('/dashboard/billing');
       } catch {
         if (!cancelled) {
           setConfirmError('Could not confirm payment.');
@@ -68,7 +75,7 @@ function BillingPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [checkoutSuccess, sessionId, confirmed, confirming, router]);
+  }, [checkoutSuccess, sessionId, confirmed, router, refreshBillingContext]);
 
   const startCheckout = async (plan: PlanCode) => {
     setCheckoutLoading(true);
