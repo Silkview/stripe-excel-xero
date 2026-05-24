@@ -78,7 +78,13 @@ Account + workspace creation happens in **`POST /api/onboarding/complete`** afte
 3. **Developers → API keys** — copy **Secret key** (`sk_test_…` or `sk_live_…`) with the **same** Test/Live toggle as step 2.
 4. **Connect → Redirects** — register exactly:
    - `https://<your-web-host>/api/stripe/callback`
-5. Billing webhook → `https://<your-web-host>/api/billing/webhook`.
+5. **Billing webhook** → `https://<your-web-host>/api/billing/webhook`
+   - Events to enable: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+   - Copy signing secret to `STRIPE_WEBHOOK_SECRET`
+6. **Billing prices** — create Pro and Firm subscription prices in the **same** Stripe account and mode as `STRIPE_SECRET_KEY`. Set `STRIPE_PRO_PRICE_ID` and `STRIPE_FIRM_PRICE_ID`. Test and live price IDs differ; production env must use live prices with `sk_live_`.
+7. **Customer portal** (optional, for Manage billing after subscribe): Stripe Dashboard → Settings → Billing → Customer portal — enable **Invoice history** and **Payment methods**.
+
+After checkout, the app confirms payment via `POST /api/billing/checkout/confirm` (immediate account update) and the webhook (backup). Accounts flip from `trialing` to `active` with the chosen plan.
 
 Customers click **Connect Stripe** in Excel; they sign into **their** Stripe account. Silkview never auto-links the platform owner account.
 

@@ -16,9 +16,7 @@ export default function AccountSettingsPanel() {
   const [renameOpen, setRenameOpen] = useState(false);
   const planSummary = formatPlanSummary(ctx.planCode, ctx.subscriptionStatus);
 
-  const showSubscribe =
-    ctx.isAdmin &&
-    (ctx.subscriptionStatus === 'trialing' || ctx.planCode === 'free');
+  const showSubscribe = ctx.isAdmin && ctx.needsCheckout && !ctx.hasPaidSubscription;
 
   return (
     <>
@@ -87,7 +85,7 @@ export default function AccountSettingsPanel() {
           </ul>
           <div className="mt-4 flex flex-wrap gap-2">
             {showSubscribe && <SubscribeNowButton variant="primary" />}
-            <BillingPortalButton />
+            {ctx.hasPaidSubscription && <BillingPortalButton />}
           </div>
         </section>
 

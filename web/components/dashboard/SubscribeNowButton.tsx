@@ -2,24 +2,32 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import type { PlanCode } from '@/lib/plans/types';
 import Button from '@/components/ui/Button';
 import { useDashboard } from './dashboard-ui';
 
 export default function SubscribeNowButton({
   className = '',
   variant = 'primary',
-  useBillingPage = true,
+  useBillingPage = false,
+  plan: planProp,
 }: {
   className?: string;
   variant?: 'primary' | 'secondary';
+  /** When true, link to billing page for plan picker (paywall only). */
   useBillingPage?: boolean;
+  plan?: PlanCode;
 }) {
   const ctx = useDashboard();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const plan =
-    ctx.planCode === 'firm' || ctx.planCode === 'pro' ? ctx.planCode : 'pro';
+  const plan: 'pro' | 'firm' =
+    planProp === 'firm' || planProp === 'pro'
+      ? planProp
+      : ctx.planCode === 'firm' || ctx.planCode === 'pro'
+        ? ctx.planCode
+        : 'pro';
 
   const subscribe = async () => {
     setLoading(true);
@@ -46,7 +54,7 @@ export default function SubscribeNowButton({
 
   if (!ctx.isAdmin) return null;
 
-  if (useBillingPage) {
+  if (useBillingPage || ctx.billingBlocked) {
     return (
       <Link
         href="/dashboard/billing"
@@ -56,7 +64,7 @@ export default function SubscribeNowButton({
             : `inline-flex items-center justify-center rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-medium text-ink hover:border-accent/40 ${className}`
         }
       >
-        Subscribe now
+        {ctx.billingBlocked ? 'Choose a plan' : 'Subscribe now'}
       </Link>
     );
   }

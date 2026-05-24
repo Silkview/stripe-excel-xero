@@ -29,7 +29,7 @@ export async function loadDashboardContext(
   const { data: account } = await core(admin)
     .from('accounts')
     .select(
-      'id, name, plan_code, subscription_status, trial_ends_at, max_users, max_workspaces'
+      'id, name, plan_code, subscription_status, trial_ends_at, max_users, max_workspaces, stripe_subscription_id'
     )
     .eq('id', membership.account_id)
     .single();
@@ -75,6 +75,14 @@ export async function loadDashboardContext(
         )
       : null;
 
+  const stripeSubscriptionId = account.stripe_subscription_id ?? null;
+  const hasPaidSubscription =
+    account.subscription_status === 'active' && !!stripeSubscriptionId;
+  const isPaidPlan = planCode === 'pro' || planCode === 'firm';
+  const needsCheckout =
+    billingState.billingAccess !== 'active' ||
+    (isPaidPlan && !hasPaidSubscription);
+
   return {
     email,
     displayName: email.split('@')[0] ?? email,
@@ -102,6 +110,9 @@ export async function loadDashboardContext(
     billingAccess: billingState.billingAccess,
     needsDowngradeSelection: billingState.needsDowngradeSelection,
     hasStripeCustomer: billingState.hasStripeCustomer,
+    stripeSubscriptionId,
+    hasPaidSubscription,
+    needsCheckout,
     billingBlocked: billingState.billingAccess !== 'active',
     productBlocked:
       billingState.billingAccess !== 'active' ||

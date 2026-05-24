@@ -31,6 +31,9 @@ export type DashboardContext = {
   billingAccess: BillingAccess;
   needsDowngradeSelection: boolean;
   hasStripeCustomer: boolean;
+  stripeSubscriptionId: string | null;
+  hasPaidSubscription: boolean;
+  needsCheckout: boolean;
   billingBlocked: boolean;
   productBlocked: boolean;
 };
