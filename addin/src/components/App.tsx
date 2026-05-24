@@ -319,6 +319,8 @@ export default function App() {
         <StripePanel
           stripeConnected={stripeAuth.status.connected}
           selectedList={stripeSelection.selectedList}
+          connections={stripeConnections}
+          planCode={onboarding.planCode}
           currencyReady={currencyReady}
           defaultCurrency={currency}
           xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}

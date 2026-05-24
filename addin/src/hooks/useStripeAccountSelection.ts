@@ -29,6 +29,9 @@ export function useStripeAccountSelection(
     setSelectedAccountIds((prev) => {
       const next = new Set(prev);
       if (next.has(stripeAccountId)) {
+        if (connections.length <= 1) {
+          return prev;
+        }
         next.delete(stripeAccountId);
       } else {
         next.add(stripeAccountId);

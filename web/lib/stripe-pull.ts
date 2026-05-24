@@ -2,6 +2,7 @@ import { filterRowsByCurrency } from '@stripesync/shared/currencyFilter';
 import {
   stripePullRangeError,
   stripePullRowCountError,
+  maxStripePullRows,
 } from '@stripesync/shared/pullLimits';
 import type { StripePullResponse } from '@stripesync/shared';
 import type { PlanCode } from '@/lib/plans/types';
@@ -110,7 +111,8 @@ export async function handleStripePull(
       excludedByCurrency = 0;
     }
 
-    const rowError = stripePullRowCountError(rows.length);
+    const maxRows = maxStripePullRows(planCode);
+    const rowError = stripePullRowCountError(rows.length, maxRows);
     if (rowError) {
       return withCors(request, jsonError('VALIDATION_ERROR', rowError, 400));
     }

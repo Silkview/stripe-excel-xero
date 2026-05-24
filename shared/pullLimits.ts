@@ -1,5 +1,16 @@
+import type { PlanCode } from './types';
+
 export const MAX_STRIPE_PULL_DAYS = 90;
-export const MAX_STRIPE_PULL_ROWS = 2000;
+export const MAX_STRIPE_PULL_ROWS_FREE = 100;
+export const MAX_STRIPE_PULL_ROWS_PAID = 2000;
+/** @deprecated Use maxStripePullRows(planCode) */
+export const MAX_STRIPE_PULL_ROWS = MAX_STRIPE_PULL_ROWS_PAID;
+
+export function maxStripePullRows(
+  planCode: PlanCode | null | undefined
+): number {
+  return planCode === 'free' ? MAX_STRIPE_PULL_ROWS_FREE : MAX_STRIPE_PULL_ROWS_PAID;
+}
 
 function parseYmd(dateStr: string): Date | null {
   const s = dateStr.trim();
@@ -34,9 +45,12 @@ export function stripePullRangeError(from: string, to: string): string | null {
   return null;
 }
 
-export function stripePullRowCountError(count: number): string | null {
-  if (count > MAX_STRIPE_PULL_ROWS) {
-    return `${count} rows returned; maximum is ${MAX_STRIPE_PULL_ROWS}. Narrow the date range and try again.`;
+export function stripePullRowCountError(
+  count: number,
+  maxRows: number = MAX_STRIPE_PULL_ROWS_PAID
+): string | null {
+  if (count > maxRows) {
+    return `${count} rows returned; maximum is ${maxRows}. Narrow the date range and try again.`;
   }
   return null;
 }

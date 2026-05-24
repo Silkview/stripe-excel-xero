@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type {
+  PlanCode,
   StripeBalanceTransactionRow,
   StripeChargeRow,
   StripeConnectionItem,
@@ -14,7 +15,7 @@ import { friendlyError } from '../utils/errorMessages';
 import { STRIPE_PULL_OBJECTS, type StripePullObjectType } from '../config/workbookSheets';
 import {
   MAX_STRIPE_PULL_DAYS,
-  MAX_STRIPE_PULL_ROWS,
+  maxStripePullRows,
   stripePullRangeError,
   stripePullRowCountError,
 } from '@stripesync/shared/pullLimits';
@@ -183,6 +184,8 @@ function truncateId(id: string, len = 12): string {
 interface StripePanelProps {
   stripeConnected: boolean;
   selectedList: StripeConnectionItem[];
+  connections: StripeConnectionItem[];
+  planCode?: PlanCode | null;
   currencyReady: boolean;
   defaultCurrency?: string;
   xeroFeaturesEnabled?: boolean;
@@ -192,12 +195,26 @@ interface StripePanelProps {
 export default function StripePanel({
   stripeConnected,
   selectedList,
+  connections,
+  planCode = null,
   currencyReady,
   defaultCurrency,
   xeroFeaturesEnabled = true,
   onPulled,
 }: StripePanelProps) {
   const { publish, clear } = useNotifications();
+  const isFreePlan = planCode === 'free';
+  const maxPullRows = maxStripePullRows(planCode);
+
+  const accountsForPull = useMemo(
+    () =>
+      selectedList.length > 0
+        ? selectedList
+        : isFreePlan && connections.length > 0
+          ? connections
+          : [],
+    [selectedList, isFreePlan, connections]
+  );
   const monthRange = getCurrentMonthRange();
   const [objectType, setObjectType] = useState<StripePullObjectType>('payouts');
   const [from, setFrom] = useState(monthRange.from);
@@ -213,9 +230,9 @@ export default function StripePanel({
     let prereq: string | null = null;
     if (!stripeConnected) {
       prereq = 'Connect Stripe above to pull data.';
-    } else if (selectedList.length === 0) {
+    } else if (accountsForPull.length === 0) {
       prereq = 'Select one or more Stripe accounts above.';
-    } else if (xeroFeaturesEnabled && !currencyReady) {
+    } else if (!isFreePlan && xeroFeaturesEnabled && !currencyReady) {
       prereq =
         'Connect Xero first to set your organisation currency. Pull is disabled until then.';
     }
@@ -226,15 +243,16 @@ export default function StripePanel({
     }
   }, [
     stripeConnected,
-    selectedList.length,
+    accountsForPull.length,
     currencyReady,
+    isFreePlan,
     xeroFeaturesEnabled,
     publish,
     clear,
   ]);
 
   useEffect(() => {
-    if (!xeroFeaturesEnabled) {
+    if (isFreePlan) {
       publish({
         kind: 'success',
         message: 'All Stripe currencies are included on the Free plan.',
@@ -249,12 +267,15 @@ export default function StripePanel({
     } else {
       clear('pull-info');
     }
-  }, [xeroFeaturesEnabled, currencyReady, defaultCurrency, publish, clear]);
+  }, [isFreePlan, currencyReady, defaultCurrency, publish, clear]);
 
   useEffect(() => {
+    const limitsMessage = isFreePlan
+      ? `Free plan: up to ${MAX_STRIPE_PULL_DAYS} days and ${maxPullRows} transactions per pull.`
+      : `Max ${MAX_STRIPE_PULL_DAYS} days per pull and ${maxPullRows.toLocaleString()} rows total. Each selected account is pulled separately, then merged and sorted.`;
     publish({
       kind: 'success',
-      message: `Max ${MAX_STRIPE_PULL_DAYS} days per pull and ${MAX_STRIPE_PULL_ROWS.toLocaleString()} rows total. Each selected account is pulled separately, then merged and sorted.`,
+      message: limitsMessage,
       source: 'pull-limits',
     });
     return () => {
@@ -263,7 +284,7 @@ export default function StripePanel({
       clear('pull-info');
       clear('pull-limits');
     };
-  }, [publish, clear]);
+  }, [isFreePlan, maxPullRows, publish, clear]);
 
   const pullConfig = STRIPE_PULL_OBJECTS[objectType];
 
@@ -276,7 +297,7 @@ export default function StripePanel({
   };
 
   const handlePull = async () => {
-    if (!selectedList.length) {
+    if (!accountsForPull.length) {
       notifyPull('Select at least one Stripe account.', true);
       return;
     }
@@ -296,12 +317,12 @@ export default function StripePanel({
       let totalExcluded = 0;
       const perAccountCounts: string[] = [];
 
-      for (let i = 0; i < selectedList.length; i++) {
-        const conn = selectedList[i];
+      for (let i = 0; i < accountsForPull.length; i++) {
+        const conn = accountsForPull[i];
         const label = conn.displayName ?? truncateId(conn.stripeAccountId);
         publish({
           kind: 'success',
-          message: `Pulling ${i + 1} of ${selectedList.length}: ${label}…`,
+          message: `Pulling ${i + 1} of ${accountsForPull.length}: ${label}…`,
           source: 'pull',
         });
 
@@ -342,7 +363,7 @@ export default function StripePanel({
           pullConfig.sheetKeys.length
         );
         headers = pullConfig.displayHeaders;
-        const rowError = stripePullRowCountError(data.length);
+        const rowError = stripePullRowCountError(data.length, maxPullRows);
         if (rowError) {
           notifyPull(rowError, true);
           return;
@@ -350,7 +371,7 @@ export default function StripePanel({
       } else {
         allTagged.sort((a, b) => compareTaggedRows(objectType, a, b));
         const sheetRowCount = allTagged.length;
-        const rowError = stripePullRowCountError(sheetRowCount);
+        const rowError = stripePullRowCountError(sheetRowCount, maxPullRows);
         if (rowError) {
           notifyPull(rowError, true);
           return;
@@ -365,7 +386,7 @@ export default function StripePanel({
       await activateWorksheet(sheetName, data.length > 0 ? 'A2' : 'A1');
 
       let msg = `${sheetRowCount} ${pullConfig.label.toLowerCase()} → ${sheetName}`;
-      if (selectedList.length > 1) {
+      if (accountsForPull.length > 1) {
         msg += ` (${perAccountCounts.join('; ')})`;
       }
       if (totalExcluded > 0) {
@@ -437,9 +458,9 @@ export default function StripePanel({
         onClick={handlePull}
         disabled={
           !stripeConnected ||
-          (xeroFeaturesEnabled && !currencyReady) ||
           loading ||
-          selectedList.length === 0
+          accountsForPull.length === 0 ||
+          (!isFreePlan && xeroFeaturesEnabled && !currencyReady)
         }
         className="mt-1"
       >
