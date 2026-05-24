@@ -22,6 +22,7 @@ import {
   accountCodeFromInternalTaxRangeName,
   isInternalTaxRangeName,
 } from './xeroAccountTaxDropdowns';
+import { agentDebugLog } from './agentDebugLog';
 
 const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
 const MAPPING_ROW_COUNT = ACCOUNT_MAPPING_STRIPE_OBJECTS.length;
@@ -30,9 +31,7 @@ const LAST_DATA_ROW = FIRST_DATA_ROW + MAPPING_ROW_COUNT - 1;
 
 const NAMED_JOURNAL_ACCOUNTS = 'XeroJournalAccounts';
 const NAMED_BANK_ACCOUNTS = 'XeroBankAccounts';
-const BANK_LIST_COL = 'H';
 const NAMED_CONTACTS = 'XeroContacts';
-const CONTACT_LIST_COL = 'I';
 const NAMED_TRACKING = 'XeroTrackingNames';
 const NAMED_TRACK_PREFIX = 'XeroTrack_';
 const NAMED_CATEGORY_LOOKUP = 'XeroCategoryLookup';
@@ -89,7 +88,25 @@ export async function applyAccountMappingsDropdowns(
     );
 
     // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel.ts:applyAccountMappingsDropdowns',message:'filter accounts for dropdowns',data:{defaultCurrency:defaultCurrency??null,allAccounts:options.accounts?.length??0,journalAccounts:journalAccounts.length,bankAccounts:bankAccounts.length,bankAccountSamples:bankAccounts.slice(0,8).map((a)=>({Code:a.Code,Name:(a as any).Name,Type:(a as any).Type,CurrencyCode:(a as any).CurrencyCode,displayLabel:(a as any).displayLabel}))},timestamp:Date.now(),hypothesisId:'H2-H3',runId:'pre-fix'})}).catch(()=>{});
+    agentDebugLog({
+      location: 'accountMappingsExcel.ts:applyAccountMappingsDropdowns',
+      message: 'filter accounts for dropdowns',
+      data: {
+        defaultCurrency: defaultCurrency ?? null,
+        allAccounts: options.accounts?.length ?? 0,
+        journalAccounts: journalAccounts.length,
+        bankAccounts: bankAccounts.length,
+        bankAccountSamples: bankAccounts.slice(0, 8).map((a) => ({
+          Code: a.Code,
+          Name: a.Name,
+          Type: a.Type,
+          CurrencyCode: a.CurrencyCode,
+          displayLabel: a.displayLabel,
+        })),
+      },
+      hypothesisId: 'H2-H3',
+      runId: 'post-fix-v2',
+    });
     // #endregion
 
     const journalAccountLabels = journalAccounts
@@ -103,16 +120,6 @@ export async function applyAccountMappingsDropdowns(
     if (journalAccountLabels.length > 0) {
       listsSheet.getRange(`A1:A${journalAccountLabels.length}`).values =
         journalAccountLabels.map((l) => [l]);
-    }
-    if (bankAccountLabels.length > 0) {
-      listsSheet.getRange(
-        `${BANK_LIST_COL}1:${BANK_LIST_COL}${bankAccountLabels.length}`
-      ).values = bankAccountLabels.map((l) => [l]);
-    }
-    if (contactLabels.length > 0) {
-      listsSheet.getRange(
-        `${CONTACT_LIST_COL}1:${CONTACT_LIST_COL}${contactLabels.length}`
-      ).values = contactLabels.map((l) => [l]);
     }
     if (taxLabels.length > 0) {
       listsSheet.getRange(`B1:B${taxLabels.length}`).values =
@@ -162,18 +169,6 @@ export async function applyAccountMappingsDropdowns(
       names.add(
         NAMED_JOURNAL_ACCOUNTS,
         `='${LISTS_SHEET}'!$A$1:$A$${journalAccountLabels.length}`
-      );
-    }
-    if (bankAccountLabels.length > 0) {
-      names.add(
-        NAMED_BANK_ACCOUNTS,
-        `='${LISTS_SHEET}'!$${BANK_LIST_COL}$1:$${BANK_LIST_COL}$${bankAccountLabels.length}`
-      );
-    }
-    if (contactLabels.length > 0) {
-      names.add(
-        NAMED_CONTACTS,
-        `='${LISTS_SHEET}'!$${CONTACT_LIST_COL}$1:$${CONTACT_LIST_COL}$${contactLabels.length}`
       );
     }
     if (taxLabels.length > 0) {
@@ -227,7 +222,44 @@ export async function applyAccountMappingsDropdowns(
       colIndex
     );
 
+    const bankListCol = colLetter(colIndex);
+    const contactListCol = colLetter(colIndex + 1);
+    if (bankAccountLabels.length > 0) {
+      listsSheet.getRange(
+        `${bankListCol}1:${bankListCol}${bankAccountLabels.length}`
+      ).values = bankAccountLabels.map((l) => [l]);
+      names.add(
+        NAMED_BANK_ACCOUNTS,
+        `='${LISTS_SHEET}'!$${bankListCol}$1:$${bankListCol}$${bankAccountLabels.length}`
+      );
+    }
+    if (contactLabels.length > 0) {
+      listsSheet.getRange(
+        `${contactListCol}1:${contactListCol}${contactLabels.length}`
+      ).values = contactLabels.map((l) => [l]);
+      names.add(
+        NAMED_CONTACTS,
+        `='${LISTS_SHEET}'!$${contactListCol}$1:$${contactListCol}$${contactLabels.length}`
+      );
+    }
+
     await context.sync();
+
+    // #region agent log
+    agentDebugLog({
+      location: 'accountMappingsExcel.ts:listColumns',
+      message: 'lists sheet column layout after setup',
+      data: {
+        bankListCol,
+        contactListCol,
+        taxLookupStartCol: colIndex - 3,
+        bankAccountLabelsCount: bankAccountLabels.length,
+        bankListSample: bankAccountLabels.slice(0, 5),
+      },
+      hypothesisId: 'H5',
+      runId: 'post-fix-v2',
+    });
+    // #endregion
 
     const payoutBankRow =
       FIRST_DATA_ROW +
@@ -269,7 +301,19 @@ export async function applyAccountMappingsDropdowns(
     }
 
     // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel.ts:validationApplied',message:'B column validation for payout bank row',data:{payoutBankRow,bankAccountLabelsCount:bankAccountLabels.length,bankValidationApplied:bankAccountLabels.length>0,accountSource:bankAccountLabels.length>0?`=XeroBankAccounts`:null},timestamp:Date.now(),hypothesisId:'H3-H4',runId:'post-fix'})}).catch(()=>{});
+    agentDebugLog({
+      location: 'accountMappingsExcel.ts:validationApplied',
+      message: 'B column validation for payout bank row',
+      data: {
+        payoutBankRow,
+        bankAccountLabelsCount: bankAccountLabels.length,
+        bankValidationApplied: bankAccountLabels.length > 0,
+        accountSource:
+          bankAccountLabels.length > 0 ? `=${NAMED_BANK_ACCOUNTS}` : null,
+      },
+      hypothesisId: 'H3-H4',
+      runId: 'post-fix-v2',
+    });
     // #endregion
 
     await applyAccountMappingsTaxValidation(
@@ -326,7 +370,20 @@ export async function applyAccountMappingsDropdowns(
     const payoutIdx = ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_bank');
     const payoutRaw = existing[payoutIdx]?.[0];
     const payoutNorm = accountColValues[payoutIdx]?.[0];
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel.ts:cellNormalize',message:'stripe_payout_bank B cell',data:{payoutRaw:String(payoutRaw??''),payoutNorm:String(payoutNorm??''),wasInternalTax:isInternalTaxRangeName(String(payoutRaw??'')),internalCode:isInternalTaxRangeName(String(payoutRaw??''))?accountCodeFromInternalTaxRangeName(String(payoutRaw??'')):null},timestamp:Date.now(),hypothesisId:'H4',runId:'post-fix'})}).catch(()=>{});
+    agentDebugLog({
+      location: 'accountMappingsExcel.ts:cellNormalize',
+      message: 'stripe_payout_bank B cell',
+      data: {
+        payoutRaw: String(payoutRaw ?? ''),
+        payoutNorm: String(payoutNorm ?? ''),
+        wasInternalTax: isInternalTaxRangeName(String(payoutRaw ?? '')),
+        internalCode: isInternalTaxRangeName(String(payoutRaw ?? ''))
+          ? accountCodeFromInternalTaxRangeName(String(payoutRaw ?? ''))
+          : null,
+      },
+      hypothesisId: 'H4',
+      runId: 'post-fix-v2',
+    });
     // #endregion
   });
 }
