@@ -18,6 +18,7 @@
     <AppDomain>https://connect.stripe.com</AppDomain>
     <AppDomain>https://login.xero.com</AppDomain>
     <AppDomain>https://identity.xero.com</AppDomain>
+  </AppDomains>
   <Hosts>
     <Host Name="Workbook"/>
   </Hosts>
