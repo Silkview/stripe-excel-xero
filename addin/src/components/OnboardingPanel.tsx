@@ -8,9 +8,18 @@ import Button from './ui/Button';
 type Props = {
   onboarding: OnboardingState;
   onFinished: () => void;
+  onRefresh?: () => void;
+  onSignOut?: () => void;
+  refreshing?: boolean;
 };
 
-export default function OnboardingPanel({ onboarding, onFinished }: Props) {
+export default function OnboardingPanel({
+  onboarding,
+  onFinished,
+  onRefresh,
+  onSignOut,
+  refreshing = false,
+}: Props) {
   const apiReady = !!onboarding.workspaceId;
   const xeroAuth = useXeroAuth(apiReady);
   const stripeAuth = useStripeAuth(apiReady);
@@ -49,16 +58,27 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
 
   if (onboarding.loading) {
     return (
-      <div className="min-h-screen bg-bg p-4 font-sans text-text">
-        <Header />
-        <p className="text-sm text-text-2">Loading setup…</p>
+      <div className="min-h-screen bg-bg flex flex-col font-sans text-text">
+        <Header
+          signedIn
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          onSignOut={onSignOut}
+        />
+        <p className="text-sm text-text-2 p-4">Loading setup…</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col font-sans text-text p-4">
-      <Header />
+    <div className="min-h-screen bg-bg flex flex-col font-sans text-text">
+      <Header
+        signedIn
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        onSignOut={onSignOut}
+      />
+      <div className="p-4 flex-1">
       <h2 className="text-lg font-semibold mt-2">Connect your accounts</h2>
       <p className="text-sm text-text-2 mt-1 mb-4">
         Your workspace is ready. Connect <strong>your</strong> Xero organisation
@@ -142,6 +162,7 @@ export default function OnboardingPanel({ onboarding, onFinished }: Props) {
       >
         Finish setup
       </Button>
+      </div>
     </div>
   );
 }

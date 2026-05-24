@@ -1,7 +1,6 @@
 interface SetupStripProps {
   onSetupSheets: () => void;
   onRefreshXero: () => void;
-  onAdvancedSetup: () => void;
   loadingSheets: boolean;
   loadingRefresh: boolean;
   xeroConnected: boolean;
@@ -11,7 +10,6 @@ interface SetupStripProps {
 export default function SetupStrip({
   onSetupSheets,
   onRefreshXero,
-  onAdvancedSetup,
   loadingSheets,
   loadingRefresh,
   xeroConnected,
@@ -21,17 +19,8 @@ export default function SetupStrip({
     <div
       className={`bg-surface border-b border-border px-3.5 py-2.5 transition-opacity ${dimmed ? 'opacity-40 pointer-events-none' : ''}`}
     >
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-3">
-          Quick setup
-        </div>
-        <button
-          type="button"
-          onClick={onAdvancedSetup}
-          className="text-[10.5px] font-medium text-accent bg-transparent border-none cursor-pointer p-0 hover:underline"
-        >
-          Advanced setup
-        </button>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-3 mb-1.5">
+        Quick setup
       </div>
       <div className="grid grid-cols-2 gap-1.5">
         <button

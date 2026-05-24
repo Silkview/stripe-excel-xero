@@ -40,6 +40,12 @@ export default function LandingNav() {
             Pricing
           </a>
           <Link
+            href="/support"
+            className="hidden rounded-lg px-3.5 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink sm:inline-block"
+          >
+            Support
+          </Link>
+          <Link
             href="/auth/login"
             className="rounded-lg px-3.5 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink"
           >

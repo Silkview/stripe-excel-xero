@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SUPPORT_EMAIL, SUPPORT_GUIDE_PATH, supportMailtoUrl } from '@/lib/support';
 
 export default function Footer() {
   return (
@@ -13,8 +14,11 @@ export default function Footer() {
         <Link href="/auth/signup" className="hover:text-ink">
           Sign up
         </Link>
-        <a href="mailto:support@silkview.com.au" className="hover:text-ink">
-          Support
+        <Link href={SUPPORT_GUIDE_PATH} className="hover:text-ink">
+          User guide
+        </Link>
+        <a href={supportMailtoUrl()} className="hover:text-ink">
+          {SUPPORT_EMAIL}
         </a>
       </nav>
     </footer>

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import Header from './ui/Header';
 import WorkspaceBar from './ui/WorkspaceBar';
 import SetupStrip from './SetupStrip';
@@ -7,7 +7,6 @@ import StepTabs, { type StepTabId } from './ui/StepTabs';
 import StripePanel from './StripePanel';
 import BuildPanel from './BuildPanel';
 import PushPanel from './PushPanel';
-import SetupPanel from './SetupPanel';
 import Button from './ui/Button';
 import ResultBar from './ui/ResultBar';
 import { useAuth } from '../hooks/useAuth';
@@ -24,10 +23,36 @@ import { clearStripeAccountId } from '../utils/session';
 import NameStripeConnectionModal from './NameStripeConnectionModal';
 import BillingRequiredPanel from './BillingRequiredPanel';
 
-function AppShell({ children }: { children: ReactNode }) {
+type AppShellProps = {
+  children: ReactNode;
+  signedIn?: boolean;
+  refreshing?: boolean;
+  refreshError?: string | null;
+  onRefresh?: () => void;
+  onSignOut?: () => void;
+};
+
+function AppShell({
+  children,
+  signedIn = false,
+  refreshing = false,
+  refreshError = null,
+  onRefresh,
+  onSignOut,
+}: AppShellProps) {
   return (
     <div className="min-h-screen bg-bg flex flex-col font-sans text-ink">
-      <Header />
+      <Header
+        signedIn={signedIn}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        onSignOut={onSignOut}
+      />
+      {refreshError && (
+        <p className="px-3.5 py-1.5 text-[11px] text-warn-text bg-warn-bg border-b border-[#fde68a]">
+          {refreshError}
+        </p>
+      )}
       {children}
     </div>
   );
@@ -59,18 +84,39 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<StepTabId>('pull');
-  const [showSetup, setShowSetup] = useState(false);
-  const [tabBeforeSetup, setTabBeforeSetup] = useState<StepTabId>('pull');
   const [done, setDone] = useState<Partial<Record<StepTabId, boolean>>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
-  const openSetup = () => {
-    setTabBeforeSetup(activeTab);
-    setShowSetup(true);
-  };
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      await Promise.all([
+        workspace.refresh(),
+        onboarding.refresh({ silent: true }),
+        stripeAuth.refresh(),
+        xeroAuth.refresh(),
+      ]);
+    } catch (err) {
+      setRefreshError(
+        err instanceof Error ? err.message : 'Could not refresh. Try again.'
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  }, [workspace, onboarding, stripeAuth, xeroAuth]);
 
-  const closeSetup = () => {
-    setShowSetup(false);
-    setActiveTab(tabBeforeSetup);
+  const handleRefresh = useCallback(() => {
+    void refreshAll();
+  }, [refreshAll]);
+
+  const shellProps = {
+    signedIn: auth.signedIn,
+    refreshing,
+    refreshError,
+    onRefresh: auth.signedIn ? handleRefresh : undefined,
+    onSignOut: auth.signedIn ? auth.signOut : undefined,
   };
 
   const handleWorkspaceChange = (id: string) => {
@@ -81,10 +127,6 @@ export default function App() {
     void stripeAuth.refresh();
     void xeroAuth.refresh();
   };
-
-  const workspaceName =
-    workspace.workspaces.find((w) => w.id === workspace.workspaceId)?.name ??
-    'this workspace';
 
   const manualJournalPostMode =
     workspace.workspaces.find((w) => w.id === workspace.workspaceId)
@@ -104,7 +146,7 @@ export default function App() {
 
   if (needsSignIn) {
     return (
-      <AppShell>
+      <AppShell {...shellProps} signedIn={false}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <div className="p-3.5 flex-1">
           <p className="text-sm text-ink-2 mb-3">
@@ -125,7 +167,7 @@ export default function App() {
 
   if (onboarding.loading || onboarding.provisioning) {
     return (
-      <AppShell>
+      <AppShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <p className="text-sm text-ink-2 p-3.5">
           {onboarding.provisioning ? 'Creating your account…' : 'Loading…'}
@@ -141,7 +183,7 @@ export default function App() {
       onboarding.error?.includes('Exposed schemas') ||
       onboarding.error?.includes('Invalid schema');
     return (
-      <AppShell>
+      <AppShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <div className="p-3.5 flex-1">
           <h2 className="text-lg font-semibold">
@@ -183,6 +225,9 @@ export default function App() {
     return (
       <OnboardingPanel
         onboarding={onboarding}
+        onRefresh={handleRefresh}
+        onSignOut={auth.signOut}
+        refreshing={refreshing}
         onFinished={() => {
           void onboarding.refresh({ silent: true });
           void workspace.refresh();
@@ -196,7 +241,7 @@ export default function App() {
 
   if (billingBlocked) {
     return (
-      <AppShell>
+      <AppShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <BillingRequiredPanel
           billingUrl={onboarding.billingUrl}
@@ -209,7 +254,7 @@ export default function App() {
 
   if (!workspace.ready) {
     return (
-      <AppShell>
+      <AppShell {...shellProps}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
         <div className="p-3.5 flex-1">
           <p className="text-sm text-ink-2 mb-3">
@@ -217,109 +262,89 @@ export default function App() {
               ? 'Loading workspace…'
               : (workspace.error ?? 'No workspace available.')}
           </p>
-          {!workspace.loading && workspace.error && (
-            <Button variant="ghost" onClick={auth.signOut} className="mt-2">
-              Sign out
-            </Button>
-          )}
         </div>
       </AppShell>
     );
   }
 
   return (
-    <AppShell>
+    <AppShell {...shellProps}>
       {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
 
-      {showSetup ? (
-        <SetupPanel
-          xeroConnected={
-            xeroAuth.status.connected && !xeroAuth.needsReconnect
-          }
-          workspaceName={workspaceName}
-          tenantName={xeroAuth.status.tenantName}
-          baseCurrency={currency}
-          onBack={closeSetup}
-        />
-      ) : (
-        <>
-          <SetupStrip
-            onSetupSheets={() => void setupActions.setupSheets()}
-            onRefreshXero={() => void setupActions.refreshXero()}
-            onAdvancedSetup={openSetup}
-            loadingSheets={setupActions.loading}
-            loadingRefresh={setupActions.refreshing}
-            xeroConnected={
-              xeroAuth.status.connected && !xeroAuth.needsReconnect
-            }
-          />
+      <SetupStrip
+        onSetupSheets={() => void setupActions.setupSheets()}
+        onRefreshXero={() => void setupActions.refreshXero()}
+        loadingSheets={setupActions.loading}
+        loadingRefresh={setupActions.refreshing}
+        xeroConnected={
+          xeroAuth.status.connected && !xeroAuth.needsReconnect
+        }
+      />
 
-          <ConnectionsSection
-            stripe={stripeAuth.status}
-            xero={xeroAuth.status}
-            stripeLoading={stripeAuth.loading}
-            xeroLoading={xeroAuth.loading}
-            stripeWaiting={stripeAuth.waitingForBrowser}
-            xeroWaiting={xeroAuth.waitingForBrowser}
-            onConnectStripe={() => void stripeAuth.connect('login')}
-            onConnectAnotherStripe={
-              stripeAuth.canAddAnother
-                ? () => void stripeAuth.connect('login')
-                : undefined
-            }
-            canAddAnotherStripe={stripeAuth.canAddAnother}
-            onConnectXero={() => void xeroAuth.connect()}
-            xeroNeedsReconnect={xeroAuth.needsReconnect}
-            defaultCurrency={currencyReady ? currency : undefined}
-            selectedAccountIds={stripeSelection.selectedAccountIds}
-            onToggleAccount={stripeSelection.toggleAccount}
-            onSelectAllAccounts={stripeSelection.selectAllAccounts}
-          />
+      <ConnectionsSection
+        stripe={stripeAuth.status}
+        xero={xeroAuth.status}
+        stripeLoading={stripeAuth.loading}
+        xeroLoading={xeroAuth.loading}
+        stripeWaiting={stripeAuth.waitingForBrowser}
+        xeroWaiting={xeroAuth.waitingForBrowser}
+        onConnectStripe={() => void stripeAuth.connect('login')}
+        onConnectAnotherStripe={
+          stripeAuth.canAddAnother
+            ? () => void stripeAuth.connect('login')
+            : undefined
+        }
+        canAddAnotherStripe={stripeAuth.canAddAnother}
+        onConnectXero={() => void xeroAuth.connect()}
+        xeroNeedsReconnect={xeroAuth.needsReconnect}
+        defaultCurrency={currencyReady ? currency : undefined}
+        selectedAccountIds={stripeSelection.selectedAccountIds}
+        onToggleAccount={stripeSelection.toggleAccount}
+        onSelectAllAccounts={stripeSelection.selectAllAccounts}
+      />
 
-          {(stripeAuth.error || xeroAuth.error) && (
-            <div className="mx-3.5 mt-2 text-xs text-warn-text bg-warn-bg px-2.5 py-2 rounded-lg border border-[#fde68a]">
-              {stripeAuth.error || xeroAuth.error}
-            </div>
-          )}
-
-          {setupActions.statusMessage && !showSetup && (
-            <div className="px-3.5">
-              <ResultBar variant={setupActions.statusError ? 'warn' : 'success'}>
-                {setupActions.statusMessage}
-              </ResultBar>
-            </div>
-          )}
-
-          <StepTabs active={activeTab} onChange={setActiveTab} done={done} />
-
-          <div className="flex-1 overflow-y-auto bg-bg">
-            {activeTab === 'pull' && (
-              <StripePanel
-                stripeConnected={stripeAuth.status.connected}
-                selectedList={stripeSelection.selectedList}
-                currencyReady={currencyReady}
-                defaultCurrency={currency}
-                onPulled={() => setDone((d) => ({ ...d, pull: true }))}
-              />
-            )}
-            {activeTab === 'build' && (
-              <BuildPanel
-                currencyReady={currencyReady}
-                defaultCurrency={currency}
-                onBuilt={() => setDone((d) => ({ ...d, build: true }))}
-              />
-            )}
-            {activeTab === 'push' && (
-              <PushPanel
-                xeroConnected={xeroAuth.status.connected}
-                currencyReady={currencyReady}
-                defaultCurrency={currency}
-                manualJournalPostMode={manualJournalPostMode}
-              />
-            )}
-          </div>
-        </>
+      {(stripeAuth.error || xeroAuth.error) && (
+        <div className="mx-3.5 mt-2 text-xs text-warn-text bg-warn-bg px-2.5 py-2 rounded-lg border border-[#fde68a]">
+          {stripeAuth.error || xeroAuth.error}
+        </div>
       )}
+
+      {setupActions.statusMessage && (
+        <div className="px-3.5">
+          <ResultBar variant={setupActions.statusError ? 'warn' : 'success'}>
+            {setupActions.statusMessage}
+          </ResultBar>
+        </div>
+      )}
+
+      <StepTabs active={activeTab} onChange={setActiveTab} done={done} />
+
+      <div className="flex-1 overflow-y-auto bg-bg">
+        {activeTab === 'pull' && (
+          <StripePanel
+            stripeConnected={stripeAuth.status.connected}
+            selectedList={stripeSelection.selectedList}
+            currencyReady={currencyReady}
+            defaultCurrency={currency}
+            onPulled={() => setDone((d) => ({ ...d, pull: true }))}
+          />
+        )}
+        {activeTab === 'build' && (
+          <BuildPanel
+            currencyReady={currencyReady}
+            defaultCurrency={currency}
+            onBuilt={() => setDone((d) => ({ ...d, build: true }))}
+          />
+        )}
+        {activeTab === 'push' && (
+          <PushPanel
+            xeroConnected={xeroAuth.status.connected}
+            currencyReady={currencyReady}
+            defaultCurrency={currency}
+            manualJournalPostMode={manualJournalPostMode}
+          />
+        )}
+      </div>
 
       {stripeAuth.pendingName && (
         <NameStripeConnectionModal
