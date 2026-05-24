@@ -15,7 +15,6 @@ import {
   applyAccountMappingsTaxValidation,
   applyXeroJournalsTaxDropdowns,
   deleteAccountTaxNamedRanges,
-  isInternalTaxRangeName,
   setupAccountTaxDropdowns,
 } from './xeroAccountTaxDropdowns';
 import { resolveAccountDisplayLabel } from './accountMappingsRead';
@@ -286,11 +285,6 @@ export async function applyAccountMappingsDropdowns(
       if (stripeObject === 'stripe_payout_contact') return [''];
       const raw = row[0];
       const resolved = resolveAccountDisplayLabel(raw, allAccounts);
-      // #region agent log
-      if (raw && isInternalTaxRangeName(String(raw))) {
-        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel:normalize',message:'fixed_internal_tax_range_in_account_col',data:{stripeObject,raw:String(raw).slice(0,60),resolved:resolved?.slice(0,60)??null},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      }
-      // #endregion
       if (resolved && resolved !== String(raw ?? '').trim()) {
         return [resolved];
       }

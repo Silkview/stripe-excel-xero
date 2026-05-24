@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
@@ -37,6 +37,25 @@ function LoginFormInner() {
   const [magicSent, setMagicSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (excelMode) return;
+    let cancelled = false;
+    const supabase = createSupabaseBrowser();
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      const path = await resolvePostAuthRedirect(supabase, { returnPath });
+      if (!cancelled && path && !path.startsWith('/auth/login')) {
+        router.replace(path);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [excelMode, returnPath, router]);
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -117,5 +117,8 @@ export function getAppUrl(): string {
 }
 
 export function getDashboardUrl(): string {
-  return `${getAppUrl()}/dashboard`;
+  const base = getAppUrl();
+  // Excel opens the system browser without web cookies — land on login with return
+  // instead of hitting a server redirect on /dashboard (fragile in dev, confusing in prod).
+  return `${base}/auth/login?return=${encodeURIComponent('/dashboard')}`;
 }

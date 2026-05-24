@@ -5,7 +5,6 @@ import type { PlanCode } from '@/lib/plans/types';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
-import { dashboardDebugLog } from '@/lib/dashboard-debug-log';
 import type { DashboardContext } from './types';
 
 function initialsFromEmail(email: string): string {
@@ -24,18 +23,7 @@ export async function loadDashboardContext(
   const membership = await getPrimaryAccountMembership(userId);
   if (!membership) return null;
 
-  let admin;
-  try {
-    admin = createSupabaseAdmin();
-  } catch (err) {
-    dashboardDebugLog(
-      'load-context.ts:admin',
-      'createSupabaseAdmin failed',
-      { error: err instanceof Error ? err.message : String(err) },
-      'A'
-    );
-    throw err;
-  }
+  const admin = createSupabaseAdmin();
   const { data: account } = await core(admin)
     .from('accounts')
     .select(

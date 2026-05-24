@@ -1,6 +1,10 @@
 node_modules/
 dist/
+.next/
+web/.next/
+addin/dist/
 .env
 *.log
 .DS_Store
 *.local
+.cursor/debug-*.log

@@ -124,28 +124,6 @@ export async function enforceXeroConnect(
     .eq('workspace_id', workspaceId)
     .eq('is_active', true)
     .maybeSingle();
-  // #region agent log
-  try {
-    const { appendFileSync } = await import('fs');
-    appendFileSync(
-      '/Users/ruvanfernando/stripe-excel-xero/.cursor/debug-4702f2.log',
-      `${JSON.stringify({
-        sessionId: '4702f2',
-        timestamp: Date.now(),
-        location: 'plan-limits.ts:enforceXeroConnect',
-        message: 'xero connect limit check',
-        hypothesisId: 'F',
-        data: {
-          accountId,
-          workspaceId,
-          hasExisting: !!existing,
-        },
-      })}\n`
-    );
-  } catch {
-    // ignore
-  }
-  // #endregion
   if (existing) {
     return { allowed: true };
   }

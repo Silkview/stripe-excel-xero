@@ -13,8 +13,6 @@ import {
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
 import { withCors } from '@/lib/cors';
-import { debugStripeConnectLog } from '@/lib/debug-stripe-connect-log';
-import { getStripeSecretKeyMode } from '@/lib/stripe-connect-config';
 
 export async function OPTIONS(request: Request) {
   return handleOptions(request);
@@ -78,25 +76,6 @@ export async function GET(request: Request) {
       state,
       flow,
     });
-
-    // #region agent log
-    debugStripeConnectLog({
-      hypothesisId: 'A',
-      location: 'stripe/connect:GET',
-      message: 'authorize_url_built',
-      data: {
-        workspaceId,
-        flow,
-        redirectUri,
-        clientIdSuffix: clientId.slice(-8),
-        secretMode: getStripeSecretKeyMode(),
-        paired: pairing.paired,
-        authorizeRedirectParam: new URL(authorizeUrl).searchParams.get(
-          'redirect_uri'
-        ),
-      },
-    });
-    // #endregion
 
     return ok(request, {
       url: authorizeUrl,

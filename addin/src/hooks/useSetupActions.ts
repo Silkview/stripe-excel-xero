@@ -5,8 +5,6 @@ import { friendlyError } from '../utils/errorMessages';
 import { applyAccountMappingsDropdowns } from '../utils/accountMappingsExcel';
 import { migrateAccountMappingsSheet } from '../utils/migrateAccountMappings';
 import { setupWorkbookSheets } from '../utils/officeHelpers';
-import { getWorkspaceId } from '../utils/session';
-
 interface UseSetupActionsOptions {
   xeroConnected: boolean;
   workspaceName?: string;
@@ -30,13 +28,7 @@ export function useSetupActions({
 
   const applyDropdowns = useCallback(async (): Promise<boolean> => {
     await migrateAccountMappingsSheet();
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'useSetupActions.ts:applyDropdowns:before',message:'mapping-options request',data:{sessionWorkspaceId:getWorkspaceId(),workspaceName,xeroConnectedProp:xeroConnected},timestamp:Date.now(),hypothesisId:'A,D'})}).catch(()=>{});
-    // #endregion
     const res = await apiGet<XeroMappingOptions>('/api/xero/mapping-options');
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'useSetupActions.ts:applyDropdowns:after',message:'mapping-options response',data:{success:res.success,errorCode:res.error?.code,errorMessage:res.error?.message?.slice(0,120)},timestamp:Date.now(),hypothesisId:'B,C,D'})}).catch(()=>{});
-    // #endregion
     if (!res.success || !res.data) {
       const code = res.error?.code;
       if (code === 'XERO_AUTH_REQUIRED') {

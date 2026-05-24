@@ -3,8 +3,6 @@ import type { XeroConnectionStatus } from '@stripesync/shared';
 import { apiGet } from '../utils/api';
 import { openAuthFlow } from '../utils/dialogAuth';
 import { friendlyError } from '../utils/errorMessages';
-import { getWorkspaceId } from '../utils/session';
-
 export function useXeroAuth(enabled: boolean, workspaceId?: string | null) {
   const [status, setStatus] = useState<XeroConnectionStatus>({
     connected: false,
@@ -18,9 +16,6 @@ export function useXeroAuth(enabled: boolean, workspaceId?: string | null) {
     try {
       const res = await apiGet<XeroConnectionStatus>('/api/xero/connections');
       if (res.success && res.data) {
-        // #region agent log
-        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'useXeroAuth.ts:refresh',message:'xero connections status',data:{sessionWorkspaceId:getWorkspaceId(),hookWorkspaceId:workspaceId??null,connected:res.data.connected,status:res.data.status,hasCurrency:!!res.data.baseCurrency,refreshErrorCode:res.data.refreshErrorCode??null},timestamp:Date.now(),hypothesisId:'A,E'})}).catch(()=>{});
-        // #endregion
         setStatus(res.data);
         if (res.data.status === 'reconnect_required') {
           setError(
