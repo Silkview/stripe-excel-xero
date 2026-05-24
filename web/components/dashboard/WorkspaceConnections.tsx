@@ -40,25 +40,25 @@ export default function WorkspaceConnections({
     <div className="flex flex-col gap-1.5">
       <div className="overflow-hidden rounded border border-border">
         {xeroConnected && workspace.xero?.tenant_name && !xeroReconnect ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 bg-xero-light px-3 py-2">
-              <div className="h-[26px] w-[26px] shrink-0">
-                <XeroMark size={26} />
+          <div className="flex items-center gap-2 bg-xero-light px-3 py-2">
+            <div className="h-[26px] w-[26px] shrink-0">
+              <XeroMark size={26} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12.5px] font-semibold text-ink">
+                {workspace.xero.tenant_name}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[12.5px] font-semibold text-ink">
-                  {workspace.xero.tenant_name}
-                </div>
-                <div className="text-[11px] text-text-2">
-                  {workspace.xero.stale_refresh
-                    ? 'Inactive — use soon or reconnect'
-                    : 'Connected'}
-                </div>
+              <div className="text-[11px] text-text-2">
+                {workspace.xero.stale_refresh
+                  ? 'Inactive — use soon or reconnect'
+                  : 'Connected'}
               </div>
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-success"
-                title="Connected"
-              />
+            </div>
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-success"
+              title="Connected"
+            />
+            <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
                 onClick={onConnectXero}
@@ -67,9 +67,8 @@ export default function WorkspaceConnections({
               >
                 {xeroLoading ? 'Connecting…' : 'Reconnect'}
               </button>
-            </div>
-            <div className="px-2 pb-2">
               <XeroDisconnectButton
+                compact
                 onClick={onDisconnectXero}
                 disabled={connectDisabled}
               />
