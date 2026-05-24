@@ -185,6 +185,7 @@ interface StripePanelProps {
   selectedList: StripeConnectionItem[];
   currencyReady: boolean;
   defaultCurrency?: string;
+  xeroFeaturesEnabled?: boolean;
   onPulled?: () => void;
 }
 
@@ -193,6 +194,7 @@ export default function StripePanel({
   selectedList,
   currencyReady,
   defaultCurrency,
+  xeroFeaturesEnabled = true,
   onPulled,
 }: StripePanelProps) {
   const { publish, clear } = useNotifications();
@@ -213,7 +215,7 @@ export default function StripePanel({
       prereq = 'Connect Stripe above to pull data.';
     } else if (selectedList.length === 0) {
       prereq = 'Select one or more Stripe accounts above.';
-    } else if (!currencyReady) {
+    } else if (xeroFeaturesEnabled && !currencyReady) {
       prereq =
         'Connect Xero first to set your organisation currency. Pull is disabled until then.';
     }
@@ -222,10 +224,23 @@ export default function StripePanel({
     } else {
       clear('pull-prereq');
     }
-  }, [stripeConnected, selectedList.length, currencyReady, publish, clear]);
+  }, [
+    stripeConnected,
+    selectedList.length,
+    currencyReady,
+    xeroFeaturesEnabled,
+    publish,
+    clear,
+  ]);
 
   useEffect(() => {
-    if (currencyReady && defaultCurrency) {
+    if (!xeroFeaturesEnabled) {
+      publish({
+        kind: 'success',
+        message: 'All Stripe currencies are included on the Free plan.',
+        source: 'pull-info',
+      });
+    } else if (currencyReady && defaultCurrency) {
       publish({
         kind: 'success',
         message: `Only ${defaultCurrency} rows are pulled (from your Xero organisation).`,
@@ -234,7 +249,7 @@ export default function StripePanel({
     } else {
       clear('pull-info');
     }
-  }, [currencyReady, defaultCurrency, publish, clear]);
+  }, [xeroFeaturesEnabled, currencyReady, defaultCurrency, publish, clear]);
 
   useEffect(() => {
     publish({
@@ -422,7 +437,7 @@ export default function StripePanel({
         onClick={handlePull}
         disabled={
           !stripeConnected ||
-          !currencyReady ||
+          (xeroFeaturesEnabled && !currencyReady) ||
           loading ||
           selectedList.length === 0
         }

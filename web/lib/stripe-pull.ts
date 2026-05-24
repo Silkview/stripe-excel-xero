@@ -4,16 +4,14 @@ import {
   stripePullRowCountError,
 } from '@stripesync/shared/pullLimits';
 import type { StripePullResponse } from '@stripesync/shared';
+import type { PlanCode } from '@/lib/plans/types';
 import { getStripeConnection } from './connections/store';
 import { getWorkspaceDefaultCurrency, XeroServiceError } from './services/xero';
-import {
-  getBalanceTransactions,
-  getCharges,
-  getPayouts,
-  StripeServiceError,
-} from './services/stripe-data';
+import { StripeServiceError } from './services/stripe-data';
 import { jsonError } from './api-response';
 import { withCors } from './cors';
+import { createSupabaseAdmin } from './supabase/admin';
+import { core } from './supabase/core';
 
 type FetchFn = (
   accessToken: string,
@@ -32,9 +30,20 @@ function resolveStripeAccountId(request: Request): string | null {
   );
 }
 
+async function getAccountPlanCode(accountId: string): Promise<PlanCode> {
+  const admin = createSupabaseAdmin();
+  const { data: account } = await core(admin)
+    .from('accounts')
+    .select('plan_code')
+    .eq('id', accountId)
+    .maybeSingle();
+  return (account?.plan_code ?? 'free') as PlanCode;
+}
+
 export async function handleStripePull(
   request: Request,
   workspaceId: string,
+  accountId: string,
   fetchFn: FetchFn,
   errorFallback: string
 ) {
@@ -71,23 +80,35 @@ export async function handleStripePull(
   }
 
   try {
-    let defaultCurrency: string;
-    try {
-      defaultCurrency = await getWorkspaceDefaultCurrency(workspaceId);
-    } catch (err) {
-      if (err instanceof XeroServiceError) {
-        const status = err.code === 'XERO_AUTH_REQUIRED' ? 401 : 400;
-        return withCors(request, jsonError(err.code, err.message, status));
+    const planCode = await getAccountPlanCode(accountId);
+    const isFreePlan = planCode === 'free';
+
+    let defaultCurrency: string | null = null;
+    if (!isFreePlan) {
+      try {
+        defaultCurrency = await getWorkspaceDefaultCurrency(workspaceId);
+      } catch (err) {
+        if (err instanceof XeroServiceError) {
+          const status = err.code === 'XERO_AUTH_REQUIRED' ? 401 : 400;
+          return withCors(request, jsonError(err.code, err.message, status));
+        }
+        throw err;
       }
-      throw err;
     }
 
     const raw = await fetchFn(stripe.access_token, from, to);
     const totalBeforeCurrencyFilter = raw.length;
-    const { rows, excludedByCurrency } = filterRowsByCurrency(
-      raw,
-      defaultCurrency
-    );
+    let rows: typeof raw;
+    let excludedByCurrency: number;
+
+    if (defaultCurrency) {
+      const filtered = filterRowsByCurrency(raw, defaultCurrency);
+      rows = filtered.rows;
+      excludedByCurrency = filtered.excludedByCurrency;
+    } else {
+      rows = raw;
+      excludedByCurrency = 0;
+    }
 
     const rowError = stripePullRowCountError(rows.length);
     if (rowError) {
@@ -95,7 +116,7 @@ export async function handleStripePull(
     }
 
     const payload: StripePullResponse<unknown> = {
-      currency: defaultCurrency,
+      currency: defaultCurrency ?? 'ALL',
       rows,
       excludedByCurrency,
       totalBeforeCurrencyFilter,

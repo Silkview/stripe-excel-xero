@@ -9,10 +9,11 @@ export async function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const { workspaceId } = await requireWorkspace(request);
+    const { workspaceId, accountId } = await requireWorkspace(request);
     return handleStripePull(
       request,
       workspaceId,
+      accountId,
       getBalanceTransactions,
       'Failed to fetch balance transactions. Please try again.'
     );

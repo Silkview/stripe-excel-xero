@@ -321,6 +321,7 @@ export default function App() {
           selectedList={stripeSelection.selectedList}
           currencyReady={currencyReady}
           defaultCurrency={currency}
+          xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
           onPulled={() => setDone((d) => ({ ...d, pull: true }))}
         />
       )}
