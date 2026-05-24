@@ -64,6 +64,7 @@ export async function POST(request: Request) {
       request,
       {
         ...ws,
+        manualJournalPostMode: 'draft_and_post' as const,
         xero: null,
         stripe: [],
       },

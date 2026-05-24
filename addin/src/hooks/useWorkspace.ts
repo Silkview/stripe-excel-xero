@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import type { ManualJournalPostMode } from '@stripesync/shared';
 import { apiGet } from '../utils/api';
 import { friendlyError } from '../utils/errorMessages';
 import { clearSession, getWorkspaceId, setWorkspaceId } from '../utils/session';
@@ -6,6 +7,7 @@ import { clearSession, getWorkspaceId, setWorkspaceId } from '../utils/session';
 interface WorkspaceRow {
   id: string;
   name: string;
+  manualJournalPostMode?: ManualJournalPostMode;
 }
 
 type LoadResult = {

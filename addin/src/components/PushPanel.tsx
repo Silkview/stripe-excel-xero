@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type {
   BankTransactionPushResult,
+  ManualJournalPostMode,
   ManualJournalPushResult,
   XeroManualJournalStatus,
 } from '@stripesync/shared';
@@ -43,13 +44,16 @@ interface PushPanelProps {
   xeroConnected: boolean;
   currencyReady: boolean;
   defaultCurrency?: string;
+  manualJournalPostMode?: ManualJournalPostMode;
 }
 
 export default function PushPanel({
   xeroConnected,
   currencyReady,
   defaultCurrency,
+  manualJournalPostMode = 'draft_and_post',
 }: PushPanelProps) {
+  const draftOnly = manualJournalPostMode === 'draft_only';
   const [pushType, setPushType] = useState<PushType>('journals');
   const [journalRange, setJournalRange] = useState(DEFAULT_JOURNAL_PUSH_RANGE);
   const [bankRange, setBankRange] = useState(DEFAULT_BANK_PUSH_RANGE);
@@ -64,6 +68,12 @@ export default function PushPanel({
     if (savedJournal) setJournalRange(savedJournal);
     if (savedBank) setBankRange(savedBank);
   }, []);
+
+  useEffect(() => {
+    if (draftOnly) {
+      setPushStatus('DRAFT');
+    }
+  }, [draftOnly]);
 
   const pushEnabled = xeroConnected && currencyReady;
 
@@ -310,17 +320,23 @@ export default function PushPanel({
             (Status).
           </InfoRow>
           <Field label="Status" className="mt-2">
-            <select
-              value={pushStatus}
-              onChange={(e) =>
-                setPushStatus(e.target.value as XeroManualJournalStatus)
-              }
-              disabled={pushing}
-              className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="POSTED">Posted</option>
-            </select>
+            {draftOnly ? (
+              <div className="w-full rounded-sm border border-border bg-bg px-2 py-1.5 text-sm text-ink-2">
+                Draft (required for this workspace)
+              </div>
+            ) : (
+              <select
+                value={pushStatus}
+                onChange={(e) =>
+                  setPushStatus(e.target.value as XeroManualJournalStatus)
+                }
+                disabled={pushing}
+                className="w-full border border-border rounded-sm px-2 py-1.5 text-sm bg-surface"
+              >
+                <option value="DRAFT">Draft</option>
+                <option value="POSTED">Posted</option>
+              </select>
+            )}
           </Field>
           <Button
             variant="push"

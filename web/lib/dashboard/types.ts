@@ -1,5 +1,6 @@
 import type { PlanCode } from '@/lib/plans/types';
 import type { BillingAccess } from '@/lib/billing/access';
+import type { ManualJournalPostMode } from '@stripesync/shared';
 
 export type DashboardRole = 'owner' | 'admin' | 'member';
 
@@ -42,6 +43,7 @@ export type WorkspaceSummary = {
   id: string;
   name: string;
   created_at: string;
+  manualJournalPostMode: ManualJournalPostMode;
   xero: {
     connected: boolean;
     status: 'connected' | 'reconnect_required' | 'disconnected';

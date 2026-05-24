@@ -86,6 +86,10 @@ export default function App() {
     workspace.workspaces.find((w) => w.id === workspace.workspaceId)?.name ??
     'this workspace';
 
+  const manualJournalPostMode =
+    workspace.workspaces.find((w) => w.id === workspace.workspaceId)
+      ?.manualJournalPostMode ?? 'draft_and_post';
+
   const workspaceBarProps =
     workspace.ready && workspace.workspaces.length > 0
       ? {
@@ -310,6 +314,7 @@ export default function App() {
                 xeroConnected={xeroAuth.status.connected}
                 currencyReady={currencyReady}
                 defaultCurrency={currency}
+                manualJournalPostMode={manualJournalPostMode}
               />
             )}
           </div>

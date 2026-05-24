@@ -143,6 +143,7 @@ export interface Database {
           id: string;
           account_id: string;
           name: string;
+          manual_journal_post_mode: string;
           created_by: string | null;
           created_at: string | null;
           updated_at: string | null;
@@ -151,6 +152,7 @@ export interface Database {
           id?: string;
           account_id: string;
           name: string;
+          manual_journal_post_mode?: string;
           created_by?: string | null;
         };
         Update: Partial<Database['core']['Tables']['workspaces']['Insert']>;

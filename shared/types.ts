@@ -184,6 +184,8 @@ export interface XeroMappingOptions {
 
 export type XeroManualJournalStatus = 'DRAFT' | 'POSTED';
 
+export type ManualJournalPostMode = 'draft_only' | 'draft_and_post';
+
 export interface XeroJournalLineInput {
   date: string;
   accountCode: string;

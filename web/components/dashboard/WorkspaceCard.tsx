@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { ManualJournalPostMode } from '@stripesync/shared';
 import type { WorkspaceSummary } from '@/lib/dashboard/types';
 import { connectWorkspaceProvider, prepareOAuthPopup } from '@/lib/dashboard/oauth-connect';
-import ConnRow from './ConnRow';
+import WorkspaceConnections from './WorkspaceConnections';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
 import RenameWorkspaceModal from './RenameWorkspaceModal';
@@ -43,6 +44,14 @@ export default function WorkspaceCard({
     | null
   >(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [journalPostMode, setJournalPostMode] = useState<ManualJournalPostMode>(
+    workspace.manualJournalPostMode
+  );
+  const [savingJournalMode, setSavingJournalMode] = useState(false);
+
+  useEffect(() => {
+    setJournalPostMode(workspace.manualJournalPostMode ?? 'draft_and_post');
+  }, [workspace.id, workspace.manualJournalPostMode]);
 
   const created = new Date(workspace.created_at).toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -50,15 +59,34 @@ export default function WorkspaceCard({
     year: 'numeric',
   });
 
-  const xeroStatus = workspace.xero?.status;
-  const xeroConnected = workspace.xero?.connected ?? false;
-  const xeroReconnect = xeroStatus === 'reconnect_required';
-  const stripeRows = workspace.stripe.length
-    ? workspace.stripe
-    : [{ id: 'none', display_name: null, stripe_account_id: '' }];
-  const canAddStripe = workspace.stripe.length < maxStripePerWorkspace;
-
   const refresh = () => onConnectionsChanged?.();
+
+  const handleJournalPostModeChange = async (mode: ManualJournalPostMode) => {
+    const previous = journalPostMode;
+    setJournalPostMode(mode);
+    setSavingJournalMode(true);
+    try {
+      const res = await fetch(`/api/workspace/${workspace.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manualJournalPostMode: mode }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setJournalPostMode(previous);
+        toast(data.error?.message ?? 'Could not save journal posting setting.');
+        return;
+      }
+      toast('Journal posting setting saved');
+      refresh();
+    } catch {
+      setJournalPostMode(previous);
+      toast('Could not save journal posting setting.');
+    } finally {
+      setSavingJournalMode(false);
+    }
+  };
 
   const handleConnect = async (provider: 'xero' | 'stripe') => {
     setConnectError(null);
@@ -193,128 +221,44 @@ export default function WorkspaceCard({
 
         <div className="flex flex-col gap-2 px-4 py-3">
           {connectError && <Alert variant="error">{connectError}</Alert>}
-          <ConnRow
-            provider="xero"
-            name={
-              xeroConnected
-                ? (workspace.xero?.tenant_name ?? 'Xero')
-                : 'Xero — not connected'
+          <WorkspaceConnections
+            workspace={workspace}
+            maxStripePerWorkspace={maxStripePerWorkspace}
+            connecting={connecting}
+            onConnectXero={() => void handleConnect('xero')}
+            onConnectStripe={() => void handleConnect('stripe')}
+            onDisconnectXero={() => setDisconnectTarget({ provider: 'xero' })}
+            onDisconnectStripe={(connectionId, label) =>
+              setDisconnectTarget({ provider: 'stripe', connectionId, label })
             }
-            status={
-              xeroReconnect
-                ? 'warning'
-                : xeroConnected
-                  ? workspace.xero?.stale_refresh
-                    ? 'warning'
-                    : 'connected'
-                  : 'disconnected'
-            }
-            hint={
-              xeroReconnect
-                ? 'Reconnect required — refresh failed'
-                : xeroConnected
-                  ? workspace.xero?.stale_refresh
-                    ? 'Inactive — use soon or reconnect'
-                    : 'Connected'
-                  : 'Connect from dashboard or Excel'
-            }
-            action={
-              !xeroConnected || xeroReconnect ? (
-                <Button
-                  type="button"
-                  variant="xero"
-                  className="!py-1 !px-2.5 !text-xs shrink-0"
-                  disabled={connecting !== null}
-                  onClick={() => void handleConnect('xero')}
-                >
-                  {connecting === 'xero'
-                    ? 'Connecting…'
-                    : xeroReconnect
-                      ? 'Reconnect'
-                      : 'Connect'}
-                </Button>
-              ) : undefined
-            }
-            menuItems={
-              xeroConnected
-                ? [
-                    {
-                      label: 'Remove',
-                      danger: true,
-                      onClick: () => setDisconnectTarget({ provider: 'xero' }),
-                    },
-                  ]
-                : undefined
+            onRenameStripe={(connectionId, currentName) =>
+              setRenameStripe({ connectionId, currentName })
             }
           />
-          {stripeRows.map((s) => (
-            <ConnRow
-              key={s.id}
-              provider="stripe"
-              name={
-                s.display_name ?? s.stripe_account_id
-                  ? (s.display_name ?? s.stripe_account_id)
-                  : 'Stripe — not connected'
-              }
-              status={s.stripe_account_id ? 'connected' : 'disconnected'}
-              hint={
-                s.stripe_account_id
-                  ? 'Connected'
-                  : 'Connect from dashboard or Excel'
-              }
-              action={
-                !s.stripe_account_id ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="!py-1 !px-2.5 !text-xs shrink-0"
-                    disabled={connecting !== null}
-                    onClick={() => void handleConnect('stripe')}
-                  >
-                    {connecting === 'stripe' ? 'Connecting…' : 'Connect'}
-                  </Button>
-                ) : undefined
-              }
-              menuItems={
-                s.stripe_account_id
-                  ? [
-                      {
-                        label: 'Rename',
-                        onClick: () =>
-                          setRenameStripe({
-                            connectionId: s.id,
-                            currentName:
-                              s.display_name ?? s.stripe_account_id,
-                          }),
-                      },
-                      {
-                        label: 'Remove',
-                        danger: true,
-                        onClick: () =>
-                          setDisconnectTarget({
-                            provider: 'stripe',
-                            connectionId: s.id,
-                            label: s.display_name ?? s.stripe_account_id,
-                          }),
-                      },
-                    ]
-                  : undefined
-              }
-            />
-          ))}
-          {canAddStripe && workspace.stripe.length > 0 && (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="secondary"
-                className="!py-1 !px-2.5 !text-xs"
-                disabled={connecting !== null}
-                onClick={() => void handleConnect('stripe')}
-              >
-                {connecting === 'stripe' ? 'Connecting…' : 'Add Stripe account'}
-              </Button>
-            </div>
-          )}
+        </div>
+
+        <div className="border-t border-border px-4 py-3">
+          <label className="mb-1.5 block text-[11px] font-medium text-text-2">
+            Manual journal posting
+          </label>
+          <select
+            value={journalPostMode}
+            onChange={(e) =>
+              void handleJournalPostModeChange(
+                e.target.value as ManualJournalPostMode
+              )
+            }
+            disabled={savingJournalMode}
+            className="w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-[12.5px] text-ink disabled:opacity-50"
+          >
+            <option value="draft_only">Draft only</option>
+            <option value="draft_and_post">Draft and Post</option>
+          </select>
+          <p className="mt-1 text-[10.5px] text-text-3">
+            {journalPostMode === 'draft_only'
+              ? 'Excel push is limited to Draft journals for this workspace.'
+              : 'Excel push can post journals as Draft or Posted.'}
+          </p>
         </div>
 
         <WorkspaceTeamFooter workspaceId={workspace.id} onInvite={onInvite} />

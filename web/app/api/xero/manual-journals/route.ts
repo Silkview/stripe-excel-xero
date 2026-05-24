@@ -1,5 +1,7 @@
 import { requireWorkspace } from '@/lib/api-auth';
 import { pushManualJournals } from '@/lib/services/xero';
+import { createSupabaseAdmin } from '@/lib/supabase/admin';
+import { core } from '@/lib/supabase/core';
 import type { ManualJournalPushRequest } from '@stripesync/shared';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 import { jsonError } from '@/lib/api-response';
@@ -20,6 +22,27 @@ export async function POST(request: Request) {
       return withCors(
         request,
         jsonError('VALIDATION_ERROR', 'Status must be DRAFT or POSTED.', 400)
+      );
+    }
+
+    const admin = createSupabaseAdmin();
+    const { data: workspace } = await core(admin)
+      .from('workspaces')
+      .select('manual_journal_post_mode')
+      .eq('id', workspaceId)
+      .maybeSingle();
+
+    if (
+      workspace?.manual_journal_post_mode === 'draft_only' &&
+      status === 'POSTED'
+    ) {
+      return withCors(
+        request,
+        jsonError(
+          'VALIDATION_ERROR',
+          'This workspace only allows draft journals. Change the setting on the dashboard or push as Draft.',
+          400
+        )
       );
     }
 

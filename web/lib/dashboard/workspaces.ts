@@ -5,7 +5,12 @@ import {
 import { getPrimaryAccountMembership } from '@/lib/auth/account-membership';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
+import type { ManualJournalPostMode } from '@stripesync/shared';
 import type { WorkspaceSummary } from './types';
+
+function parseManualJournalPostMode(value: string | null | undefined): ManualJournalPostMode {
+  return value === 'draft_only' ? 'draft_only' : 'draft_and_post';
+}
 
 export async function listWorkspacesForUser(
   userId: string
@@ -40,7 +45,7 @@ export async function listWorkspacesForUser(
 
   let query = core(admin)
     .from('workspaces')
-    .select('id, name, created_at')
+    .select('id, name, created_at, manual_journal_post_mode')
     .eq('account_id', membership.account_id)
     .order('created_at', { ascending: true });
 
@@ -67,6 +72,7 @@ export async function listWorkspacesForUser(
       id: ws.id,
       name: ws.name,
       created_at: ws.created_at ?? new Date().toISOString(),
+      manualJournalPostMode: parseManualJournalPostMode(ws.manual_journal_post_mode),
       xero:
         xeroMeta.status !== 'disconnected'
           ? {
