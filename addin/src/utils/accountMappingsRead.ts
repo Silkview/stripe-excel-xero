@@ -53,6 +53,41 @@ export function resolveAccountDisplayLabel(
   return match?.displayLabel ?? null;
 }
 
+/** Normalize Account_Mappings column B for one row (journal vs bank pool). */
+export function normalizeAccountMappingCell(
+  value: unknown,
+  stripeObject: string,
+  journalAccounts: XeroAccountOption[],
+  bankAccounts: XeroAccountOption[]
+): string {
+  if (stripeObject === 'stripe_payout_contact') return '';
+
+  const pool =
+    stripeObject === 'stripe_payout_bank' ? bankAccounts : journalAccounts;
+  const raw = String(value ?? '').trim();
+
+  if (!raw || raw === '0') return '';
+
+  if (isInternalTaxRangeName(raw)) {
+    const code = accountCodeFromInternalTaxRangeName(raw);
+    const match = pool.find((a) => a.Code === code);
+    return match?.displayLabel ?? '';
+  }
+
+  if (raw.includes(LABEL_SEP)) {
+    const code = raw.slice(0, raw.indexOf(LABEL_SEP)).trim();
+    if (!pool.some((a) => a.Code === code)) return '';
+    return raw;
+  }
+
+  const resolved = resolveAccountDisplayLabel(raw, pool);
+  if (resolved) return resolved;
+
+  const code = raw;
+  if (!pool.some((a) => a.Code === code)) return '';
+  return raw;
+}
+
 export function parseAccountMappingRows(rows: unknown[][]): AccountMappingRow[] {
   const result: AccountMappingRow[] = [];
 

@@ -17,7 +17,11 @@ import {
   deleteAccountTaxNamedRanges,
   setupAccountTaxDropdowns,
 } from './xeroAccountTaxDropdowns';
-import { resolveAccountDisplayLabel } from './accountMappingsRead';
+import { normalizeAccountMappingCell } from './accountMappingsRead';
+import {
+  accountCodeFromInternalTaxRangeName,
+  isInternalTaxRangeName,
+} from './xeroAccountTaxDropdowns';
 
 const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
 const MAPPING_ROW_COUNT = ACCOUNT_MAPPING_STRIPE_OBJECTS.length;
@@ -225,6 +229,21 @@ export async function applyAccountMappingsDropdowns(
 
     await context.sync();
 
+    const payoutBankRow =
+      FIRST_DATA_ROW +
+      ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_bank');
+    const contactRow =
+      FIRST_DATA_ROW +
+      ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_contact');
+
+    mappingsSheet
+      .getRange(`B${FIRST_DATA_ROW}:B${LAST_DATA_ROW}`)
+      .dataValidation.clear();
+    mappingsSheet
+      .getRange(`C${FIRST_DATA_ROW}:C${LAST_DATA_ROW}`)
+      .dataValidation.clear();
+    await context.sync();
+
     for (let i = 0; i < ACCOUNT_MAPPING_STRIPE_OBJECTS.length; i++) {
       const row = FIRST_DATA_ROW + i;
       const stripeObject = ACCOUNT_MAPPING_STRIPE_OBJECTS[i];
@@ -248,14 +267,16 @@ export async function applyAccountMappingsDropdowns(
           listValidation(accountSource);
       }
     }
-    const contactRow =
-      FIRST_DATA_ROW +
-      ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_contact');
+
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel.ts:validationApplied',message:'B column validation for payout bank row',data:{payoutBankRow,bankAccountLabelsCount:bankAccountLabels.length,bankValidationApplied:bankAccountLabels.length>0,accountSource:bankAccountLabels.length>0?`=XeroBankAccounts`:null},timestamp:Date.now(),hypothesisId:'H3-H4',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
+
     await applyAccountMappingsTaxValidation(
       mappingsSheet,
       FIRST_DATA_ROW,
       LAST_DATA_ROW,
-      [contactRow]
+      [contactRow, payoutBankRow]
     );
     if (categoryNames.length > 0) {
       mappingsSheet
@@ -286,20 +307,27 @@ export async function applyAccountMappingsDropdowns(
     accountRange.load('values');
     await context.sync();
     const existing = (accountRange.values as unknown[][]) ?? [];
-    const allAccounts = options.accounts;
     const accountColValues = existing.map((row, i) => {
       const stripeObject = ACCOUNT_MAPPING_STRIPE_OBJECTS[i];
-      if (stripeObject === 'stripe_payout_contact') return [''];
-      const raw = row[0];
-      const resolved = resolveAccountDisplayLabel(raw, allAccounts);
-      if (resolved && resolved !== String(raw ?? '').trim()) {
-        return [resolved];
-      }
-      return [String(raw ?? '')];
+      return [
+        normalizeAccountMappingCell(
+          row[0],
+          stripeObject,
+          journalAccounts,
+          bankAccounts
+        ),
+      ];
     });
     accountRange.values = accountColValues;
 
     await context.sync();
+
+    // #region agent log
+    const payoutIdx = ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_bank');
+    const payoutRaw = existing[payoutIdx]?.[0];
+    const payoutNorm = accountColValues[payoutIdx]?.[0];
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',location:'accountMappingsExcel.ts:cellNormalize',message:'stripe_payout_bank B cell',data:{payoutRaw:String(payoutRaw??''),payoutNorm:String(payoutNorm??''),wasInternalTax:isInternalTaxRangeName(String(payoutRaw??'')),internalCode:isInternalTaxRangeName(String(payoutRaw??''))?accountCodeFromInternalTaxRangeName(String(payoutRaw??'')):null},timestamp:Date.now(),hypothesisId:'H4',runId:'post-fix'})}).catch(()=>{});
+    // #endregion
   });
 }
 
