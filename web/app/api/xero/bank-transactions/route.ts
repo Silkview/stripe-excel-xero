@@ -1,4 +1,4 @@
-import { requireWorkspace } from '@/lib/api-auth';
+import { requireWorkspaceWithXero } from '@/lib/api-auth';
 import { pushBankTransactions } from '@/lib/services/xero';
 import type { BankTransactionPushRequest } from '@stripesync/shared';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
@@ -11,7 +11,7 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { workspaceId } = await requireWorkspace(request);
+    const { workspaceId } = await requireWorkspaceWithXero(request);
     const body = (await request.json()) as BankTransactionPushRequest;
     const transactions = body?.transactions;
 

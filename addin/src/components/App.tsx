@@ -22,6 +22,7 @@ import { getAppUrl } from '../utils/api';
 import { clearStripeAccountId } from '../utils/session';
 import NameStripeConnectionModal from './NameStripeConnectionModal';
 import BillingRequiredPanel from './BillingRequiredPanel';
+import UpgradePlanBanner from './UpgradePlanBanner';
 
 type AppShellProps = {
   children: ReactNode;
@@ -81,6 +82,7 @@ export default function App() {
     workspaceName:
       workspace.workspaces.find((w) => w.id === workspace.workspaceId)?.name,
     baseCurrency: currency,
+    xeroFeaturesEnabled: onboarding.xeroFeaturesEnabled,
   });
 
   const [activeTab, setActiveTab] = useState<StepTabId>('pull');
@@ -269,6 +271,9 @@ export default function App() {
 
   return (
     <AppShell {...shellProps}>
+      {onboarding.planCode === 'free' && (
+        <UpgradePlanBanner billingUrl={onboarding.billingUrl} />
+      )}
       {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
 
       <SetupStrip
@@ -279,6 +284,7 @@ export default function App() {
         xeroConnected={
           xeroAuth.status.connected && !xeroAuth.needsReconnect
         }
+        xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
       />
 
       <ConnectionsSection
@@ -301,6 +307,7 @@ export default function App() {
         selectedAccountIds={stripeSelection.selectedAccountIds}
         onToggleAccount={stripeSelection.toggleAccount}
         onSelectAllAccounts={stripeSelection.selectAllAccounts}
+        xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
       />
 
       {(stripeAuth.error || xeroAuth.error) && (
@@ -333,6 +340,7 @@ export default function App() {
           <BuildPanel
             currencyReady={currencyReady}
             defaultCurrency={currency}
+            xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
             onBuilt={() => setDone((d) => ({ ...d, build: true }))}
           />
         )}
@@ -340,6 +348,7 @@ export default function App() {
           <PushPanel
             xeroConnected={xeroAuth.status.connected}
             currencyReady={currencyReady}
+            xeroFeaturesEnabled={onboarding.xeroFeaturesEnabled}
             defaultCurrency={currency}
             manualJournalPostMode={manualJournalPostMode}
           />

@@ -1,4 +1,4 @@
-import { requireWorkspace } from '@/lib/api-auth';
+import { requireWorkspaceWithXero } from '@/lib/api-auth';
 import { getAccounts } from '@/lib/services/xero';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
 
@@ -8,7 +8,7 @@ export async function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const { workspaceId } = await requireWorkspace(request);
+    const { workspaceId } = await requireWorkspaceWithXero(request);
     const accounts = await getAccounts(workspaceId);
     return ok(request, accounts);
   } catch (err) {

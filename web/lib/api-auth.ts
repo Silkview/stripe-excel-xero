@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from './supabase/admin';
 import { core } from './supabase/core';
 import { getPrimaryAccountMembership } from './auth/account-membership';
 import { requireProductAccess } from './billing/access';
+import { requireXeroFeatureAccess } from './billing/xero-access';
 
 export class ApiAuthError extends Error {
   constructor(
@@ -138,6 +139,13 @@ export async function requireWorkspace(req: Request) {
     accountId: membership.account_id,
     role: membership.role,
   };
+}
+
+/** Workspace auth + paid-plan Xero feature access (connect, refresh, push). */
+export async function requireWorkspaceWithXero(req: Request) {
+  const ctx = await requireWorkspace(req);
+  await requireXeroFeatureAccess(ctx.accountId);
+  return ctx;
 }
 
 export async function getAccountMembership(

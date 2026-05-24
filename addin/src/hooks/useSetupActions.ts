@@ -10,12 +10,14 @@ interface UseSetupActionsOptions {
   xeroConnected: boolean;
   workspaceName?: string;
   baseCurrency?: string;
+  xeroFeaturesEnabled?: boolean;
 }
 
 export function useSetupActions({
   xeroConnected,
   workspaceName,
   baseCurrency,
+  xeroFeaturesEnabled = true,
 }: UseSetupActionsOptions) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,6 +37,10 @@ export function useSetupActions({
       if (code === 'XERO_AUTH_REQUIRED') {
         setStatusMessage(
           `This workspace's Xero connection needs reconnect. Select workspace "${workspaceName ?? 'current'}" and connect Xero for that workspace.`
+        );
+      } else if (code === 'XERO_UPGRADE_REQUIRED') {
+        setStatusMessage(
+          friendlyError(res, 'Upgrade to Pro or Firm to refresh Xero mappings.')
         );
       } else {
         setStatusMessage(
@@ -77,6 +83,7 @@ export function useSetupActions({
         parts.push(`Existing: ${result.skipped.join(', ')}`);
       }
       if (
+        xeroFeaturesEnabled &&
         xeroConnected &&
         (result.created.includes('Account_Mappings') ||
           result.skipped.includes('Account_Mappings'))
@@ -93,9 +100,14 @@ export function useSetupActions({
     } finally {
       setLoading(false);
     }
-  }, [xeroConnected, applyDropdowns]);
+  }, [xeroConnected, xeroFeaturesEnabled, applyDropdowns]);
 
   const refreshXero = useCallback(async () => {
+    if (!xeroFeaturesEnabled) {
+      setStatusMessage('Upgrade to Pro or Firm to refresh Xero mappings.');
+      setStatusError(true);
+      return;
+    }
     if (!xeroConnected) {
       setStatusMessage('Connect Xero first.');
       setStatusError(true);
@@ -117,7 +129,7 @@ export function useSetupActions({
     } finally {
       setRefreshing(false);
     }
-  }, [xeroConnected, applyDropdowns]);
+  }, [xeroConnected, xeroFeaturesEnabled, applyDropdowns]);
 
   return {
     setupSheets,

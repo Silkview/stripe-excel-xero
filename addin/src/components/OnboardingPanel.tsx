@@ -27,7 +27,9 @@ export default function OnboardingPanel({
   const maxStripe =
     onboarding.limits?.maxStripeConnectionsPerWorkspace ?? 1;
   const canAddStripe = onboarding.workspaceStripeCount < maxStripe;
-
+  const xeroEnabled = onboarding.xeroFeaturesEnabled;
+  const canFinish =
+    onboarding.hasStripe && (xeroEnabled ? onboarding.hasXero : true);
   const refreshOnboarding = onboarding.refresh;
   const wasXeroConnected = useRef(false);
   const wasStripeConnected = useRef(false);
@@ -81,9 +83,14 @@ export default function OnboardingPanel({
       <div className="p-4 flex-1">
       <h2 className="text-lg font-semibold mt-2">Connect your accounts</h2>
       <p className="text-sm text-text-2 mt-1 mb-4">
-        Your workspace is ready. Connect <strong>your</strong> Xero organisation
-        and <strong>your</strong> Stripe account — Silkview only uses them for
-        this workspace, not for other customers.
+        Your workspace is ready. Connect <strong>your</strong> Stripe account
+        {xeroEnabled ? (
+          <>
+            {' '}
+            and <strong>your</strong> Xero organisation
+          </>
+        ) : null}{' '}
+        — Silkview only uses them for this workspace.
       </p>
 
       {onboarding.error && (
@@ -91,34 +98,54 @@ export default function OnboardingPanel({
       )}
 
       <section className="mb-4 rounded border border-border bg-surface p-3">
-        <h3 className="text-sm font-semibold mb-2">1. Connect Xero</h3>
-        <p className="text-xs text-text-2 mb-2">
-          One Xero organisation per workspace (sets your base currency).
-        </p>
-        {xeroAuth.status.connected ? (
-          <p className="text-xs text-success-text">
-            Connected: {xeroAuth.status.tenantName ?? 'Xero'}
-          </p>
+        <h3 className="text-sm font-semibold mb-2">
+          {xeroEnabled ? '1. Connect Xero' : '1. Xero (Pro & Firm)'}
+        </h3>
+        {xeroEnabled ? (
+          <>
+            <p className="text-xs text-text-2 mb-2">
+              One Xero organisation per workspace (sets your base currency).
+            </p>
+            {xeroAuth.status.connected ? (
+              <p className="text-xs text-success-text">
+                Connected: {xeroAuth.status.tenantName ?? 'Xero'}
+              </p>
+            ) : (
+              <Button
+                variant="xero"
+                disabled={xeroAuth.loading || xeroAuth.waitingForBrowser}
+                onClick={() => void xeroAuth.connect()}
+              >
+                {xeroAuth.waitingForBrowser
+                  ? 'Waiting…'
+                  : xeroAuth.loading
+                    ? 'Connecting…'
+                    : 'Connect Xero'}
+              </Button>
+            )}
+            {xeroAuth.error && (
+              <p className="text-xs text-warn-text mt-2">{xeroAuth.error}</p>
+            )}
+          </>
         ) : (
-          <Button
-            variant="xero"
-            disabled={xeroAuth.loading || xeroAuth.waitingForBrowser}
-            onClick={() => void xeroAuth.connect()}
-          >
-            {xeroAuth.waitingForBrowser
-              ? 'Waiting…'
-              : xeroAuth.loading
-                ? 'Connecting…'
-                : 'Connect Xero'}
-          </Button>
-        )}
-        {xeroAuth.error && (
-          <p className="text-xs text-warn-text mt-2">{xeroAuth.error}</p>
+          <p className="text-xs text-text-2">
+            Xero connect, mapping refresh, and push require Pro or Firm.{' '}
+            <a
+              href={onboarding.billingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-accent underline"
+            >
+              Upgrade in billing
+            </a>
+          </p>
         )}
       </section>
 
       <section className="mb-4 rounded border border-border bg-surface p-3">
-        <h3 className="text-sm font-semibold mb-2">2. Connect Stripe</h3>
+        <h3 className="text-sm font-semibold mb-2">
+          {xeroEnabled ? '2. Connect Stripe' : '2. Connect Stripe'}
+        </h3>
         <p className="text-xs text-text-2 mb-2">
           {onboarding.workspaceStripeCount} of {maxStripe} Stripe account
           {maxStripe > 1 ? 's' : ''} for this workspace.
@@ -157,7 +184,7 @@ export default function OnboardingPanel({
 
       <Button
         variant="primary"
-        disabled={!onboarding.hasXero || !onboarding.hasStripe}
+        disabled={!canFinish}
         onClick={() => void handleFinish()}
       >
         Finish setup

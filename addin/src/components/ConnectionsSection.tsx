@@ -23,6 +23,7 @@ interface ConnectionsSectionProps {
   selectedAccountIds: Set<string>;
   onToggleAccount: (stripeAccountId: string) => void;
   onSelectAllAccounts: () => void;
+  xeroFeaturesEnabled?: boolean;
   dimmed?: boolean;
 }
 
@@ -42,6 +43,7 @@ export default function ConnectionsSection({
   selectedAccountIds,
   onToggleAccount,
   onSelectAllAccounts,
+  xeroFeaturesEnabled = true,
   dimmed,
 }: ConnectionsSectionProps) {
   const stripeConnections = stripe.connections ?? [];
@@ -54,7 +56,17 @@ export default function ConnectionsSection({
     >
       {/* Xero */}
       <div className="border border-border rounded overflow-hidden">
-        {xeroConnected && xero.tenantName ? (
+        {!xeroFeaturesEnabled ? (
+          <div className="px-3 py-2.5 bg-bg">
+            <div className="flex items-center gap-2 mb-1">
+              <XeroMark size={20} />
+              <span className="text-[12.5px] font-semibold text-ink">Xero</span>
+            </div>
+            <p className="text-[11px] text-ink-2 leading-snug">
+              Upgrade to Pro or Firm to connect Xero and push to your ledger.
+            </p>
+          </div>
+        ) : xeroConnected && xero.tenantName ? (
           <div className="px-3 py-2 bg-xero-light flex items-center gap-2">
             <div className="w-[26px] h-[26px] shrink-0">
               <XeroMark size={26} />

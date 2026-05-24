@@ -1,5 +1,5 @@
 import { isBankPayoutAccount } from '@stripesync/shared/accountMappingRules';
-import { requireWorkspace } from '@/lib/api-auth';
+import { requireWorkspaceWithXero } from '@/lib/api-auth';
 import { appendDebugLog } from '@/lib/debug-log';
 import { ensureXeroBaseCurrency, getMappingOptions } from '@/lib/services/xero';
 import { handleOptions, handleRouteError, ok } from '@/lib/route-handler';
@@ -10,7 +10,7 @@ export async function OPTIONS(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const { workspaceId } = await requireWorkspace(request);
+    const { workspaceId } = await requireWorkspaceWithXero(request);
     const options = await getMappingOptions(workspaceId);
     let baseCurrency: string | undefined;
     try {

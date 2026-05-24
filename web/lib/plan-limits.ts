@@ -130,6 +130,20 @@ export async function enforceXeroConnect(
   workspaceId: string
 ): Promise<{ allowed: boolean; reason?: string }> {
   const supabase = createSupabaseAdmin();
+  const { data: account } = await core(supabase)
+    .from('accounts')
+    .select('plan_code')
+    .eq('id', accountId)
+    .maybeSingle();
+
+  const planCode = (account?.plan_code ?? 'free') as PlanCode;
+  if (planCode === 'free') {
+    return {
+      allowed: false,
+      reason: 'Upgrade to Pro or Firm to connect Xero.',
+    };
+  }
+
   const { data: existing } = await core(supabase)
     .from('xero_connections')
     .select('id')

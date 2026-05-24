@@ -20,12 +20,14 @@ import {
 interface BuildPanelProps {
   currencyReady: boolean;
   defaultCurrency?: string;
+  xeroFeaturesEnabled?: boolean;
   onBuilt?: () => void;
 }
 
 export default function BuildPanel({
   currencyReady,
   defaultCurrency,
+  xeroFeaturesEnabled = true,
   onBuilt,
 }: BuildPanelProps) {
   const [building, setBuilding] = useState(false);
@@ -36,6 +38,11 @@ export default function BuildPanel({
   const busy = building || buildingBank;
 
   const handleBuildJournals = async () => {
+    if (!xeroFeaturesEnabled) {
+      setStatusMessage('Upgrade to Pro or Firm to build Xero journals.');
+      setStatusError(true);
+      return;
+    }
     if (!currencyReady || !defaultCurrency) {
       setStatusMessage('Connect Xero to set your organisation currency before building.');
       setStatusError(true);
@@ -68,6 +75,11 @@ export default function BuildPanel({
   };
 
   const handleBuildBankTransactions = async () => {
+    if (!xeroFeaturesEnabled) {
+      setStatusMessage('Upgrade to Pro or Firm to build bank transactions.');
+      setStatusError(true);
+      return;
+    }
     if (!currencyReady || !defaultCurrency) {
       setStatusMessage('Connect Xero to set your organisation currency before building.');
       setStatusError(true);
@@ -96,7 +108,7 @@ export default function BuildPanel({
     }
   };
 
-  const buildDisabled = busy || !currencyReady;
+  const buildDisabled = busy || !xeroFeaturesEnabled || !currencyReady;
 
   return (
     <div className="p-3.5 flex flex-col gap-0">

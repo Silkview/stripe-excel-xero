@@ -7,6 +7,7 @@ import PlanLimitBar from './PlanLimitBar';
 import WorkspaceGrid from './WorkspaceGrid';
 import CreateWorkspaceModal from './CreateWorkspaceModal';
 import InviteMemberModal from './InviteMemberModal';
+import ExcelAccessGuide from './ExcelAccessGuide';
 
 export default function WorkspacesPanel() {
   const ctx = useDashboard();
@@ -75,6 +76,7 @@ export default function WorkspacesPanel() {
           onConnectionsChanged={load}
         />
       )}
+      <ExcelAccessGuide />
       {ctx.isAdmin && (
         <>
           <CreateWorkspaceModal

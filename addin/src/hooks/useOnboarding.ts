@@ -23,6 +23,7 @@ export type OnboardingState = {
   billingAccess: 'active' | 'trial_expired' | 'payment_required';
   billingUrl: string;
   needsDowngradeSelection: boolean;
+  xeroFeaturesEnabled: boolean;
   loading: boolean;
   error: string | null;
   refresh: (options?: { silent?: boolean }) => Promise<void>;
@@ -47,6 +48,7 @@ export function useOnboarding(enabled: boolean): OnboardingState {
     billingAccess: 'active' as const,
     billingUrl: '',
     needsDowngradeSelection: false,
+    xeroFeaturesEnabled: false,
   });
 
   const loadStatus = useCallback(async (tryAutoProvision: boolean) => {
@@ -67,6 +69,7 @@ export function useOnboarding(enabled: boolean): OnboardingState {
       billingAccess: 'active' | 'trial_expired' | 'payment_required';
       billingUrl: string;
       needsDowngradeSelection: boolean;
+      xeroFeaturesEnabled: boolean;
     }>('/api/onboarding/status');
 
     if (!res.success || !res.data) {
@@ -121,6 +124,7 @@ export function useOnboarding(enabled: boolean): OnboardingState {
       billingAccess: d.billingAccess ?? 'active',
       billingUrl: d.billingUrl ?? '',
       needsDowngradeSelection: d.needsDowngradeSelection ?? false,
+      xeroFeaturesEnabled: d.xeroFeaturesEnabled ?? false,
     });
 
     if (d.workspaceId) {
@@ -190,6 +194,7 @@ export function useOnboarding(enabled: boolean): OnboardingState {
     billingAccess: status.billingAccess,
     billingUrl: status.billingUrl,
     needsDowngradeSelection: status.needsDowngradeSelection,
+    xeroFeaturesEnabled: status.xeroFeaturesEnabled,
     loading,
     error,
     refresh,

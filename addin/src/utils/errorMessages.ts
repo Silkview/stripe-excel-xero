@@ -16,6 +16,10 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   ACCOUNT_REQUIRED:
     'Your account is not set up yet. Sign out and sign in again, or contact support.',
   AUTH_REQUIRED: 'Your session expired. Sign in again.',
+  BILLING_REQUIRED:
+    'Subscribe to Pro or Firm to continue using Silkview Connect.',
+  XERO_UPGRADE_REQUIRED:
+    'Upgrade to Pro or Firm to connect Xero and push to your ledger.',
   PROVISION_ERROR: '',
 };
 

@@ -1,29 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import type { PlanCode } from '@/lib/plans/types';
-import type { BillingInterval } from '@/lib/plans/pricing';
-import { billingIntervalLabel } from '@/lib/plans/pricing';
-import { marketingPlansForInterval } from '@/lib/plans/marketing';
-import { startBillingCheckout } from '@/lib/billing/checkout-client';
-import Button from '@/components/ui/Button';
-import BillingIntervalToggle from '@/components/billing/BillingIntervalToggle';
 import { useDashboard, PageHeader } from './dashboard-ui';
 import BillingPortalButton from './BillingPortalButton';
 import DeleteAccountButton from './DeleteAccountButton';
-
-const PAID_PLAN_CODES: PlanCode[] = ['pro', 'firm'];
+import PlanUpgradePicker from '@/components/billing/PlanUpgradePicker';
 
 export default function BillingPaywall() {
   const ctx = useDashboard();
-  const [selectedPlan, setSelectedPlan] = useState<PlanCode>('pro');
-  const [interval, setInterval] = useState<BillingInterval>('monthly');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const plans = marketingPlansForInterval(interval).filter((p) =>
-    PAID_PLAN_CODES.includes(p.code)
-  );
 
   const headline =
     ctx.billingAccess === 'payment_required'
@@ -35,82 +18,23 @@ export default function BillingPaywall() {
       ? 'Update your payment method or choose a plan to continue using Silkview Connect.'
       : 'Subscribe to Pro or Firm to keep syncing Stripe and Xero data, or delete your account.';
 
-  const subscribe = async () => {
-    if (selectedPlan !== 'pro' && selectedPlan !== 'firm') return;
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await startBillingCheckout(selectedPlan, interval);
-      if (result.url) {
-        window.location.href = result.url;
-        return;
-      }
-      setError(result.error ?? 'Could not start checkout.');
-    } catch {
-      setError('Could not start checkout.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <>
       <PageHeader title="Billing" subtitle={subtitle} />
 
-      <PaywallBanner headline={headline} subtitle={subtitle} />
+      <div className="mb-6 rounded-[11px] border border-accent/30 bg-accent-light/50 p-6">
+        <h2 className="text-lg font-semibold text-ink">{headline}</h2>
+        <p className="mt-2 text-sm text-text-2">{subtitle}</p>
+      </div>
 
       {ctx.isAdmin ? (
         <>
-          <div className="mb-6">
-            <BillingIntervalToggle value={interval} onChange={setInterval} />
-          </div>
-
-          <div className="grid max-w-3xl gap-5 sm:grid-cols-2">
-            {plans.map((p) => {
-              const isSelected = selectedPlan === p.code;
-              return (
-                <button
-                  key={p.code}
-                  type="button"
-                  onClick={() => setSelectedPlan(p.code)}
-                  className={`relative flex flex-col rounded-lg border p-6 text-left transition-all ${
-                    isSelected
-                      ? 'border-accent bg-[#EEF4FF] ring-2 ring-accent/30'
-                      : 'border-rule bg-surface hover:border-accent/40'
-                  }`}
-                >
-                  <div className="text-sm font-semibold text-ink-2">{p.name}</div>
-                  <PaywallPrice price={p.price} period={p.period} />
-                  <p className="mt-2 text-xs text-ink-3">{p.tagline}</p>
-                  <ul className="mt-4 space-y-1.5">
-                    {p.features.slice(0, 4).map((f) => (
-                      <li key={f.text} className="text-[13px] text-ink-2">
-                        ✓ {f.text}
-                      </li>
-                    ))}
-                  </ul>
-                  <span className="mt-4 text-xs font-medium text-accent">
-                    {isSelected ? 'Selected' : `Choose ${p.name}`}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Button
-              variant="primary"
-              className="!bg-accent hover:!bg-accent-hover"
-              onClick={() => void subscribe()}
-              disabled={loading}
-            >
-              {loading
-                ? 'Opening checkout…'
-                : `Subscribe to ${selectedPlan} (${billingIntervalLabel(interval).toLowerCase()})`}
-            </Button>
-            {ctx.hasStripeCustomer && <BillingPortalButton />}
-          </div>
-          {error && <p className="mt-3 text-sm text-warn">{error}</p>}
+          <PlanUpgradePicker className="max-w-3xl" />
+          {ctx.hasStripeCustomer && (
+            <div className="mt-6">
+              <BillingPortalButton />
+            </div>
+          )}
         </>
       ) : (
         <p className="text-sm text-text-2">
@@ -132,29 +56,5 @@ export default function BillingPaywall() {
         </section>
       )}
     </>
-  );
-}
-
-function PaywallBanner({
-  headline,
-  subtitle,
-}: {
-  headline: string;
-  subtitle: string;
-}) {
-  return (
-    <div className="mb-6 rounded-[11px] border border-accent/30 bg-accent-light/50 p-6">
-      <h2 className="text-lg font-semibold text-ink">{headline}</h2>
-      <p className="mt-2 text-sm text-text-2">{subtitle}</p>
-    </div>
-  );
-}
-
-function PaywallPrice({ price, period }: { price: string; period: string }) {
-  return (
-    <div className="mt-2 flex items-baseline gap-0.5">
-      <span className="font-serif text-3xl text-ink">{price}</span>
-      <span className="text-sm text-ink-3">{period}</span>
-    </div>
   );
 }

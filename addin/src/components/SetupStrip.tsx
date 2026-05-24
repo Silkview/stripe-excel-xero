@@ -4,6 +4,7 @@ interface SetupStripProps {
   loadingSheets: boolean;
   loadingRefresh: boolean;
   xeroConnected: boolean;
+  xeroFeaturesEnabled?: boolean;
   dimmed?: boolean;
 }
 
@@ -13,6 +14,7 @@ export default function SetupStrip({
   loadingSheets,
   loadingRefresh,
   xeroConnected,
+  xeroFeaturesEnabled = true,
   dimmed,
 }: SetupStripProps) {
   return (
@@ -44,7 +46,9 @@ export default function SetupStrip({
         <button
           type="button"
           onClick={onRefreshXero}
-          disabled={loadingSheets || loadingRefresh || !xeroConnected}
+          disabled={
+            loadingSheets || loadingRefresh || !xeroConnected || !xeroFeaturesEnabled
+          }
           className="flex items-center gap-1.5 p-2 rounded-lg border border-border bg-bg cursor-pointer transition-colors hover:border-[#c5cbda] hover:bg-rule-2 disabled:opacity-60 disabled:cursor-not-allowed text-left"
         >
           <span className="w-7 h-7 rounded-[7px] bg-xero-light flex items-center justify-center text-[13px] shrink-0">

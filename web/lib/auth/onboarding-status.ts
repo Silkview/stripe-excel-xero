@@ -9,6 +9,7 @@ import {
   needsDowngradeSelection,
   type BillingAccess,
 } from '@/lib/billing/access';
+import { canUseXeroFeatures } from '@/lib/billing/xero-access';
 
 export type OnboardingPrefill = {
   planCode: PlanCode | null;
@@ -37,6 +38,7 @@ export type OnboardingStatus = {
   billingAccess: BillingAccess;
   billingUrl: string;
   needsDowngradeSelection: boolean;
+  xeroFeaturesEnabled: boolean;
 };
 
 const VALID_PLANS: PlanCode[] = ['free', 'pro', 'firm'];
@@ -93,6 +95,7 @@ export async function getOnboardingStatusForUser(
       billingAccess: 'active',
       billingUrl: getBillingUrl(),
       needsDowngradeSelection: false,
+      xeroFeaturesEnabled: false,
     };
   }
 
@@ -145,13 +148,15 @@ export async function getOnboardingStatusForUser(
   }
 
   const needsAccountSetup = !workspaceId;
+  const billingAccess = await getBillingAccess(membership.account_id);
+  const xeroFeaturesEnabled = canUseXeroFeatures(planCode, billingAccess);
   const needsConnectionSetup =
-    !needsAccountSetup && (!hasXero || !hasStripe);
+    !needsAccountSetup &&
+    (!hasStripe || (xeroFeaturesEnabled && !hasXero));
   /** Web redirect: workspace provision only (connections optional on web). */
   const needsOnboarding =
     needsAccountSetup || !account?.onboarding_completed_at;
 
-  const billingAccess = await getBillingAccess(membership.account_id);
   const downgradeNeeded = await needsDowngradeSelection(membership.account_id);
 
   return {
@@ -179,6 +184,7 @@ export async function getOnboardingStatusForUser(
     billingAccess,
     billingUrl: getBillingUrl(),
     needsDowngradeSelection: downgradeNeeded,
+    xeroFeaturesEnabled,
   };
 }
 

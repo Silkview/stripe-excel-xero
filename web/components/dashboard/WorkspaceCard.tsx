@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import type { ManualJournalPostMode } from '@stripesync/shared';
 import type { WorkspaceSummary } from '@/lib/dashboard/types';
 import { connectWorkspaceProvider, prepareOAuthPopup } from '@/lib/dashboard/oauth-connect';
+import { useDashboard } from './dashboard-ui';
 import WorkspaceConnections from './WorkspaceConnections';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
@@ -25,6 +26,9 @@ export default function WorkspaceCard({
   onConnectionsChanged?: () => void;
 }) {
   const { toast } = useToast();
+  const ctx = useDashboard();
+  const xeroFeaturesEnabled =
+    ctx.planCode !== 'free' && ctx.billingAccess === 'active';
   const [menuOpen, setMenuOpen] = useState(false);
   const [connecting, setConnecting] = useState<'xero' | 'stripe' | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -224,6 +228,7 @@ export default function WorkspaceCard({
           <WorkspaceConnections
             workspace={workspace}
             maxStripePerWorkspace={maxStripePerWorkspace}
+            xeroFeaturesEnabled={xeroFeaturesEnabled}
             connecting={connecting}
             onConnectXero={() => void handleConnect('xero')}
             onConnectStripe={() => void handleConnect('stripe')}

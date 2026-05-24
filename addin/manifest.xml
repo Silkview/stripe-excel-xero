@@ -2,7 +2,7 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:type="TaskPaneApp">
-  <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
+  <Id>6f4b82d9-1c5a-4b3d-9e28-7a1c5d9f3e4b</Id>
   <Version>1.0.0.2</Version>
   <ProviderName>Silkview Connect</ProviderName>
   <DefaultLocale>en-AU</DefaultLocale>
@@ -17,6 +17,7 @@
     <AppDomain>https://silkview.org</AppDomain>
     <AppDomain>https://connect.stripe.com</AppDomain>
     <AppDomain>https://login.xero.com</AppDomain>
+    <AppDomain>https://identity.xero.com</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Workbook"/>

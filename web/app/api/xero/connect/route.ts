@@ -1,4 +1,5 @@
 import { requireWorkspace, getAccountMembership } from '@/lib/api-auth';
+import { requireXeroFeatureAccess } from '@/lib/billing/xero-access';
 import { enforceXeroConnect } from '@/lib/plan-limits';
 import {
   newNonce,
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
     if (!membership) {
       return withCors(request, jsonError('ACCOUNT_REQUIRED', 'No account.', 403));
     }
+    await requireXeroFeatureAccess(membership.account_id);
     const check = await enforceXeroConnect(membership.account_id, workspaceId);
     if (!check.allowed) {
       return withCors(

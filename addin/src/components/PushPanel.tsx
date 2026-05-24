@@ -43,6 +43,7 @@ type PushType = 'journals' | 'bank';
 interface PushPanelProps {
   xeroConnected: boolean;
   currencyReady: boolean;
+  xeroFeaturesEnabled?: boolean;
   defaultCurrency?: string;
   manualJournalPostMode?: ManualJournalPostMode;
 }
@@ -50,6 +51,7 @@ interface PushPanelProps {
 export default function PushPanel({
   xeroConnected,
   currencyReady,
+  xeroFeaturesEnabled = true,
   defaultCurrency,
   manualJournalPostMode = 'draft_and_post',
 }: PushPanelProps) {
@@ -75,7 +77,7 @@ export default function PushPanel({
     }
   }, [draftOnly]);
 
-  const pushEnabled = xeroConnected && currencyReady;
+  const pushEnabled = xeroFeaturesEnabled && xeroConnected && currencyReady;
 
   const handlePushJournals = async () => {
     if (!pushEnabled) {
@@ -266,7 +268,12 @@ export default function PushPanel({
 
   return (
     <div className="p-3.5 flex flex-col gap-0">
-      {!currencyReady && (
+      {!xeroFeaturesEnabled && (
+        <InfoRow className="mb-2 text-warn">
+          Upgrade to Pro or Firm to push journals and bank transactions to Xero.
+        </InfoRow>
+      )}
+      {xeroFeaturesEnabled && !currencyReady && (
         <InfoRow className="mb-2 text-warn">
           Connect Xero first to set your organisation currency. Push is disabled until then.
         </InfoRow>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import ConnectStripeButton from '@/components/brand/ConnectStripeButton';
 import ConnectXeroButton from '@/components/brand/ConnectXeroButton';
 import StripeMark from '@/components/brand/StripeMark';
@@ -10,6 +11,7 @@ import type { WorkspaceSummary } from '@/lib/dashboard/types';
 export default function WorkspaceConnections({
   workspace,
   maxStripePerWorkspace,
+  xeroFeaturesEnabled = true,
   connecting,
   onConnectXero,
   onConnectStripe,
@@ -19,6 +21,7 @@ export default function WorkspaceConnections({
 }: {
   workspace: WorkspaceSummary;
   maxStripePerWorkspace: number;
+  xeroFeaturesEnabled?: boolean;
   connecting: 'xero' | 'stripe' | null;
   onConnectXero: () => void;
   onConnectStripe: () => void;
@@ -39,7 +42,24 @@ export default function WorkspaceConnections({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="overflow-hidden rounded border border-border">
-        {xeroConnected && workspace.xero?.tenant_name && !xeroReconnect ? (
+        {!xeroFeaturesEnabled ? (
+          <div className="flex flex-col gap-2 bg-bg px-3 py-3">
+            <div className="flex items-center gap-2">
+              <XeroMark size={26} />
+              <span className="text-[12.5px] font-semibold text-ink">Xero</span>
+            </div>
+            <p className="text-[11.5px] leading-snug text-text-2">
+              Connect Xero, refresh mappings, and push to your ledger on Pro or
+              Firm.
+            </p>
+            <Link
+              href="/dashboard/billing"
+              className="text-[11.5px] font-medium text-accent hover:underline"
+            >
+              Upgrade to Pro or Firm →
+            </Link>
+          </div>
+        ) : xeroConnected && workspace.xero?.tenant_name && !xeroReconnect ? (
           <div className="flex items-center gap-2 bg-xero-light px-3 py-2">
             <div className="h-[26px] w-[26px] shrink-0">
               <XeroMark size={26} />

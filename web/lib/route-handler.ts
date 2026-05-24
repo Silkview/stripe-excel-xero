@@ -7,6 +7,10 @@ import {
   DowngradeRequiredError,
   getBillingUrl,
 } from './billing/access';
+import {
+  XeroUpgradeRequiredError,
+  getXeroUpgradeBillingUrl,
+} from './billing/xero-access';
 import { XeroServiceError } from './services/xero';
 import { StripeServiceError } from './services/stripe-data';
 import { XeroAuthRequiredError } from './xeroAuth';
@@ -32,6 +36,14 @@ export function handleRouteError(request: Request, err: unknown) {
       request,
       jsonError(err.code, err.message, 403, {
         billingUrl: getBillingUrl(),
+      })
+    );
+  }
+  if (err instanceof XeroUpgradeRequiredError) {
+    return withCors(
+      request,
+      jsonError(err.code, err.message, 403, {
+        billingUrl: getXeroUpgradeBillingUrl(),
       })
     );
   }
