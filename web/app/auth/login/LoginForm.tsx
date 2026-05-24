@@ -8,6 +8,7 @@ import {
   resolvePostAuthRedirect,
   safeReturnPath,
 } from '@/lib/auth/client-post-auth-redirect';
+import { PRODUCT_NAME } from '@stripesync/shared/brand';
 import { navigateExcelAuth } from '@/lib/auth/excel-navigation';
 import {
   signInWithPassword,
@@ -100,7 +101,7 @@ function LoginFormInner() {
       subtitle={
         excelMode
           ? 'Sign in to connect Stripe and Xero from the Excel add-in.'
-          : 'Welcome back to Silkview Sync.'
+          : `Welcome back to ${PRODUCT_NAME}.`
       }
       footer={
         excelMode ? undefined : (

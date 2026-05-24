@@ -8,6 +8,7 @@
     ".": "./types.ts",
     "./accountMappingRules": "./accountMappingRules.ts",
     "./pullLimits": "./pullLimits.ts",
-    "./currencyFilter": "./currencyFilter.ts"
+    "./currencyFilter": "./currencyFilter.ts",
+    "./brand": "./brand.ts"
   }
 }

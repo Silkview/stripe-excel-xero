@@ -1,4 +1,4 @@
-# Silkview Sync
+# Silkview Connect
 
 Microsoft Excel Add-in that connects to **Stripe** (pull financial data) and **Xero** (push accounting entries). The backend is a **Next.js 14** app on Vercel with **Supabase** (auth, Postgres RLS, encrypted OAuth tokens) and **Stripe** subscription billing.
 
@@ -111,7 +111,7 @@ npm run dev:web
 
 1. Open Excel → **Insert** → **Add-ins** → **Upload My Add-in**.
 2. Select `addin/manifest.xml`.
-3. Open **Silkview Sync** from the ribbon.
+3. Open **Silkview Connect** from the ribbon.
 
 ### 7. Web app and sign-in
 

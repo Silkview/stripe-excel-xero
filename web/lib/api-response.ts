@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { ApiError, ApiResponse } from '@stripesync/shared';
+import { PRODUCT_NAME } from '@stripesync/shared/brand';
 
 export const REQUEST_TIMEOUT_MS = 15000;
 
@@ -25,7 +26,7 @@ function callbackProviderTitle(
   payload: object,
   isSuccess: boolean
 ): string {
-  if (isSuccess) return 'Silkview Sync connected';
+  if (isSuccess) return `${PRODUCT_NAME} connected`;
   const provider =
     typeof payload === 'object' &&
     payload !== null &&
@@ -61,7 +62,7 @@ export function authCallbackHtml(payload: object): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${PRODUCT_NAME}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
@@ -103,7 +104,7 @@ export function authExcelSignInHtml(
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${PRODUCT_NAME}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>
@@ -160,7 +161,7 @@ export function authExcelSignInErrorHtml(message: string): string {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Silkview Sync</title>
+  <title>${PRODUCT_NAME}</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
   <style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:32rem;margin:auto;}</style>
 </head>

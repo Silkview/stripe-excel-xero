@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "vite --port 4000",
-    "build": "vite build",
+    "icons": "node scripts/generate-icons.mjs",
+    "build": "npm run icons && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "autoprefixer": "^10.4.20",
     "office-addin-dev-certs": "^1.13.5",
     "postcss": "^8.4.49",
+    "sharp": "^0.33.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "^6.0.7"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { PRODUCT_NAME } from '@stripesync/shared/brand';
 import {
   getAddinManifestUrl,
   getExcelSignInUrl,
@@ -34,9 +35,9 @@ export default function DashboardTopbar({ pathname }: { pathname: string }) {
       <div className="flex items-center gap-2">
         {showExcelHelp && (
           <div className="mr-2 max-w-xs rounded-lg border border-border bg-bg px-3 py-2 text-xs text-text-2">
-            <p className="font-medium text-ink">Open Silkview Sync in Excel</p>
+            <p className="font-medium text-ink">Open {PRODUCT_NAME} in Excel</p>
             <p className="mt-1">
-              Insert → My Add-ins → Silkview Sync.{' '}
+              Insert → My Add-ins → {PRODUCT_NAME}.{' '}
               <a
                 href={getAddinManifestUrl()}
                 className="text-accent underline"

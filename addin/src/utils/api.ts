@@ -115,3 +115,7 @@ export function getApiErrorMessage(
 export function getAppUrl(): string {
   return getOfficeAuthOrigin() || 'http://localhost:4003';
 }
+
+export function getDashboardUrl(): string {
+  return `${getAppUrl()}/dashboard`;
+}
