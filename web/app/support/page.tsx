@@ -12,7 +12,7 @@ export default function SupportPage() {
   return (
     <>
       <LandingNav />
-      <main className="bg-bg px-5 py-16 sm:px-12 sm:py-20">
+      <main>
         <UserGuide />
       </main>
       <Footer />
