@@ -53,6 +53,10 @@ export async function recordBillingEvent(
         : null,
   };
 
+  // #region agent log
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'aa61bb'},body:JSON.stringify({sessionId:'aa61bb',runId:'pre-fix',hypothesisId:'H1',location:'record-event.ts:before_insert',message:'recordBillingEvent attempting insert',data:{source:row.source,event_type:row.event_type,account_id:row.account_id,status:row.status,stack:new Error().stack?.split('\n').slice(1,6).join(' | ')},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
   if (input.stripeEventId) {
     const { data: existing } = await core(admin)
       .from('billing_webhook_events')
@@ -72,6 +76,9 @@ export async function recordBillingEvent(
     .single();
 
   if (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'aa61bb'},body:JSON.stringify({sessionId:'aa61bb',runId:'pre-fix',hypothesisId:'H1',location:'record-event.ts:insert_error',message:'recordBillingEvent INSERT failed',data:{code:error.code,message:error.message,details:(error as unknown as {details?:string}).details ?? null,hint:(error as unknown as {hint?:string}).hint ?? null,source:row.source,event_type:row.event_type},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (error.code === '23505' && input.stripeEventId) {
       const { data: dup } = await core(admin)
         .from('billing_webhook_events')

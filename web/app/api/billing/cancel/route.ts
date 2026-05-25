@@ -14,6 +14,10 @@ export async function POST(request: Request) {
     const { membership } = await requireAccountAdmin(request);
     const accountId = membership.account_id;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'aa61bb'},body:JSON.stringify({sessionId:'aa61bb',runId:'pre-fix',hypothesisId:'H1',location:'api/billing/cancel:POST',message:'cancel route entered',data:{accountId},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     const admin = createSupabaseAdmin();
     const { data: account } = await core(admin)
       .from('accounts')
