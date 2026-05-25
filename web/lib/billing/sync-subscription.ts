@@ -39,6 +39,7 @@ function subscriptionUpdateFields(
     max_workspaces: number;
     current_period_end: string;
     trial_ends_at?: null;
+    past_due_since?: string | null;
   } = {
     stripe_subscription_id: subscription.id,
     subscription_status: subscription.status,
@@ -53,6 +54,7 @@ function subscriptionUpdateFields(
 
   if (subscription.status === 'active') {
     fields.trial_ends_at = null;
+    fields.past_due_since = null;
   }
 
   return fields;
@@ -184,6 +186,6 @@ export async function syncAccountFromInvoicePaid(
 
   await core(admin)
     .from('accounts')
-    .update({ subscription_status: 'active' })
+    .update({ subscription_status: 'active', past_due_since: null })
     .eq('stripe_customer_id', customerId);
 }

@@ -19,6 +19,7 @@ const PUBLIC_PREFIXES = [
   '/api/addin/manifest',
   '/api/account/invite/preview',
   '/api/billing/webhook',
+  '/api/cron/',
   '/api/stripe/callback',
   '/api/xero/callback',
   '/api/xero/complete-tenant',

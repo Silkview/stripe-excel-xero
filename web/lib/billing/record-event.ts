@@ -2,7 +2,11 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
 import type { Json } from '@/types/database.types';
 
-export type BillingEventSource = 'webhook' | 'checkout_confirm';
+export type BillingEventSource =
+  | 'webhook'
+  | 'checkout_confirm'
+  | 'cron'
+  | 'user_cancel';
 export type BillingEventStatus =
   | 'received'
   | 'processed'

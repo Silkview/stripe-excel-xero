@@ -6,7 +6,6 @@ import { formatPlanSummary } from '@/lib/plans/display';
 import { PLAN_PRICING } from '@/lib/plans/pricing';
 import BillingPortalButton from './BillingPortalButton';
 import SubscribeNowButton from './SubscribeNowButton';
-import StripeConnectHealth from './StripeConnectHealth';
 import RenameAccountModal from './RenameAccountModal';
 import DeleteAccountButton from './DeleteAccountButton';
 import Button from '@/components/ui/Button';
@@ -110,8 +109,6 @@ export default function AccountSettingsPanel() {
             {ctx.hasPaidSubscription && <BillingPortalButton />}
           </div>
         </section>
-
-        <StripeConnectHealth />
 
         <section className="rounded-[11px] border border-red/30 bg-red-light/40 p-6 lg:col-span-2">
           <h2 className="text-[15px] font-semibold text-red">Danger zone</h2>

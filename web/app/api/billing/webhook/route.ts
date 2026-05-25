@@ -114,6 +114,12 @@ export async function POST(req: Request) {
           .update({
             subscription_status: 'canceled',
             stripe_subscription_id: null,
+            plan_code: 'free',
+            plan: 'free',
+            max_users: 1,
+            max_workspaces: 1,
+            past_due_since: null,
+            trial_ends_at: null,
           })
           .eq('stripe_subscription_id', sub.id);
         await updateBillingEventByStripeId(event.id, {
@@ -143,9 +149,19 @@ export async function POST(req: Request) {
         const customerId =
           typeof inv.customer === 'string' ? inv.customer : inv.customer?.id;
         if (customerId) {
+          const { data: existing } = await core(supabase)
+            .from('accounts')
+            .select('id, past_due_since')
+            .eq('stripe_customer_id', customerId)
+            .maybeSingle();
+
           await core(supabase)
             .from('accounts')
-            .update({ subscription_status: 'past_due' })
+            .update({
+              subscription_status: 'past_due',
+              past_due_since:
+                existing?.past_due_since ?? new Date().toISOString(),
+            })
             .eq('stripe_customer_id', customerId);
         }
         await updateBillingEventByStripeId(event.id, {

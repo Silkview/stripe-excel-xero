@@ -8,6 +8,7 @@ import { useDashboard, PageHeader } from '@/components/dashboard/dashboard-ui';
 import BillingPaywall from '@/components/dashboard/BillingPaywall';
 import ProDowngradeWizard from '@/components/dashboard/ProDowngradeWizard';
 import BillingPortalButton from '@/components/dashboard/BillingPortalButton';
+import CancelSubscriptionButton from '@/components/dashboard/CancelSubscriptionButton';
 import PlanUpgradePicker from '@/components/billing/PlanUpgradePicker';
 
 function BillingPageContent() {
@@ -133,8 +134,15 @@ function BillingPageContent() {
               />
             </div>
           ) : ctx.hasPaidSubscription ? (
-            <div className="mt-4">
-              <BillingPortalButton />
+            <div className="mt-4 space-y-3">
+              <p className="text-xs text-text-3">
+                Use <strong>Manage billing</strong> to switch between Pro and
+                Firm or update your payment details.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <BillingPortalButton />
+                <CancelSubscriptionButton />
+              </div>
             </div>
           ) : null
         ) : (

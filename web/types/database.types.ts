@@ -55,6 +55,7 @@ export interface Database {
           max_workspaces: number;
           onboarding_completed_at: string | null;
           billing_downgrade_completed_at: string | null;
+          past_due_since: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -72,6 +73,7 @@ export interface Database {
           max_workspaces?: number;
           onboarding_completed_at?: string | null;
           billing_downgrade_completed_at?: string | null;
+          past_due_since?: string | null;
         };
         Update: Partial<Database['core']['Tables']['accounts']['Insert']>;
         Relationships: [];

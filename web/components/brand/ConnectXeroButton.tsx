@@ -1,4 +1,5 @@
-import { connectBtnClass, connectBtnHeight, connectBtnImgClass } from './connectButtonStyles';
+import XeroMark from './XeroMark';
+import { connectBtnClass, connectBtnHeight } from './connectButtonStyles';
 
 export default function ConnectXeroButton({
   onClick,
@@ -14,15 +15,11 @@ export default function ConnectXeroButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className={`${connectBtnClass} ${connectBtnHeight} border-0 bg-transparent p-0`}
+      className={`${connectBtnClass} ${connectBtnHeight} justify-center gap-2 border-none bg-xero px-3 text-[13px] font-semibold text-white transition-colors hover:bg-xero-dark`}
       aria-label={loading ? 'Connecting to Xero' : 'Connect to Xero'}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/brand/connect-xero.svg"
-        alt={loading ? 'Connecting…' : 'Connect to Xero'}
-        className={connectBtnImgClass}
-      />
+      <XeroMark size={22} />
+      {loading ? 'Connecting…' : 'Connect to Xero'}
     </button>
   );
 }
