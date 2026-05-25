@@ -21,6 +21,9 @@ export default defineConfig({
   plugins: [react()],
   root: 'src',
   publicDir: '../public',
+  // envDir defaults to root ('src'), but our .env files live at the workspace
+  // root (addin/), matching the existing publicDir = '../public' convention.
+  envDir: '..',
   build: {
     outDir: '../dist',
     emptyOutDir: true,
