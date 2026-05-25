@@ -1,5 +1,11 @@
 import Link from 'next/link';
-import { SUPPORT_EMAIL, SUPPORT_GUIDE_PATH, supportMailtoUrl } from '@/lib/support';
+import {
+  PRIVACY_PATH,
+  SUPPORT_EMAIL,
+  SUPPORT_GUIDE_PATH,
+  TERMS_PATH,
+  supportMailtoUrl,
+} from '@/lib/support';
 
 export default function Footer() {
   return (
@@ -13,6 +19,12 @@ export default function Footer() {
         </Link>
         <Link href="/auth/signup" className="hover:text-ink">
           Sign up
+        </Link>
+        <Link href={PRIVACY_PATH} className="hover:text-ink">
+          Privacy
+        </Link>
+        <Link href={TERMS_PATH} className="hover:text-ink">
+          Terms
         </Link>
         <Link href={SUPPORT_GUIDE_PATH} className="hover:text-ink">
           User guide
