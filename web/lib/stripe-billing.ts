@@ -173,6 +173,9 @@ export async function createCheckoutSession(
     subscription_data: {
       metadata: { accountId, plan, interval },
     },
+    automatic_tax: { enabled: true },
+    billing_address_collection: 'required',
+    customer_update: { address: 'auto', name: 'auto' },
   });
 }
 
