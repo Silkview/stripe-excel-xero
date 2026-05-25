@@ -16,10 +16,15 @@ export interface BtColumnLetters {
   type: string;
 }
 
-export const MAPPING_FIRST_ROW = 2;
+/** Account Mapping section: rows 3..(3 + n - 1) on Account_Mappings. */
+export const MAPPING_FIRST_ROW = 3;
 export const MAPPING_LAST_ROW =
   MAPPING_FIRST_ROW + ACCOUNT_MAPPING_STRIPE_OBJECTS.length - 1;
 export const MAPPING_RANGE_A = `$A$${MAPPING_FIRST_ROW}:$A$${MAPPING_LAST_ROW}`;
+
+/** Single Bank Transfer Contact cell in the Contact Mapping section (B11). */
+export const CONTACT_MAPPING_DATA_ROW = 11;
+export const CONTACT_MAPPING_VALUE_CELL = `$B$${CONTACT_MAPPING_DATA_ROW}`;
 
 export const JOURNAL_CLEAR_ROWS = 500;
 
@@ -30,15 +35,13 @@ export type MappingField =
   | 'account'
   | 'tax'
   | 'trackingName'
-  | 'trackingOption'
-  | 'contact';
+  | 'trackingOption';
 
 const MAPPING_COL: Record<MappingField, string> = {
   account: 'B',
   tax: 'C',
   trackingName: 'D',
   trackingOption: 'E',
-  contact: 'F',
 };
 
 function quoteSheet(name: string): string {
@@ -65,6 +68,14 @@ export function mappingFormula(
     return `=IF(OR(${indexExpr}="",${indexExpr}=0),"",${indexExpr})`;
   }
   return `=${indexExpr}`;
+}
+
+/**
+ * Formula for the single Bank Transfer Contact cell in the Contact Mapping
+ * section. Returns a direct reference to `Account_Mappings!$B$11`.
+ */
+export function bankTransferContactFormula(): string {
+  return `=${MAPPING_SHEET}!${CONTACT_MAPPING_VALUE_CELL}`;
 }
 
 export function sumifsAmount(

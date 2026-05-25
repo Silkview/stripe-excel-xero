@@ -6,7 +6,7 @@ import {
   MAPPING_SHEET,
   MAPPING_STRIPE_PAYOUT_BANK,
   MAPPING_STRIPE_CLEARING,
-  MAPPING_STRIPE_PAYOUT_CONTACT,
+  bankTransferContactFormula,
   mappingFormula,
 } from '../config/xeroBankTransactionBuilder';
 import { WORKBOOK_SHEETS } from '../config/workbookSheets';
@@ -55,7 +55,7 @@ function makePayoutRow(
   return [
     availableOn,
     BANK_TXN_TYPE_RECEIVE,
-    mappingFormula('contact', MAPPING_STRIPE_PAYOUT_CONTACT),
+    bankTransferContactFormula(),
     mappingFormula('account', MAPPING_STRIPE_PAYOUT_BANK),
     sourceId,
     mappingFormula('account', MAPPING_STRIPE_CLEARING),

@@ -178,17 +178,25 @@ export const ACCOUNT_MAPPING_STRIPE_OBJECTS = [
   'fee',
   'stripe_clearing',
   'stripe_payout_bank',
-  'stripe_payout_contact',
 ] as const;
 
 export const ACCOUNT_MAPPING_HEADERS = [
-  'stripe_object',
-  'xero_account_code',
-  'xero_tax_type',
-  'xero_tracking_name',
-  'xero_tracking_option',
-  'xero_contact',
-];
+  'Stripe Object',
+  'Xero Account Code',
+  'Xero Tax Type',
+  'Xero Tracking Name',
+  'Xero Tracking Option',
+] as const;
+
+export const CONTACT_MAPPING_KEYS = ['stripe_payout_contact'] as const;
+
+export type ContactMappingKey = (typeof CONTACT_MAPPING_KEYS)[number];
+
+export const CONTACT_MAPPING_LABELS: Record<ContactMappingKey, string> = {
+  stripe_payout_contact: 'Bank Transfer Contact',
+};
+
+export const CONTACT_MAPPING_HEADERS = ['', 'Xero Contact'] as const;
 
 export interface WorkbookSheetConfig {
   name: string;
@@ -238,7 +246,6 @@ export const WORKBOOK_SHEETS: WorkbookSheetConfig[] = [
   },
   {
     name: 'Account_Mappings',
-    headers: ACCOUNT_MAPPING_HEADERS,
-    defaultRows: ACCOUNT_MAPPING_STRIPE_OBJECTS.map((obj) => [obj]),
+    headers: [...ACCOUNT_MAPPING_HEADERS],
   },
 ];

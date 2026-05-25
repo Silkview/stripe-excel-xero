@@ -1,28 +1,30 @@
 import type { XeroAccountOption } from '@stripesync/shared';
-import {
-  ACCOUNT_MAPPING_HEADERS,
-  ACCOUNT_MAPPING_STRIPE_OBJECTS,
-} from '../config/workbookSheets';
+import { ACCOUNT_MAPPING_STRIPE_OBJECTS } from '../config/workbookSheets';
 import {
   accountCodeFromInternalTaxRangeName,
   isInternalTaxRangeName,
 } from './xeroAccountTaxDropdowns';
 
 export const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
-const FIRST_DATA_ROW = 2;
+
+/** Account Mapping section data range (matches accountMappingsExcel constants). */
+export const FIRST_DATA_ROW = 3;
+export const LAST_DATA_ROW =
+  FIRST_DATA_ROW + ACCOUNT_MAPPING_STRIPE_OBJECTS.length - 1; // 7
+
+/** Single Contact Mapping row (Bank Transfer Contact -> Xero Contact). */
+export const CONTACT_DATA_ROW = 11;
 
 const LABEL_SEP = ' — ';
 
 const COL_STRIPE_OBJECT = 0;
 const COL_ACCOUNT = 1;
 const COL_TAX = 2;
-const COL_CONTACT = 5;
 
 export interface AccountMappingRow {
   stripeObject: string;
   accountCode: string;
   taxType?: string;
-  contactLabel?: string;
 }
 
 export function extractMappingCode(label: unknown): string {
@@ -60,8 +62,6 @@ export function normalizeAccountMappingCell(
   journalAccounts: XeroAccountOption[],
   bankAccounts: XeroAccountOption[]
 ): string {
-  if (stripeObject === 'stripe_payout_contact') return '';
-
   const pool =
     stripeObject === 'stripe_payout_bank' ? bankAccounts : journalAccounts;
   const raw = String(value ?? '').trim();
@@ -96,12 +96,10 @@ export function parseAccountMappingRows(rows: unknown[][]): AccountMappingRow[] 
     if (!stripeObject) continue;
     const accountCode = extractMappingCode(rows[i][COL_ACCOUNT]);
     const taxType = extractMappingCode(rows[i][COL_TAX]);
-    const contactLabel = String(rows[i][COL_CONTACT] ?? '').trim();
     result.push({
       stripeObject,
       accountCode,
       taxType: taxType || undefined,
-      contactLabel: contactLabel || undefined,
     });
   }
 
@@ -117,8 +115,23 @@ export function getMappingForObject(
   );
 }
 
+/** Account Mapping data range A1 ref (`A3:E7`). */
 export function mappingDataRangeA1(): string {
-  const lastRow = FIRST_DATA_ROW + ACCOUNT_MAPPING_STRIPE_OBJECTS.length - 1;
-  const lastCol = String.fromCharCode(64 + ACCOUNT_MAPPING_HEADERS.length);
-  return `A${FIRST_DATA_ROW}:${lastCol}${lastRow}`;
+  return `A${FIRST_DATA_ROW}:E${LAST_DATA_ROW}`;
+}
+
+/** Read the single Bank Transfer Contact value (B11) from the Contact Mapping section. */
+export async function readBankTransferContactLabel(): Promise<string> {
+  return Excel.run(async (ctx) => {
+    const sheet = ctx.workbook.worksheets.getItemOrNullObject(
+      ACCOUNT_MAPPINGS_SHEET
+    );
+    sheet.load('name');
+    await ctx.sync();
+    if (sheet.isNullObject) return '';
+    const cell = sheet.getRange(`B${CONTACT_DATA_ROW}`);
+    cell.load('values');
+    await ctx.sync();
+    return String((cell.values as unknown[][])[0]?.[0] ?? '').trim();
+  });
 }

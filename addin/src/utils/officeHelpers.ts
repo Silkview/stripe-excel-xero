@@ -1,5 +1,8 @@
 import { WORKBOOK_SHEETS } from '../config/workbookSheets';
+import { writeAccountMappingsLayout } from './accountMappingsExcel';
 import { clearEntireSheetUsedRange } from './sheetClear';
+
+const ACCOUNT_MAPPINGS_SHEET_NAME = 'Account_Mappings';
 
 export interface SetupSheetsResult {
   created: string[];
@@ -131,20 +134,24 @@ export async function setupWorkbookSheets(): Promise<SetupSheetsResult> {
       sheet.position = nextPosition;
       nextPosition += 1;
 
-      const lastCol = colLetter(config.headers.length);
-      const headerRange = sheet.getRange(`A1:${lastCol}1`);
-      headerRange.values = [config.headers];
-      headerRange.format.font.bold = true;
-      headerRange.format.fill.color = '#F0F0F0';
+      if (config.name === ACCOUNT_MAPPINGS_SHEET_NAME) {
+        writeAccountMappingsLayout(sheet);
+      } else {
+        const lastCol = colLetter(config.headers.length);
+        const headerRange = sheet.getRange(`A1:${lastCol}1`);
+        headerRange.values = [config.headers];
+        headerRange.format.font.bold = true;
+        headerRange.format.fill.color = '#F0F0F0';
 
-      if (config.defaultRows && config.defaultRows.length > 0) {
-        const dataRange = sheet.getRange(
-          `A2:A${config.defaultRows.length + 1}`
-        );
-        dataRange.values = config.defaultRows;
+        if (config.defaultRows && config.defaultRows.length > 0) {
+          const dataRange = sheet.getRange(
+            `A2:A${config.defaultRows.length + 1}`
+          );
+          dataRange.values = config.defaultRows;
+        }
+
+        sheet.getUsedRange().format.autofitColumns();
       }
-
-      sheet.getUsedRange().format.autofitColumns();
 
       result.created.push(config.name);
     }

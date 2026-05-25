@@ -6,6 +6,9 @@ import {
 import {
   ACCOUNT_MAPPING_STRIPE_OBJECTS,
   ACCOUNT_MAPPING_HEADERS,
+  CONTACT_MAPPING_KEYS,
+  CONTACT_MAPPING_LABELS,
+  CONTACT_MAPPING_HEADERS,
 } from '../config/workbookSheets';
 import { colLetter } from './officeHelpers';
 import {
@@ -25,9 +28,26 @@ import {
 import { agentDebugLog } from './agentDebugLog';
 
 const ACCOUNT_MAPPINGS_SHEET = 'Account_Mappings';
-const MAPPING_ROW_COUNT = ACCOUNT_MAPPING_STRIPE_OBJECTS.length;
-const FIRST_DATA_ROW = 2;
-const LAST_DATA_ROW = FIRST_DATA_ROW + MAPPING_ROW_COUNT - 1;
+
+// Account Mapping section (top)
+export const ACCOUNT_TITLE_ROW = 1;
+export const ACCOUNT_HEADER_ROW = 2;
+export const ACCOUNT_FIRST_DATA_ROW = 3;
+export const ACCOUNT_LAST_DATA_ROW =
+  ACCOUNT_FIRST_DATA_ROW + ACCOUNT_MAPPING_STRIPE_OBJECTS.length - 1; // 7
+const ACCOUNT_LAST_COL = colLetter(ACCOUNT_MAPPING_HEADERS.length); // 'E'
+
+// Contact Mapping section (below, separated by one spacer row)
+export const CONTACT_TITLE_ROW = ACCOUNT_LAST_DATA_ROW + 2; // 9
+export const CONTACT_HEADER_ROW = CONTACT_TITLE_ROW + 1; // 10
+export const CONTACT_FIRST_DATA_ROW = CONTACT_HEADER_ROW + 1; // 11
+export const CONTACT_LAST_DATA_ROW =
+  CONTACT_FIRST_DATA_ROW + CONTACT_MAPPING_KEYS.length - 1; // 11
+const CONTACT_LAST_COL = colLetter(CONTACT_MAPPING_HEADERS.length); // 'B'
+
+const SECTION_TITLE_FILL = '#000000';
+const SECTION_TITLE_FONT = '#FFFFFF';
+const HEADER_FILL = '#F0F0F0';
 
 const NAMED_JOURNAL_ACCOUNTS = 'XeroJournalAccounts';
 const NAMED_BANK_ACCOUNTS = 'XeroBankAccounts';
@@ -53,6 +73,72 @@ function listValidation(source: string): Excel.DataValidationRule {
       source,
     },
   };
+}
+
+/**
+ * Paint the two-section layout (Account Mapping + Contact Mapping) on the given
+ * Account_Mappings worksheet. Caller must `await context.sync()` afterwards.
+ *
+ * Safe to re-run: clears the existing used range first.
+ */
+export function writeAccountMappingsLayout(sheet: Excel.Worksheet): void {
+  const used = sheet.getUsedRangeOrNullObject();
+  used.clear(Excel.ClearApplyTo.all);
+
+  // --- Account Mapping section ---
+  const accountTitleRange = sheet.getRange(
+    `A${ACCOUNT_TITLE_ROW}:${ACCOUNT_LAST_COL}${ACCOUNT_TITLE_ROW}`
+  );
+  accountTitleRange.merge();
+  accountTitleRange.values = [['Account Mapping']];
+  accountTitleRange.format.fill.color = SECTION_TITLE_FILL;
+  accountTitleRange.format.font.color = SECTION_TITLE_FONT;
+  accountTitleRange.format.font.bold = true;
+  accountTitleRange.format.horizontalAlignment =
+    Excel.HorizontalAlignment.left;
+  accountTitleRange.format.indentLevel = 1;
+
+  const accountHeaderRange = sheet.getRange(
+    `A${ACCOUNT_HEADER_ROW}:${ACCOUNT_LAST_COL}${ACCOUNT_HEADER_ROW}`
+  );
+  accountHeaderRange.values = [[...ACCOUNT_MAPPING_HEADERS]];
+  accountHeaderRange.format.font.bold = true;
+  accountHeaderRange.format.fill.color = HEADER_FILL;
+
+  const accountKeyRange = sheet.getRange(
+    `A${ACCOUNT_FIRST_DATA_ROW}:A${ACCOUNT_LAST_DATA_ROW}`
+  );
+  accountKeyRange.values = ACCOUNT_MAPPING_STRIPE_OBJECTS.map((obj) => [obj]);
+
+  // --- Contact Mapping section ---
+  const contactTitleRange = sheet.getRange(
+    `A${CONTACT_TITLE_ROW}:${CONTACT_LAST_COL}${CONTACT_TITLE_ROW}`
+  );
+  contactTitleRange.merge();
+  contactTitleRange.values = [['Contact Mapping']];
+  contactTitleRange.format.fill.color = SECTION_TITLE_FILL;
+  contactTitleRange.format.font.color = SECTION_TITLE_FONT;
+  contactTitleRange.format.font.bold = true;
+  contactTitleRange.format.horizontalAlignment =
+    Excel.HorizontalAlignment.left;
+  contactTitleRange.format.indentLevel = 1;
+
+  const contactHeaderRange = sheet.getRange(
+    `A${CONTACT_HEADER_ROW}:${CONTACT_LAST_COL}${CONTACT_HEADER_ROW}`
+  );
+  contactHeaderRange.values = [[...CONTACT_MAPPING_HEADERS]];
+  contactHeaderRange.format.font.bold = true;
+  contactHeaderRange.format.fill.color = HEADER_FILL;
+
+  const contactLabelRange = sheet.getRange(
+    `A${CONTACT_FIRST_DATA_ROW}:A${CONTACT_LAST_DATA_ROW}`
+  );
+  contactLabelRange.values = CONTACT_MAPPING_KEYS.map((k) => [
+    CONTACT_MAPPING_LABELS[k],
+  ]);
+  contactLabelRange.format.font.bold = true;
+
+  sheet.getUsedRange().format.autofitColumns();
 }
 
 export async function applyAccountMappingsDropdowns(
@@ -82,7 +168,9 @@ export async function applyAccountMappingsDropdowns(
       listsSheet.getUsedRangeOrNullObject()?.clear(Excel.ClearApplyTo.all);
     }
 
-    const journalAccounts = options.accounts.filter((a) => isJournalMappingAccount(a));
+    const journalAccounts = options.accounts.filter((a) =>
+      isJournalMappingAccount(a)
+    );
     const bankAccounts = options.accounts.filter((a) =>
       isBankPayoutAccount(a, defaultCurrency)
     );
@@ -261,31 +349,22 @@ export async function applyAccountMappingsDropdowns(
     });
     // #endregion
 
-    const payoutBankRow =
-      FIRST_DATA_ROW +
-      ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_bank');
-    const contactRow =
-      FIRST_DATA_ROW +
-      ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_contact');
-
+    // Clear any old validation, then re-apply for the account + contact sections.
     mappingsSheet
-      .getRange(`B${FIRST_DATA_ROW}:B${LAST_DATA_ROW}`)
+      .getRange(
+        `B${ACCOUNT_FIRST_DATA_ROW}:E${ACCOUNT_LAST_DATA_ROW}`
+      )
       .dataValidation.clear();
     mappingsSheet
-      .getRange(`C${FIRST_DATA_ROW}:C${LAST_DATA_ROW}`)
+      .getRange(
+        `B${CONTACT_FIRST_DATA_ROW}:${CONTACT_LAST_COL}${CONTACT_LAST_DATA_ROW}`
+      )
       .dataValidation.clear();
     await context.sync();
 
     for (let i = 0; i < ACCOUNT_MAPPING_STRIPE_OBJECTS.length; i++) {
-      const row = FIRST_DATA_ROW + i;
+      const row = ACCOUNT_FIRST_DATA_ROW + i;
       const stripeObject = ACCOUNT_MAPPING_STRIPE_OBJECTS[i];
-      if (stripeObject === 'stripe_payout_contact') {
-        if (contactLabels.length > 0) {
-          mappingsSheet.getRange(`F${row}`).dataValidation.rule =
-            listValidation(`=${NAMED_CONTACTS}`);
-        }
-        continue;
-      }
       const accountSource =
         stripeObject === 'stripe_payout_bank'
           ? bankAccountLabels.length > 0
@@ -300,16 +379,23 @@ export async function applyAccountMappingsDropdowns(
       }
     }
 
+    if (contactLabels.length > 0) {
+      for (let row = CONTACT_FIRST_DATA_ROW; row <= CONTACT_LAST_DATA_ROW; row++) {
+        mappingsSheet.getRange(`B${row}`).dataValidation.rule =
+          listValidation(`=${NAMED_CONTACTS}`);
+      }
+    }
+
     // #region agent log
     agentDebugLog({
       location: 'accountMappingsExcel.ts:validationApplied',
-      message: 'B column validation for payout bank row',
+      message: 'account section validations applied',
       data: {
-        payoutBankRow,
+        firstRow: ACCOUNT_FIRST_DATA_ROW,
+        lastRow: ACCOUNT_LAST_DATA_ROW,
         bankAccountLabelsCount: bankAccountLabels.length,
-        bankValidationApplied: bankAccountLabels.length > 0,
-        accountSource:
-          bankAccountLabels.length > 0 ? `=${NAMED_BANK_ACCOUNTS}` : null,
+        contactRow: CONTACT_FIRST_DATA_ROW,
+        contactLabelsCount: contactLabels.length,
       },
       hypothesisId: 'H3-H4',
       runId: 'post-fix-v2',
@@ -318,13 +404,12 @@ export async function applyAccountMappingsDropdowns(
 
     await applyAccountMappingsTaxValidation(
       mappingsSheet,
-      FIRST_DATA_ROW,
-      LAST_DATA_ROW,
-      [contactRow, payoutBankRow]
+      ACCOUNT_FIRST_DATA_ROW,
+      ACCOUNT_LAST_DATA_ROW
     );
     if (categoryNames.length > 0) {
       mappingsSheet
-        .getRange(`D${FIRST_DATA_ROW}:D${LAST_DATA_ROW}`)
+        .getRange(`D${ACCOUNT_FIRST_DATA_ROW}:D${ACCOUNT_LAST_DATA_ROW}`)
         .dataValidation.rule = listValidation(`=${NAMED_TRACKING}`);
     }
 
@@ -334,19 +419,23 @@ export async function applyAccountMappingsDropdowns(
       )
     );
     if (hasLookup) {
-      for (let row = FIRST_DATA_ROW; row <= LAST_DATA_ROW; row++) {
+      for (
+        let row = ACCOUNT_FIRST_DATA_ROW;
+        row <= ACCOUNT_LAST_DATA_ROW;
+        row++
+      ) {
         const formula = `=IF(D${row}="","",INDIRECT(VLOOKUP(D${row},${NAMED_CATEGORY_LOOKUP},2,FALSE)))`;
         mappingsSheet.getRange(`E${row}`).dataValidation.rule =
           listValidation(formula);
       }
     }
 
-    mappingsSheet.getRange(`A1:${colLetter(ACCOUNT_MAPPING_HEADERS.length)}1`).format.autofitColumns();
+    mappingsSheet.getUsedRange().format.autofitColumns();
 
     await applyXeroJournalsTaxDropdowns(context);
 
     const accountRange = mappingsSheet.getRange(
-      `B${FIRST_DATA_ROW}:B${LAST_DATA_ROW}`
+      `B${ACCOUNT_FIRST_DATA_ROW}:B${ACCOUNT_LAST_DATA_ROW}`
     );
     accountRange.load('values');
     await context.sync();
@@ -367,7 +456,9 @@ export async function applyAccountMappingsDropdowns(
     await context.sync();
 
     // #region agent log
-    const payoutIdx = ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf('stripe_payout_bank');
+    const payoutIdx = ACCOUNT_MAPPING_STRIPE_OBJECTS.indexOf(
+      'stripe_payout_bank'
+    );
     const payoutRaw = existing[payoutIdx]?.[0];
     const payoutNorm = accountColValues[payoutIdx]?.[0];
     agentDebugLog({

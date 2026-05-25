@@ -1,10 +1,14 @@
-export { BT_SHEET, MAPPING_SHEET, mappingFormula } from './xeroJournalBuilder';
+export {
+  BT_SHEET,
+  MAPPING_SHEET,
+  bankTransferContactFormula,
+  mappingFormula,
+} from './xeroJournalBuilder';
 
 export const BANK_TXN_SHEET = 'Xero_Bank_Transaction';
 
 export const BANK_TXN_TYPE_RECEIVE = 'RECEIVE';
 
-export const MAPPING_STRIPE_PAYOUT_CONTACT = 'stripe_payout_contact';
 export const MAPPING_STRIPE_PAYOUT_BANK = 'stripe_payout_bank';
 export const MAPPING_STRIPE_CLEARING = 'stripe_clearing';
 

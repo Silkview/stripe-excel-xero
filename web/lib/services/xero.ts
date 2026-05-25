@@ -965,7 +965,7 @@ async function collectBankTransactionValidationIssues(
       rowIssues.push({
         date: line.date,
         reference: line.reference,
-        message: `Invalid contact "${line.contactName}". Choose a contact from Account_Mappings (stripe_payout_contact).`,
+        message: `Invalid contact "${line.contactName}". Choose a contact from Account_Mappings → Contact Mapping → Bank Transfer Contact.`,
       });
     }
 
