@@ -17,7 +17,7 @@ export default function ConnectStripeButton({
       type="button"
       onClick={onClick}
       disabled={disabled || loading}
-      className={`${connectBtnClass} ${connectBtnHeight} gap-2 border-none bg-stripe text-[13px] font-semibold text-white transition-colors hover:bg-stripe-hover`}
+      className={`${connectBtnClass} ${connectBtnHeight} justify-center gap-2 border-none bg-stripe px-3 text-[13px] font-semibold text-white transition-colors hover:bg-stripe-hover`}
     >
       <StripeMark size={22} />
       {loading ? 'Connecting…' : label}
