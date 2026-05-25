@@ -1,9 +1,11 @@
 import LandingNav from '@/components/landing/LandingNav';
 import Hero from '@/components/landing/Hero';
-import FeatureGrid from '@/components/landing/FeatureGrid';
+import ProblemSection from '@/components/landing/ProblemSection';
+import SolutionSection from '@/components/landing/SolutionSection';
 import HowItWorks from '@/components/landing/HowItWorks';
-import WhySilkview from '@/components/landing/WhySilkview';
+import WhoItsFor from '@/components/landing/WhoItsFor';
 import PricingTeaser from '@/components/landing/PricingTeaser';
+import FooterCTA from '@/components/landing/FooterCTA';
 import Footer from '@/components/landing/Footer';
 
 export default function HomePage() {
@@ -12,10 +14,12 @@ export default function HomePage() {
       <LandingNav />
       <main>
         <Hero />
-        <FeatureGrid />
+        <ProblemSection />
+        <SolutionSection />
         <HowItWorks />
-        <WhySilkview />
+        <WhoItsFor />
         <PricingTeaser />
+        <FooterCTA />
       </main>
       <Footer />
     </>

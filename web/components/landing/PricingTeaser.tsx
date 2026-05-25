@@ -6,13 +6,17 @@ export default function PricingTeaser() {
       <div className="mx-auto max-w-[1080px]">
         <div className="mb-12 text-center">
           <p className="section-eyebrow mb-3.5">Pricing</p>
-          <h2 className="section-title mb-3">Start free. Pay when you push.</h2>
-          <p className="section-sub mx-auto max-w-[480px]">
-            Free forever for Stripe pulls. Upgrade for Xero push and higher
-            transaction limits.
+          <h2 className="section-title mb-3">Simple, transparent pricing</h2>
+          <p className="section-sub mx-auto max-w-[520px]">
+            Start saving hours on your month-end close today. Free forever for
+            Stripe pulls — upgrade for Xero push and higher transaction limits.
           </p>
         </div>
         <PlanPricingGrid mode="landing" />
+        <p className="mt-8 text-center text-xs italic text-ink-3">
+          Prices are GST-exclusive. A 10% GST applies to Australian-registered
+          entities.
+        </p>
       </div>
     </section>
   );

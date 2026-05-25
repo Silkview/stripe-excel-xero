@@ -3,7 +3,7 @@ import { trialHeroLabel } from '@/lib/plans/trial';
 
 const metaItems = [
   trialHeroLabel(),
-  'Excel desktop & web',
+  'Excel on Mac, Windows & web',
   'AUD · single currency per workspace',
   'Tokens encrypted at rest',
 ];
@@ -19,25 +19,24 @@ export default function Hero() {
           Built for Xero bookkeepers &amp; accounting firms
         </p>
         <h1 className="font-serif text-[clamp(2.375rem,5.5vw,4rem)] font-normal leading-[1.12] tracking-tight text-ink">
-          Stripe payouts to
+          Stop drowning in
           <br />
-          <span className="text-xero">Xero journals</span> —
-          <br />
-          <em className="text-accent">inside Excel</em>
+          <em className="text-accent">month-end reconciliation.</em>
         </h1>
-        <p className="mx-auto mt-5 max-w-[560px] text-lg font-light leading-relaxed text-ink-2">
-          Pull balance transactions, build{' '}
+        <p className="mx-auto mt-5 max-w-[620px] text-lg font-light leading-relaxed text-ink-2">
+          Connect Stripe and Xero directly to Microsoft Excel. Sync live payout
+          data, eliminate messy CSV exports, and build{' '}
           <strong className="font-medium text-ink">
-            formula-driven manual journals and bank transactions,
+            bulletproof audit trails
           </strong>{' '}
-          then push directly to Xero. Without leaving your spreadsheet.
+          inside the spreadsheet you already use.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
-            href="#pricing"
+            href="/auth/signup"
             className="rounded-[10px] bg-accent px-7 py-3.5 text-[15px] font-medium text-white transition-all hover:-translate-y-px hover:bg-accent-hover hover:shadow-lift"
           >
-            Start free — no card needed
+            Start syncing for free
           </Link>
           <Link
             href="#how"
@@ -46,6 +45,9 @@ export default function Hero() {
             See how it works →
           </Link>
         </div>
+        <p className="mt-4 text-[13px] text-ink-3">
+          Join our private beta. Setup takes under 5 minutes.
+        </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-0 text-[13px] text-ink-3 max-sm:flex-col max-sm:gap-1.5">
           {metaItems.map((item, i) => (
             <span

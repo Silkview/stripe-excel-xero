@@ -1,18 +1,18 @@
 const steps = [
   {
     n: '01',
-    title: 'Connect',
-    body: 'Sign in, create a workspace, connect your Xero org and Stripe account. Map GL account codes once on the Account_Mappings sheet.',
+    title: 'Connect your core stack',
+    body: 'Securely link your Stripe and Xero accounts to Silkview with standard, bank-level OAuth authentication.',
   },
   {
     n: '02',
-    title: 'Pull & build',
-    body: 'Pick a date range and pull balance transactions. Silkview Connect builds journal and bank transaction rows from your mapping — review and adjust freely in Excel.',
+    title: 'Load the Excel add-in',
+    body: 'Open Microsoft Excel, launch the Silkview taskpane from your ribbon menu, and log in.',
   },
   {
     n: '03',
-    title: 'Push',
-    body: "Post as draft or directly to your Xero ledger. Each row gets a Xero transaction ID written back — proof it's posted, protection against duplicates.",
+    title: 'Sync and reconcile',
+    body: 'Select your date range and hit sync. Watch your raw Stripe transactions, fee deductions, and Xero ledger metrics stream perfectly formatted into your spreadsheet.',
   },
 ];
 
@@ -21,10 +21,11 @@ export default function HowItWorks() {
     <section id="how" className="border-y border-rule bg-bg px-5 py-20 sm:px-12">
       <div className="mx-auto max-w-[1080px]">
         <div className="mb-12 text-center">
-          <p className="section-eyebrow mb-3.5">Workflow</p>
-          <h2 className="section-title mb-3">Three steps, once a month</h2>
-          <p className="section-sub mx-auto max-w-[480px]">
-            Typically under 15 minutes for a full month-end Stripe reconciliation.
+          <p className="section-eyebrow mb-3.5">How it works</p>
+          <h2 className="section-title mb-3">Three simple steps</h2>
+          <p className="section-sub mx-auto max-w-[520px]">
+            From OAuth connection to clean books — typically under 15 minutes
+            for a full month-end Stripe reconciliation.
           </p>
         </div>
         <div className="relative grid gap-8 sm:grid-cols-3">
