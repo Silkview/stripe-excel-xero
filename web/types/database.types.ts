@@ -56,6 +56,7 @@ export interface Database {
           onboarding_completed_at: string | null;
           billing_downgrade_completed_at: string | null;
           past_due_since: string | null;
+          billing_interval: 'monthly' | 'annual' | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -74,6 +75,7 @@ export interface Database {
           onboarding_completed_at?: string | null;
           billing_downgrade_completed_at?: string | null;
           past_due_since?: string | null;
+          billing_interval?: 'monthly' | 'annual' | null;
         };
         Update: Partial<Database['core']['Tables']['accounts']['Insert']>;
         Relationships: [];

@@ -34,6 +34,7 @@ function mergeBillingStatus(
     needsDowngradeSelection: billing.needsDowngradeSelection,
     hasStripeCustomer: billing.hasStripeCustomer,
     stripeSubscriptionId: billing.stripeSubscriptionId,
+    billingInterval: billing.billingInterval,
     billingAccess: billing.billingAccess,
     productBlocked: billing.productBlocked,
     workspaceCount: billing.limits.workspaceCount,

@@ -4,6 +4,7 @@ import { countAccountStripeConnections } from '@/lib/auth/onboarding-status';
 import { getBillingState } from '@/lib/billing/access';
 import { planDisplayName } from '@/lib/plans/display';
 import type { PlanCode } from '@/lib/plans/types';
+import type { BillingInterval } from '@/lib/plans/pricing';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
@@ -20,6 +21,7 @@ export type BillingStatusPayload = {
   needsDowngradeSelection: boolean;
   hasStripeCustomer: boolean;
   stripeSubscriptionId: string | null;
+  billingInterval: BillingInterval | null;
   billingAccess: BillingAccess;
   productBlocked: boolean;
   limits: {
@@ -39,7 +41,7 @@ export async function loadBillingStatusForAccount(
   const { data: account } = await core(admin)
     .from('accounts')
     .select(
-      'plan_code, subscription_status, trial_ends_at, max_users, max_workspaces, stripe_subscription_id'
+      'plan_code, subscription_status, trial_ends_at, max_users, max_workspaces, stripe_subscription_id, billing_interval'
     )
     .eq('id', accountId)
     .single();
@@ -89,6 +91,11 @@ export async function loadBillingStatusForAccount(
     billingState.billingAccess !== 'active' ||
     (isPaidPlan && !hasPaidSubscription);
 
+  const rawInterval = (account as { billing_interval?: string | null })
+    .billing_interval;
+  const billingInterval: BillingInterval | null =
+    rawInterval === 'monthly' || rawInterval === 'annual' ? rawInterval : null;
+
   return {
     planCode,
     planLabel: planDisplayName(planCode),
@@ -101,6 +108,7 @@ export async function loadBillingStatusForAccount(
     needsDowngradeSelection: billingState.needsDowngradeSelection,
     hasStripeCustomer: billingState.hasStripeCustomer,
     stripeSubscriptionId,
+    billingInterval,
     billingAccess: billingState.billingAccess,
     productBlocked:
       billingState.billingAccess !== 'active' ||

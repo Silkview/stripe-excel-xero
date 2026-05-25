@@ -3,6 +3,7 @@ import { countAccountStripeConnections } from '@/lib/auth/onboarding-status';
 import { getBillingState } from '@/lib/billing/access';
 import { planDisplayName } from '@/lib/plans/display';
 import type { PlanCode } from '@/lib/plans/types';
+import type { BillingInterval } from '@/lib/plans/pricing';
 import type { BillingAccess } from '@/lib/billing/access';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
@@ -29,7 +30,7 @@ export async function loadDashboardContext(
   const { data: account } = await core(admin)
     .from('accounts')
     .select(
-      'id, name, plan_code, subscription_status, trial_ends_at, max_users, max_workspaces, stripe_subscription_id'
+      'id, name, plan_code, subscription_status, trial_ends_at, max_users, max_workspaces, stripe_subscription_id, billing_interval'
     )
     .eq('id', membership.account_id)
     .single();
@@ -83,6 +84,11 @@ export async function loadDashboardContext(
     billingState.billingAccess !== 'active' ||
     (isPaidPlan && !hasPaidSubscription);
 
+  const rawInterval = (account as { billing_interval?: string | null })
+    .billing_interval;
+  const billingInterval: BillingInterval | null =
+    rawInterval === 'monthly' || rawInterval === 'annual' ? rawInterval : null;
+
   return {
     email,
     displayName: email.split('@')[0] ?? email,
@@ -111,6 +117,7 @@ export async function loadDashboardContext(
     needsDowngradeSelection: billingState.needsDowngradeSelection,
     hasStripeCustomer: billingState.hasStripeCustomer,
     stripeSubscriptionId,
+    billingInterval,
     hasPaidSubscription,
     needsCheckout,
     billingBlocked: billingState.billingAccess !== 'active',

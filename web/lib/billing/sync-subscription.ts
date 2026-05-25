@@ -1,6 +1,7 @@
 import { getPlanByCode } from '@/lib/plans/catalog';
 import type { PlanCode } from '@/lib/plans/types';
-import { getStripe } from '@/lib/stripe-billing';
+import type { BillingInterval } from '@/lib/plans/pricing';
+import { getStripe, intervalForPriceId } from '@/lib/stripe-billing';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { core } from '@/lib/supabase/core';
 import type Stripe from 'stripe';
@@ -30,6 +31,9 @@ function subscriptionUpdateFields(
   subscription: Stripe.Subscription,
   limits: Awaited<ReturnType<typeof limitsForPriceId>>
 ) {
+  const priceId = subscription.items.data[0]?.price.id ?? '';
+  const billingInterval = intervalForPriceId(priceId);
+
   const fields: {
     stripe_subscription_id: string;
     subscription_status: string;
@@ -38,6 +42,7 @@ function subscriptionUpdateFields(
     max_users: number;
     max_workspaces: number;
     current_period_end: string;
+    billing_interval: BillingInterval | null;
     trial_ends_at?: null;
     past_due_since?: string | null;
   } = {
@@ -50,6 +55,7 @@ function subscriptionUpdateFields(
     current_period_end: new Date(
       subscription.current_period_end * 1000
     ).toISOString(),
+    billing_interval: billingInterval,
   };
 
   if (subscription.status === 'active') {

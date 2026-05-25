@@ -62,6 +62,30 @@ export function getPlanPriceId(
   return PLANS[plan][interval].priceId;
 }
 
+/** Reverse-lookup: given a Stripe price ID, return its billing interval. */
+export function intervalForPriceId(priceId: string): BillingInterval | null {
+  if (!priceId) return null;
+  for (const plan of ['pro', 'firm'] as const) {
+    if (priceId === PLANS[plan].monthly.priceId) return 'monthly';
+    if (priceId === PLANS[plan].annual.priceId) return 'annual';
+  }
+  return null;
+}
+
+/** Reverse-lookup: given a Stripe price ID, return its plan code. */
+export function planForPriceId(priceId: string): PaidPlan | null {
+  if (!priceId) return null;
+  for (const plan of ['pro', 'firm'] as const) {
+    if (
+      priceId === PLANS[plan].monthly.priceId ||
+      priceId === PLANS[plan].annual.priceId
+    ) {
+      return plan;
+    }
+  }
+  return null;
+}
+
 function stripeKeyMode(): 'test' | 'live' | 'unknown' {
   const key = process.env.STRIPE_SECRET_KEY ?? '';
   if (key.startsWith('sk_test_')) return 'test';

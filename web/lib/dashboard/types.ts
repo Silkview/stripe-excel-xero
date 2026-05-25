@@ -1,4 +1,5 @@
 import type { PlanCode } from '@/lib/plans/types';
+import type { BillingInterval } from '@/lib/plans/pricing';
 import type { BillingAccess } from '@/lib/billing/access';
 import type { ManualJournalPostMode } from '@stripesync/shared';
 
@@ -33,6 +34,7 @@ export type DashboardContext = {
   needsDowngradeSelection: boolean;
   hasStripeCustomer: boolean;
   stripeSubscriptionId: string | null;
+  billingInterval: BillingInterval | null;
   hasPaidSubscription: boolean;
   needsCheckout: boolean;
   billingBlocked: boolean;

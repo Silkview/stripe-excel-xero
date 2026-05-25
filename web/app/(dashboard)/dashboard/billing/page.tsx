@@ -1,15 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect } from 'react';
 import { useDashboard, PageHeader } from '@/components/dashboard/dashboard-ui';
 import BillingPaywall from '@/components/dashboard/BillingPaywall';
 import ProDowngradeWizard from '@/components/dashboard/ProDowngradeWizard';
 import BillingPortalButton from '@/components/dashboard/BillingPortalButton';
-import CancelSubscriptionButton from '@/components/dashboard/CancelSubscriptionButton';
-import PlanUpgradePicker from '@/components/billing/PlanUpgradePicker';
+import PlanComparisonGrid from '@/components/billing/PlanComparisonGrid';
+import {
+  startBillingCheckout,
+  updateSubscriptionPlan,
+  cancelSubscription,
+} from '@/lib/billing/checkout-client';
+import {
+  type BillingInterval,
+  billingIntervalLabel,
+} from '@/lib/plans/pricing';
+import type { PlanCode } from '@/lib/plans/types';
 
 function BillingPageContent() {
   const ctx = useDashboard();
@@ -23,6 +31,10 @@ function BillingPageContent() {
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+
+  const [pendingPlan, setPendingPlan] = useState<PlanCode | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!checkoutSuccess || !sessionId || confirmed) return;
@@ -76,14 +88,86 @@ function BillingPageContent() {
   }
 
   if (confirming) {
-    return (
-      <p className="text-sm text-text-2">Confirming your subscription…</p>
-    );
+    return <p className="text-sm text-text-2">Confirming your subscription…</p>;
   }
 
   const isFree = ctx.planCode === 'free';
-  const showPlanPicker =
-    ctx.isAdmin && (isFree || ctx.needsCheckout) && !ctx.hasPaidSubscription;
+
+  const handleSwitch = async (
+    plan: 'pro' | 'firm',
+    interval: BillingInterval
+  ) => {
+    setActionError(null);
+    setActionSuccess(null);
+
+    if (ctx.hasPaidSubscription) {
+      const ok = window.confirm(
+        `Switch to ${plan === 'pro' ? 'Pro' : 'Firm'} (${billingIntervalLabel(
+          interval
+        ).toLowerCase()})? Stripe will prorate the difference automatically.`
+      );
+      if (!ok) return;
+
+      setPendingPlan(plan);
+      try {
+        const result = await updateSubscriptionPlan(plan, interval);
+        if (!result.ok) {
+          if (result.code === 'NEEDS_DOWNGRADE_WIZARD') {
+            setActionError(result.error);
+            router.replace('/dashboard/billing?step=downgrade');
+            return;
+          }
+          setActionError(result.error);
+          return;
+        }
+        await refreshBillingContext();
+        router.refresh();
+        setActionSuccess(
+          `You're now on ${plan === 'pro' ? 'Pro' : 'Firm'} (${billingIntervalLabel(
+            interval
+          ).toLowerCase()}).`
+        );
+      } finally {
+        setPendingPlan(null);
+      }
+      return;
+    }
+
+    setPendingPlan(plan);
+    try {
+      const result = await startBillingCheckout(plan, interval);
+      if (result.url) {
+        window.location.href = result.url;
+        return;
+      }
+      setActionError(result.error ?? 'Could not start checkout.');
+    } finally {
+      setPendingPlan(null);
+    }
+  };
+
+  const handleDowngradeToFree = async () => {
+    setActionError(null);
+    setActionSuccess(null);
+    const ok = window.confirm(
+      "Cancel your paid plan and revert to Free? You'll lose Xero push and higher transaction limits immediately."
+    );
+    if (!ok) return;
+
+    setPendingPlan('free');
+    try {
+      const result = await cancelSubscription();
+      if (!result.ok) {
+        setActionError(result.error ?? 'Could not cancel subscription.');
+        return;
+      }
+      await refreshBillingContext();
+      router.refresh();
+      setActionSuccess('Your plan has been switched to Free.');
+    } finally {
+      setPendingPlan(null);
+    }
+  };
 
   return (
     <>
@@ -117,40 +201,57 @@ function BillingPageContent() {
         </div>
       )}
 
-      <section className="max-w-xl rounded-[11px] border border-border bg-surface p-6 shadow-card">
+      {actionSuccess && (
+        <div className="mb-6 rounded-[11px] border border-green/30 bg-green-light/50 p-4 text-sm text-ink">
+          {actionSuccess}
+        </div>
+      )}
+
+      {actionError && (
+        <div className="mb-6 rounded-[11px] border border-warn/30 bg-warn-bg p-4 text-sm text-ink">
+          {actionError}
+        </div>
+      )}
+
+      <section className="mb-6 max-w-xl rounded-[11px] border border-border bg-surface p-5 shadow-card">
         <p className="text-sm text-text-2">
           Current plan:{' '}
-          <span className="font-medium capitalize text-ink">{ctx.planLabel}</span>
+          <span className="font-medium capitalize text-ink">
+            {ctx.planLabel}
+          </span>
           {ctx.subscriptionStatus && (
             <span className="text-text-3"> ({ctx.subscriptionStatus})</span>
           )}
+          {ctx.billingInterval && (
+            <span className="text-text-3">
+              {' · '}
+              {billingIntervalLabel(ctx.billingInterval)}
+            </span>
+          )}
         </p>
-
-        {ctx.isAdmin ? (
-          showPlanPicker ? (
-            <div className="mt-4">
-              <PlanUpgradePicker
-                defaultPlan={ctx.planCode === 'firm' ? 'firm' : 'pro'}
-              />
-            </div>
-          ) : ctx.hasPaidSubscription ? (
-            <div className="mt-4 space-y-3">
-              <p className="text-xs text-text-3">
-                Use <strong>Manage billing</strong> to switch between Pro and
-                Firm or update your payment details.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <BillingPortalButton />
-                <CancelSubscriptionButton />
-              </div>
-            </div>
-          ) : null
-        ) : (
-          <p className="mt-4 text-sm text-text-2">
-            Contact your account admin to manage billing.
-          </p>
-        )}
       </section>
+
+      {ctx.isAdmin ? (
+        <PlanComparisonGrid
+          currentPlan={ctx.planCode}
+          currentInterval={ctx.billingInterval}
+          isAdmin={ctx.isAdmin}
+          pendingPlan={pendingPlan}
+          onSwitch={handleSwitch}
+          onDowngradeToFree={handleDowngradeToFree}
+        />
+      ) : (
+        <p className="text-sm text-text-2">
+          Contact your account admin to manage billing.
+        </p>
+      )}
+
+      {ctx.isAdmin && ctx.hasPaidSubscription && (
+        <section className="mt-10 flex flex-wrap items-center gap-3 border-t border-rule pt-6 text-xs text-text-3">
+          <span>Need to update your card, change billing address, or download invoices?</span>
+          <BillingPortalButton />
+        </section>
+      )}
     </>
   );
 }

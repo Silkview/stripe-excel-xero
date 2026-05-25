@@ -21,6 +21,14 @@ function AuthCallbackInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const rawHash =
+      typeof window !== 'undefined' ? window.location.hash : '';
+    const nextParam = safeReturnPath(searchParams.get('next'));
+    const isRecovery =
+      searchParams.get('type') === 'recovery' ||
+      /(^|[#&])type=recovery(&|$)/.test(rawHash) ||
+      nextParam === '/auth/reset-password';
+
     (async () => {
       const supabase = createSupabaseBrowser();
       const code = searchParams.get('code');
@@ -40,11 +48,16 @@ function AuthCallbackInner() {
       } = await supabase.auth.getSession();
 
       if (sessionErr || !session) {
-        router.replace('/auth/login');
+        router.replace(isRecovery ? '/auth/forgot-password?expired=1' : '/auth/login');
         return;
       }
 
       await syncBrowserSessionToServer(session);
+
+      if (isRecovery) {
+        router.replace('/auth/reset-password');
+        return;
+      }
 
       const path = await resolvePostAuthRedirect(supabase, {
         excelMode: excelReturn,

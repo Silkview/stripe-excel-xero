@@ -37,6 +37,7 @@ export async function downgradeAccountToFree(
       trial_ends_at: null,
       past_due_since: null,
       billing_downgrade_completed_at: null,
+      billing_interval: null,
     })
     .eq('id', accountId);
 

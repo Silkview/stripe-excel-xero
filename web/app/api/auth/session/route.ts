@@ -28,3 +28,9 @@ export async function POST(req: Request) {
 
   return jsonSuccess({ ok: true });
 }
+
+export async function DELETE() {
+  const supabase = await createSupabaseServer();
+  await supabase.auth.signOut().catch(() => {});
+  return jsonSuccess({ ok: true });
+}
