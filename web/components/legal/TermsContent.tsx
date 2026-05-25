@@ -22,7 +22,7 @@ export default function TermsContent() {
       <p>
         These Terms of Service (&quot;Terms&quot;) constitute a legally binding agreement
         between you (or the entity you represent, &quot;you&quot; or &quot;Customer&quot;)
-        and <strong>[Your Company Pty Ltd]</strong> (ABN: [Your ABN]) (&quot;Silkview
+        and <strong>Silkview Systems</strong> (ABN: 47 369 039 956) (&quot;Silkview
         Connect&quot;, &quot;we&quot;, &quot;us&quot;) governing your access to and use of
         the Silkview Connect service, including the Microsoft Excel add-in, web dashboard,
         and API (collectively the &quot;Service&quot;).
@@ -527,7 +527,7 @@ export default function TermsContent() {
           <strong>Legal:</strong> <LegalEmailLink />
         </li>
         <li>
-          <strong>Post:</strong> [Your Company Pty Ltd], [Address], [City], [State], Australia
+       
         </li>
       </ul>
     </>

@@ -31,9 +31,8 @@ export default function PrivacyContent() {
 
       <h2 id="who-we-are">2. Who we are</h2>
       <p>
-        Silkview Connect is operated by <strong>[Your Company Pty Ltd]</strong>, registered in
-        Australia (ABN: [Your ABN]). Our registered address is [Your Address], [City],
-        [State], Australia.
+        Silkview Connect is operated by <strong>Silkview Systems</strong>, registered in
+        Australia (ABN: 47 369 039 956). 
       </p>
       <p>
         For privacy enquiries, contact our Privacy Officer at <LegalEmailLink />.
@@ -363,9 +362,6 @@ export default function PrivacyContent() {
       <ul>
         <li>
           <strong>Email:</strong> <LegalEmailLink />
-        </li>
-        <li>
-          <strong>Post:</strong> Privacy Officer, [Your Company Pty Ltd], [Address], Australia
         </li>
         <li>
           <strong>Response time:</strong> We aim to respond to all privacy enquiries within
