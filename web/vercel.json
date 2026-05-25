@@ -1,6 +1,11 @@
 {
   "installCommand": "cd .. && npm install",
   "buildCommand": "cd .. && npm run build -w web",
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  },
   "crons": [
     { "path": "/api/cron/billing-sweep", "schedule": "0 3 * * *" }
   ]

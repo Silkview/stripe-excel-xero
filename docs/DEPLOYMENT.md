@@ -64,10 +64,68 @@ Add-in project per environment: `VITE_API_URL` = that environment’s web URL.
 
 ## Supabase
 
-1. Apply **all** migrations `001` through `011` in order.
+1. Apply **all** migrations in `supabase/migrations/` in order. On every push to `main` the GitHub Action (see "Deployment pipeline" below) runs them automatically via the Supabase Management API; for a fresh project bootstrap, run `SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/apply-migrations.mjs` locally first.
 2. **Project Settings → API → Exposed schemas** → add `core`.
 3. **Authentication → URL configuration:** Site URL = `NEXT_PUBLIC_APP_URL`; redirect URLs for `/auth/callback`.
 4. Optional webhook on `auth.users` INSERT → `POST /api/auth/signup` (email confirm only; **does not** create accounts).
+
+## Deployment pipeline (GitHub Actions → Supabase → Vercel)
+
+Migrations must run before the new code goes live. Push-to-deploy is handled by [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml), which on every push to `main`:
+
+1. Runs `node scripts/apply-migrations.mjs` — applies every file in `supabase/migrations/` that isn't already recorded in `supabase_migrations.schema_migrations` (matched by the filename stem with the leading `NNN_` prefix stripped).
+2. On success, `POST`s the Vercel **deploy hook** for the `web` project, which triggers the production build.
+
+### One-time setup
+
+**Vercel — `web` project** (the `addin` project keeps Vercel's normal auto-deploy):
+
+- Disable Vercel's automatic git deploys for `main`. This is already configured in [`web/vercel.json`](../web/vercel.json) via `git.deploymentEnabled.main = false`; verify the project picks it up after the first deploy of this change.
+- **Settings → Git → Deploy Hooks** → create a hook named `main`. Copy the URL.
+
+**GitHub repo → Settings → Secrets and variables → Actions** — add:
+
+| Secret | Value |
+|--------|-------|
+| `SUPABASE_ACCESS_TOKEN` | Personal access token from <https://supabase.com/dashboard/account/tokens>. Treat like a password. |
+| `SUPABASE_PROJECT_REF` | The project ref (e.g. `szbfksebywhkalejxkgs`). |
+| `VERCEL_DEPLOY_HOOK_WEB` | The deploy hook URL you just copied. |
+
+### Local migration commands
+
+```bash
+# Apply unapplied migrations to whatever project the env vars point at.
+SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/apply-migrations.mjs
+
+# Show what would run without touching the DB.
+DRY_RUN=1 SUPABASE_ACCESS_TOKEN=… SUPABASE_PROJECT_REF=… node scripts/apply-migrations.mjs
+```
+
+The runner is idempotent — already-applied migrations are skipped. Add new migrations as `supabase/migrations/NNN_short_name.sql`; the leading number controls ordering, the rest of the name is what's recorded in the ledger.
+
+## Local add-in development
+
+The production manifest at [`addin/manifest.xml`](../addin/manifest.xml) points at `https://addin.silkview.org` and must not be edited for local testing. Use a **separate gitignored manifest** that points at the local Vite dev server.
+
+```bash
+# One-time: trust the local HTTPS cert Vite uses for the add-in.
+npx office-addin-dev-certs install
+
+# One-time: copy the template, generate a fresh GUID, paste it as <Id>.
+cp addin/manifest.local.example.xml addin/manifest.local.xml
+uuidgen  # or [guid]::NewGuid() in PowerShell
+
+# Run both dev servers (web on :4003, addin on :4000).
+npm run dev
+
+# Sideload the local manifest into Excel desktop.
+npm run sideload:local -w addin
+
+# Stop sideloading when finished.
+npm run sideload:stop -w addin
+```
+
+Why a fresh GUID per machine: Office caches the bundle by `<Id>`. Reusing the production GUID will cause Excel to serve stale cached production code while loading the local manifest.
 
 Account + workspace creation happens in **`POST /api/onboarding/complete`** after the user confirms email and finishes `/onboarding`.
 

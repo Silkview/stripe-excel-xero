@@ -6,7 +6,9 @@
     "dev": "vite --port 4000",
     "icons": "node scripts/generate-icons.mjs",
     "build": "npm run icons && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sideload:local": "office-addin-debugging start manifest.local.xml desktop",
+    "sideload:stop": "office-addin-debugging stop manifest.local.xml"
   },
   "dependencies": {
     "@stripesync/shared": "*",
@@ -20,6 +22,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "office-addin-debugging": "^6.1.1",
     "office-addin-dev-certs": "^1.13.5",
     "postcss": "^8.4.49",
     "sharp": "^0.33.5",

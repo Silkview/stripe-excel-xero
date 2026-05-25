@@ -8,3 +8,4 @@ addin/dist/
 .DS_Store
 *.local
 .cursor/debug-*.log
+addin/manifest.local.xml
