@@ -35,16 +35,61 @@ export async function lookupAuthUserByEmail(
 
     if (match) {
       const identities = (match.identities ?? []).map((id) => id.provider);
-      return {
+      const result = {
         userFound: true,
         emailConfirmed: Boolean(match.email_confirmed_at),
         hasEmailPasswordIdentity: identities.includes('email'),
       };
+      // #region agent log
+      fetch(
+        'http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': 'aa61bb',
+          },
+          body: JSON.stringify({
+            sessionId: 'aa61bb',
+            location: 'web/lib/auth/signin-hint.ts:lookupAuthUserByEmail',
+            hypothesisId: 'H_LOGIN_HINT',
+            message: 'hint:user-matched',
+            data: {
+              ...result,
+              providers: identities,
+              identityCount: match.identities?.length ?? 0,
+              hasIdentitiesField: match.identities != null,
+              page,
+            },
+            timestamp: Date.now(),
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
+      return result;
     }
 
     if (!data.nextPage) break;
     page = data.nextPage;
   }
+
+  // #region agent log
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': 'aa61bb',
+    },
+    body: JSON.stringify({
+      sessionId: 'aa61bb',
+      location: 'web/lib/auth/signin-hint.ts:lookupAuthUserByEmail',
+      hypothesisId: 'H_LOGIN_HINT',
+      message: 'hint:no-user-after-scan',
+      data: { pagesScanned: page },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
 
   return {
     userFound: false,

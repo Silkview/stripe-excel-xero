@@ -76,6 +76,46 @@ function SignupInner() {
 
     setLoading(false);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'aa61bb',
+      },
+      body: JSON.stringify({
+        sessionId: 'aa61bb',
+        location: 'web/app/auth/signup/page.tsx:handleSubmit',
+        hypothesisId: 'H_SIGNUP_EMAIL',
+        message: 'signup:response',
+        data: {
+          hasError: !!err,
+          errorCode: err?.code ?? null,
+          errorStatus: err?.status ?? null,
+          errorMessage: err?.message ?? null,
+          hasUser: !!data?.user,
+          userId: data?.user?.id ?? null,
+          identitiesField:
+            data?.user?.identities === undefined
+              ? 'undefined'
+              : data?.user?.identities === null
+                ? 'null'
+                : 'array',
+          identityCount: data?.user?.identities?.length ?? null,
+          identityProviders:
+            data?.user?.identities?.map((i) => i.provider) ?? null,
+          hasSession: !!data?.session,
+          emailConfirmedAt: data?.user?.email_confirmed_at ?? null,
+          confirmationSentAt:
+            (data?.user as { confirmation_sent_at?: string } | null)
+              ?.confirmation_sent_at ?? null,
+          createdAt: data?.user?.created_at ?? null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     if (err) {
       setError(formatAuthError(err));
       return;
