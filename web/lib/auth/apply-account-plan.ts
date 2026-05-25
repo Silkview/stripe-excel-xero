@@ -3,6 +3,7 @@ import { core } from '@/lib/supabase/core';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { getFallbackPlanByCode } from '@/lib/plans/fallback';
 import type { PlanCode } from '@/lib/plans/types';
+import { trialEndsAtIso } from '@/lib/plans/trial';
 
 /**
  * Applies the plan chosen at signup/onboarding when reusing an existing account.
@@ -54,7 +55,7 @@ export async function syncAccountPlanFromSelection(
       trial_ends_at:
         planCode === 'free'
           ? null
-          : new Date(Date.now() + 14 * 86400000).toISOString(),
+          : trialEndsAtIso(),
     })
     .eq('id', accountId);
 }

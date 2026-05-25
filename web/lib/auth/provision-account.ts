@@ -4,6 +4,7 @@ import { core } from '@/lib/supabase/core';
 import { getPlanByCode } from '@/lib/plans/catalog';
 import { getFallbackPlanByCode } from '@/lib/plans/fallback';
 import type { PlanCode } from '@/lib/plans/types';
+import { trialEndsAtIso } from '@/lib/plans/trial';
 import { syncAccountPlanFromSelection } from './apply-account-plan';
 import {
   deleteOrphanAccount,
@@ -101,7 +102,7 @@ async function createAccountAndWorkspace(
       trial_ends_at:
         input.planCode === 'free'
           ? null
-          : new Date(Date.now() + 14 * 86400000).toISOString(),
+          : trialEndsAtIso(),
     })
     .select('id')
     .single();

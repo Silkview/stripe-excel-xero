@@ -75,25 +75,6 @@ export default function ExcelAccessGuide() {
         </p>
         <ol className="list-decimal pl-5 space-y-2 text-ink">
           <li>
-            Go to{' '}
-            <a
-              href="https://www.silkview.org"
-              className="font-medium text-accent underline hover:text-accent-hover"
-              target="_blank"
-              rel="noreferrer"
-            >
-              silkview.org
-            </a>{' '}
-            and{' '}
-            <Link
-              href="/auth/signup"
-              className="font-medium text-accent underline hover:text-accent-hover"
-            >
-              sign up
-            </Link>
-            .
-          </li>
-          <li>
             From your dashboard, click <strong>Connect Stripe</strong> and sign
             in to authorize secure read access to your Stripe data.
           </li>

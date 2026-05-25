@@ -1,6 +1,7 @@
 import type { PlanCode } from './types';
 import type { BillingInterval } from './pricing';
 import { planPriceDisplay } from './pricing';
+import { trialCtaLabel } from './trial';
 
 export type MarketingPlanFeature = {
   text: string;
@@ -54,7 +55,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
       { text: 'Priority support' },
     ],
     featured: false,
-    cta: 'Start 14-day trial',
+    cta: trialCtaLabel(),
     note: 'No card during trial period.',
   },
   {
@@ -73,7 +74,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
     ],
     featured: true,
     featuredLabel: 'Best for firms',
-    cta: 'Start 14-day trial',
+    cta: trialCtaLabel(),
     note: 'One subscription. All your Stripe clients.',
   },
 ];

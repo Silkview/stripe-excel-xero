@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import { trialHeroLabel } from '@/lib/plans/trial';
 
 const metaItems = [
-  '14-day Pro trial',
+  trialHeroLabel(),
   'Excel desktop & web',
   'AUD · single currency per workspace',
   'Tokens encrypted at rest',
