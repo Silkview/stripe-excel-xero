@@ -86,7 +86,7 @@ export async function writeAccountMappingsLayout(
   const context = sheet.context;
 
   // #region agent log
-  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1-H5',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:enter',message:'writeAccountMappingsLayout invoked',data:{sheetName:sheet.name??null},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1-H5',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:enter',message:'writeAccountMappingsLayout invoked',timestamp:Date.now()})}).catch(()=>{});
   // #endregion
 
   // Step 1: clear A1:Z40 (covers both sections + any legacy 6-col data).
