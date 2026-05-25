@@ -17,9 +17,6 @@ export async function OPTIONS(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'aa61bb'},body:JSON.stringify({sessionId:'aa61bb',runId:'pre-fix',hypothesisId:'H2',location:'api/billing/subscription/update:POST',message:'subscription update route entered',data:{},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const { user } = await requireUser(request);
     const membership = await getAccountMembership(user.id);
     if (!membership) {
@@ -146,18 +143,12 @@ export async function POST(request: Request) {
 
     await syncAccountFromStripeSubscription(membership.account_id, updated);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'aa61bb'},body:JSON.stringify({sessionId:'aa61bb',runId:'pre-fix',hypothesisId:'H2',location:'api/billing/subscription/update:POST_ok',message:'subscription update completed',data:{plan,interval,subscriptionStatus:updated.status},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return ok(request, {
       planCode: plan,
       billingInterval: interval,
       status: updated.status,
     });
   } catch (err) {
-    // #region agent log
-    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'aa61bb'},body:JSON.stringify({sessionId:'aa61bb',runId:'pre-fix',hypothesisId:'H2',location:'api/billing/subscription/update:POST_err',message:'subscription update threw',data:{error:err instanceof Error ? err.message : String(err),stack:err instanceof Error ? err.stack?.split('\n').slice(0,8).join(' | ') : null},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return handleRouteError(request, err);
   }
 }

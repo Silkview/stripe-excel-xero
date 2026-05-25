@@ -109,7 +109,7 @@ export async function POST(req: Request) {
       }
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
-        await core(supabase)
+        const { error: deletedErr } = await core(supabase)
           .from('accounts')
           .update({
             subscription_status: 'canceled',
@@ -122,6 +122,9 @@ export async function POST(req: Request) {
             trial_ends_at: null,
           })
           .eq('stripe_subscription_id', sub.id);
+        if (deletedErr) {
+          throw new Error(`accounts update failed: ${deletedErr.message}`);
+        }
         await updateBillingEventByStripeId(event.id, {
           accountId: sub.metadata?.accountId ?? null,
           stripeSubscriptionId: sub.id,
@@ -155,7 +158,7 @@ export async function POST(req: Request) {
             .eq('stripe_customer_id', customerId)
             .maybeSingle();
 
-          await core(supabase)
+          const { error: pastDueErr } = await core(supabase)
             .from('accounts')
             .update({
               subscription_status: 'past_due',
@@ -163,6 +166,9 @@ export async function POST(req: Request) {
                 existing?.past_due_since ?? new Date().toISOString(),
             })
             .eq('stripe_customer_id', customerId);
+          if (pastDueErr) {
+            throw new Error(`accounts update failed: ${pastDueErr.message}`);
+          }
         }
         await updateBillingEventByStripeId(event.id, {
           stripeCustomerId: customerId,

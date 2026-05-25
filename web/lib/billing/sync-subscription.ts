@@ -74,10 +74,13 @@ export async function syncAccountFromStripeSubscription(
   const limits = await limitsForPriceId(priceId);
   const admin = createSupabaseAdmin();
 
-  await core(admin)
+  const { error } = await core(admin)
     .from('accounts')
     .update(subscriptionUpdateFields(subscription, limits))
     .eq('id', accountId);
+  if (error) {
+    throw new Error(`accounts update failed: ${error.message}`);
+  }
 
   return {
     planCode: limits.plan_code,
@@ -149,10 +152,13 @@ export async function updateAccountFromSubscriptionEvent(
   const limits = await limitsForPriceId(priceId);
   const admin = createSupabaseAdmin();
 
-  await core(admin)
+  const { error } = await core(admin)
     .from('accounts')
     .update(subscriptionUpdateFields(subscription, limits))
     .eq('stripe_subscription_id', subscription.id);
+  if (error) {
+    throw new Error(`accounts update failed: ${error.message}`);
+  }
 }
 
 export async function syncAccountFromSubscriptionCreated(
@@ -190,8 +196,11 @@ export async function syncAccountFromInvoicePaid(
     return;
   }
 
-  await core(admin)
+  const { error } = await core(admin)
     .from('accounts')
     .update({ subscription_status: 'active', past_due_since: null })
     .eq('stripe_customer_id', customerId);
+  if (error) {
+    throw new Error(`accounts update failed: ${error.message}`);
+  }
 }
