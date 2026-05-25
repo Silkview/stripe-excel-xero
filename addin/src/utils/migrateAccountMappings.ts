@@ -102,38 +102,58 @@ function isLegacySingleSectionLayout(
  * Safe to call repeatedly — no-op once the sheet is already in the new shape.
  */
 export async function migrateAccountMappingsSheet(): Promise<void> {
-  await Excel.run(async (context) => {
-    const sheet =
-      context.workbook.worksheets.getItemOrNullObject(ACCOUNT_MAPPINGS_SHEET);
-    sheet.load('name');
-    await context.sync();
+  try {
+    await Excel.run(async (context) => {
+      const sheet = context.workbook.worksheets.getItemOrNullObject(
+        ACCOUNT_MAPPINGS_SHEET
+      );
+      sheet.load('name');
+      await context.sync();
 
-    if (sheet.isNullObject) return;
+      if (sheet.isNullObject) return;
 
-    const used = sheet.getUsedRangeOrNullObject();
-    used.load(['rowIndex', 'rowCount', 'columnCount']);
-    await context.sync();
+      const used = sheet.getUsedRangeOrNullObject();
+      used.load(['isNullObject', 'rowIndex', 'rowCount', 'columnCount']);
+      await context.sync();
 
-    if (used.isNullObject || used.rowCount <= 1) return;
+      const usedEmpty = used.isNullObject;
+      const rowCount = usedEmpty ? 0 : used.rowCount;
 
-    const lastRow = used.rowIndex + used.rowCount;
-    const lastColIndex = Math.max(used.columnCount, 6);
-    const endCol = colLetter(lastColIndex);
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'migrateAccountMappings.ts:enter',message:'migration entered',data:{usedEmpty,rowCount,colCount:usedEmpty?0:used.columnCount},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
 
-    const headerProbe = sheet.getRange(`A1:${endCol}2`);
-    headerProbe.load('values');
-    await context.sync();
+      if (usedEmpty || rowCount <= 1) {
+        // Sheet exists but is empty (possibly wiped by an earlier failed paint).
+        // Repaint the new layout so the user has something to work with.
+        // #region agent log
+        fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'migrateAccountMappings.ts:emptyRepaint',message:'repainting empty sheet',timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        await writeAccountMappingsLayout(sheet);
+        return;
+      }
 
-    const probeRows = (headerProbe.values as unknown[][]) ?? [];
-    const legacyLayout = isLegacySingleSectionLayout(
-      probeRows[0]?.[0],
-      probeRows[1]?.[0]
-    );
+      const lastRow = used.rowIndex + used.rowCount;
+      const lastColIndex = Math.max(used.columnCount, 6);
+      const endCol = colLetter(lastColIndex);
 
-    if (!legacyLayout) {
-      // Already on the new layout (or an unknown shape we shouldn't touch).
-      return;
-    }
+      const headerProbe = sheet.getRange(`A1:${endCol}2`);
+      headerProbe.load('values');
+      await context.sync();
+
+      const probeRows = (headerProbe.values as unknown[][]) ?? [];
+      const legacyLayout = isLegacySingleSectionLayout(
+        probeRows[0]?.[0],
+        probeRows[1]?.[0]
+      );
+
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'migrateAccountMappings.ts:legacyDetect',message:'legacy layout detection',data:{a1:String(probeRows[0]?.[0]??''),a2:String(probeRows[1]?.[0]??''),legacyLayout},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+
+      if (!legacyLayout) {
+        return;
+      }
 
     const dataRange = sheet.getRange(
       `A${LEGACY_FIRST_DATA_ROW}:${endCol}${lastRow}`
@@ -171,34 +191,39 @@ export async function migrateAccountMappingsSheet(): Promise<void> {
       });
     }
 
-    // Repaint the sheet in the new two-section layout.
-    writeAccountMappingsLayout(sheet);
-    await context.sync();
+      // Repaint the sheet in the new two-section layout.
+      await writeAccountMappingsLayout(sheet);
 
-    // Restore captured values into the new account section rows (B..E).
-    const restoredRows: unknown[][] = ACCOUNT_MAPPING_STRIPE_OBJECTS.map(
-      (key) => {
-        const prior = byKey.get(key);
-        return [
-          prior?.accountValue ?? '',
-          prior?.taxValue ?? '',
-          prior?.trackingName ?? '',
-          prior?.trackingOption ?? '',
+      // Restore captured values into the new account section rows (B..E).
+      const restoredRows: unknown[][] = ACCOUNT_MAPPING_STRIPE_OBJECTS.map(
+        (key) => {
+          const prior = byKey.get(key);
+          return [
+            prior?.accountValue ?? '',
+            prior?.taxValue ?? '',
+            prior?.trackingName ?? '',
+            prior?.trackingOption ?? '',
+          ];
+        }
+      );
+
+      sheet
+        .getRange(`B${ACCOUNT_FIRST_DATA_ROW}:E${ACCOUNT_LAST_DATA_ROW}`)
+        .values = restoredRows;
+
+      if (!isEmptyCell(bankTransferContact)) {
+        sheet.getRange(`B${CONTACT_FIRST_DATA_ROW}`).values = [
+          [bankTransferContact],
         ];
       }
-    );
 
-    sheet
-      .getRange(`B${ACCOUNT_FIRST_DATA_ROW}:E${ACCOUNT_LAST_DATA_ROW}`)
-      .values = restoredRows;
-
-    if (!isEmptyCell(bankTransferContact)) {
-      sheet.getRange(`B${CONTACT_FIRST_DATA_ROW}`).values = [
-        [bankTransferContact],
-      ];
-    }
-
-    sheet.getUsedRange().format.autofitColumns();
-    await context.sync();
-  });
+      sheet.getUsedRange().format.autofitColumns();
+      await context.sync();
+    });
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'migrateAccountMappings.ts:err',message:'migration threw',data:{message:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw err;
+  }
 }

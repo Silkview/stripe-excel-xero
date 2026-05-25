@@ -93,6 +93,9 @@ export function useSetupActions({
       }
       setStatusMessage(parts.join(' · ') || 'Workbook ready.');
     } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1-H5',location:'useSetupActions.ts:setupSheets:catch',message:'setupSheets caught error',data:{message:err instanceof Error?err.message:String(err),stack:err instanceof Error?(err.stack??'').slice(0,800):null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       setStatusMessage(
         err instanceof Error ? err.message : 'Failed to set up workbook.'
       );

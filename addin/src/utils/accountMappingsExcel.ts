@@ -77,68 +77,133 @@ function listValidation(source: string): Excel.DataValidationRule {
 
 /**
  * Paint the two-section layout (Account Mapping + Contact Mapping) on the given
- * Account_Mappings worksheet. Caller must `await context.sync()` afterwards.
- *
- * Safe to re-run: clears the existing used range first.
+ * Account_Mappings worksheet. Awaits intermediate syncs so individual steps can
+ * be diagnosed if they fail.
  */
-export function writeAccountMappingsLayout(sheet: Excel.Worksheet): void {
-  const used = sheet.getUsedRangeOrNullObject();
-  used.clear(Excel.ClearApplyTo.all);
+export async function writeAccountMappingsLayout(
+  sheet: Excel.Worksheet
+): Promise<void> {
+  const context = sheet.context;
 
-  // --- Account Mapping section ---
-  const accountTitleRange = sheet.getRange(
-    `A${ACCOUNT_TITLE_ROW}:${ACCOUNT_LAST_COL}${ACCOUNT_TITLE_ROW}`
-  );
-  accountTitleRange.merge();
-  accountTitleRange.values = [['Account Mapping']];
-  accountTitleRange.format.fill.color = SECTION_TITLE_FILL;
-  accountTitleRange.format.font.color = SECTION_TITLE_FONT;
-  accountTitleRange.format.font.bold = true;
-  accountTitleRange.format.horizontalAlignment =
-    Excel.HorizontalAlignment.left;
-  accountTitleRange.format.indentLevel = 1;
+  // #region agent log
+  fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1-H5',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:enter',message:'writeAccountMappingsLayout invoked',data:{sheetName:sheet.name??null},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
-  const accountHeaderRange = sheet.getRange(
-    `A${ACCOUNT_HEADER_ROW}:${ACCOUNT_LAST_COL}${ACCOUNT_HEADER_ROW}`
-  );
-  accountHeaderRange.values = [[...ACCOUNT_MAPPING_HEADERS]];
-  accountHeaderRange.format.font.bold = true;
-  accountHeaderRange.format.fill.color = HEADER_FILL;
+  // Step 1: clear A1:Z40 (covers both sections + any legacy 6-col data).
+  // Using a known range instead of getUsedRangeOrNullObject().clear() avoids
+  // throwing on freshly-added sheets where the used range is null.
+  try {
+    sheet.getRange('A1:Z40').clear(Excel.ClearApplyTo.all);
+    sheet.getRange('A1:Z40').unmerge();
+    await context.sync();
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step1',message:'cleared+unmerged ok',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step1:err',message:'clear/unmerge failed',data:{message:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw err;
+  }
 
-  const accountKeyRange = sheet.getRange(
-    `A${ACCOUNT_FIRST_DATA_ROW}:A${ACCOUNT_LAST_DATA_ROW}`
-  );
-  accountKeyRange.values = ACCOUNT_MAPPING_STRIPE_OBJECTS.map((obj) => [obj]);
+  // Step 2: Account Mapping title bar.
+  try {
+    const accountTitleRange = sheet.getRange(
+      `A${ACCOUNT_TITLE_ROW}:${ACCOUNT_LAST_COL}${ACCOUNT_TITLE_ROW}`
+    );
+    sheet.getRange(`A${ACCOUNT_TITLE_ROW}`).values = [['Account Mapping']];
+    accountTitleRange.merge();
+    accountTitleRange.format.fill.color = SECTION_TITLE_FILL;
+    accountTitleRange.format.font.color = SECTION_TITLE_FONT;
+    accountTitleRange.format.font.bold = true;
+    accountTitleRange.format.horizontalAlignment =
+      Excel.HorizontalAlignment.left;
+    await context.sync();
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H2-H3',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step2',message:'account title bar ok',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H2-H3',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step2:err',message:'account title bar failed',data:{message:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw err;
+  }
 
-  // --- Contact Mapping section ---
-  const contactTitleRange = sheet.getRange(
-    `A${CONTACT_TITLE_ROW}:${CONTACT_LAST_COL}${CONTACT_TITLE_ROW}`
-  );
-  contactTitleRange.merge();
-  contactTitleRange.values = [['Contact Mapping']];
-  contactTitleRange.format.fill.color = SECTION_TITLE_FILL;
-  contactTitleRange.format.font.color = SECTION_TITLE_FONT;
-  contactTitleRange.format.font.bold = true;
-  contactTitleRange.format.horizontalAlignment =
-    Excel.HorizontalAlignment.left;
-  contactTitleRange.format.indentLevel = 1;
+  // Step 3: Account header + data keys.
+  try {
+    const accountHeaderRange = sheet.getRange(
+      `A${ACCOUNT_HEADER_ROW}:${ACCOUNT_LAST_COL}${ACCOUNT_HEADER_ROW}`
+    );
+    accountHeaderRange.values = [[...ACCOUNT_MAPPING_HEADERS]];
+    accountHeaderRange.format.font.bold = true;
+    accountHeaderRange.format.fill.color = HEADER_FILL;
 
-  const contactHeaderRange = sheet.getRange(
-    `A${CONTACT_HEADER_ROW}:${CONTACT_LAST_COL}${CONTACT_HEADER_ROW}`
-  );
-  contactHeaderRange.values = [[...CONTACT_MAPPING_HEADERS]];
-  contactHeaderRange.format.font.bold = true;
-  contactHeaderRange.format.fill.color = HEADER_FILL;
+    const accountKeyRange = sheet.getRange(
+      `A${ACCOUNT_FIRST_DATA_ROW}:A${ACCOUNT_LAST_DATA_ROW}`
+    );
+    accountKeyRange.values = ACCOUNT_MAPPING_STRIPE_OBJECTS.map((obj) => [obj]);
+    await context.sync();
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step3',message:'account header+keys ok',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step3:err',message:'account header+keys failed',data:{message:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw err;
+  }
 
-  const contactLabelRange = sheet.getRange(
-    `A${CONTACT_FIRST_DATA_ROW}:A${CONTACT_LAST_DATA_ROW}`
-  );
-  contactLabelRange.values = CONTACT_MAPPING_KEYS.map((k) => [
-    CONTACT_MAPPING_LABELS[k],
-  ]);
-  contactLabelRange.format.font.bold = true;
+  // Step 4: Contact Mapping section.
+  try {
+    const contactTitleRange = sheet.getRange(
+      `A${CONTACT_TITLE_ROW}:${CONTACT_LAST_COL}${CONTACT_TITLE_ROW}`
+    );
+    sheet.getRange(`A${CONTACT_TITLE_ROW}`).values = [['Contact Mapping']];
+    contactTitleRange.merge();
+    contactTitleRange.format.fill.color = SECTION_TITLE_FILL;
+    contactTitleRange.format.font.color = SECTION_TITLE_FONT;
+    contactTitleRange.format.font.bold = true;
+    contactTitleRange.format.horizontalAlignment =
+      Excel.HorizontalAlignment.left;
 
-  sheet.getUsedRange().format.autofitColumns();
+    const contactHeaderRange = sheet.getRange(
+      `A${CONTACT_HEADER_ROW}:${CONTACT_LAST_COL}${CONTACT_HEADER_ROW}`
+    );
+    contactHeaderRange.values = [[...CONTACT_MAPPING_HEADERS]];
+    contactHeaderRange.format.font.bold = true;
+    contactHeaderRange.format.fill.color = HEADER_FILL;
+
+    const contactLabelRange = sheet.getRange(
+      `A${CONTACT_FIRST_DATA_ROW}:A${CONTACT_LAST_DATA_ROW}`
+    );
+    contactLabelRange.values = CONTACT_MAPPING_KEYS.map((k) => [
+      CONTACT_MAPPING_LABELS[k],
+    ]);
+    contactLabelRange.format.font.bold = true;
+    await context.sync();
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step4',message:'contact section ok',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step4:err',message:'contact section failed',data:{message:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw err;
+  }
+
+  // Step 5: autofit.
+  try {
+    sheet.getUsedRange().format.autofitColumns();
+    await context.sync();
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step5',message:'autofit ok',timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H4',location:'accountMappingsExcel.ts:writeAccountMappingsLayout:step5:err',message:'autofit failed',data:{message:err instanceof Error?err.message:String(err)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    // non-fatal; don't rethrow
+  }
 }
 
 export async function applyAccountMappingsDropdowns(

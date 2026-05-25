@@ -117,7 +117,8 @@ export async function writeStatusToCell(
 export async function setupWorkbookSheets(): Promise<SetupSheetsResult> {
   const result: SetupSheetsResult = { created: [], skipped: [] };
 
-  await Excel.run(async (context) => {
+  try {
+    await Excel.run(async (context) => {
     let nextPosition = 0;
 
     for (const config of WORKBOOK_SHEETS) {
@@ -135,7 +136,7 @@ export async function setupWorkbookSheets(): Promise<SetupSheetsResult> {
       nextPosition += 1;
 
       if (config.name === ACCOUNT_MAPPINGS_SHEET_NAME) {
-        writeAccountMappingsLayout(sheet);
+        await writeAccountMappingsLayout(sheet);
       } else {
         const lastCol = colLetter(config.headers.length);
         const headerRange = sheet.getRange(`A1:${lastCol}1`);
@@ -156,8 +157,14 @@ export async function setupWorkbookSheets(): Promise<SetupSheetsResult> {
       result.created.push(config.name);
     }
 
-    await context.sync();
-  });
+      await context.sync();
+    });
+  } catch (err) {
+    // #region agent log
+    fetch('http://127.0.0.1:7788/ingest/a7ed8476-0cc9-4434-ad8f-95a74c199452',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4702f2'},body:JSON.stringify({sessionId:'4702f2',runId:'pre-fix',hypothesisId:'H1-H5',location:'officeHelpers.ts:setupWorkbookSheets:err',message:'setupWorkbookSheets Excel.run threw',data:{message:err instanceof Error?err.message:String(err),createdSoFar:result.created,skippedSoFar:result.skipped},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    throw err;
+  }
 
   return result;
 }
