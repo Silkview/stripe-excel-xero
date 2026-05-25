@@ -62,6 +62,22 @@ function normalizeName(filename) {
   return filename.replace(/^\d+_/, '').replace(/\.sql$/, '');
 }
 
+// A file is "applied" if the ledger has EITHER the normalized name
+// (e.g. "initial_schema") OR the raw filename stem with its numeric prefix
+// (e.g. "001_initial_schema"). The Management API and the old Supabase
+// dashboard apply path have historically used both forms.
+function candidateNames(filename) {
+  const stem = filename.replace(/\.sql$/, '');
+  return new Set([stem, normalizeName(filename)]);
+}
+
+function isApplied(filename, applied) {
+  for (const candidate of candidateNames(filename)) {
+    if (applied.has(candidate)) return true;
+  }
+  return false;
+}
+
 async function getAppliedNames() {
   try {
     const data = await api(`/v1/projects/${PROJECT_REF}/database/query`, {
@@ -96,13 +112,28 @@ async function main() {
     `Found ${files.length} migration file(s) in ${migrationsDir}; ${applied.size} already applied.`
   );
 
+  // #region agent log (H1/H2: dump ledger names + per-file match decision so any future mismatch is obvious in CI logs)
+  console.log(
+    `[debug:aa61bb] applied ledger names = ${JSON.stringify([...applied].sort())}`
+  );
+  // #endregion
+
   let appliedThisRun = 0;
   for (const file of files) {
     const name = normalizeName(file);
-    if (applied.has(name)) {
-      console.log(`skip   ${file}  (already applied as "${name}")`);
+    const stem = file.replace(/\.sql$/, '');
+    if (isApplied(file, applied)) {
+      // #region agent log (H1: log which candidate matched, to verify resilience)
+      const matched = applied.has(stem) ? stem : name;
+      console.log(`skip   ${file}  (already applied as "${matched}")`);
+      // #endregion
       continue;
     }
+    // #region agent log (H2: log the candidates we checked when a file is treated as un-applied)
+    console.log(
+      `[debug:aa61bb] ${file} not found in ledger; tried [${[stem, name].join(', ')}]`
+    );
+    // #endregion
     const sql = await readFile(resolve(migrationsDir, file), 'utf8');
     if (DRY_RUN) {
       console.log(`dryrun ${file} → would apply as "${name}"`);
