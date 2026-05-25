@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
            xsi:type="TaskPaneApp">
   <Id>6f4b82d9-1c5a-4b3d-9e28-7a1c5d9f3e4b</Id>
-  <Version>1.0.0.2</Version>
+  <Version>1.0.0.3</Version>
   <ProviderName>Silkview Connect</ProviderName>
   <DefaultLocale>en-AU</DefaultLocale>
   <DisplayName DefaultValue="Silkview Connect"/>
   <Description DefaultValue="Connect Stripe and Xero to sync financial data with Excel."/>
-  <IconUrl DefaultValue="https://addin.silkview.org/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://addin.silkview.org/icon-64.png"/>
+  <IconUrl DefaultValue="https://addin.silkview.org/icon-32.png?v=3"/>
+  <HighResolutionIconUrl DefaultValue="https://addin.silkview.org/icon-80.png?v=3"/>
   <SupportUrl DefaultValue="https://www.silkview.org/support"/>
   <AppDomains>
     <AppDomain>https://addin.silkview.org</AppDomain>
@@ -26,4 +28,66 @@
     <SourceLocation DefaultValue="https://addin.silkview.org/taskpane.html"/>
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title"/>
+            <Description resid="GetStarted.Description"/>
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="SilkviewGroup">
+                <Label resid="Silkview.Group.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16"/>
+                  <bt:Image size="32" resid="Icon.32x32"/>
+                  <bt:Image size="80" resid="Icon.80x80"/>
+                </Icon>
+                <Control xsi:type="Button" id="SilkviewOpenTaskpane">
+                  <Label resid="Silkview.OpenTaskpane.Label"/>
+                  <Supertip>
+                    <Title resid="Silkview.OpenTaskpane.Title"/>
+                    <Description resid="Silkview.OpenTaskpane.Desc"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>SilkviewTaskpane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://addin.silkview.org/icon-16.png?v=3"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://addin.silkview.org/icon-32.png?v=3"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://addin.silkview.org/icon-80.png?v=3"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://www.silkview.org/support"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://addin.silkview.org/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="Silkview Connect"/>
+        <bt:String id="Silkview.Group.Label" DefaultValue="Silkview"/>
+        <bt:String id="Silkview.OpenTaskpane.Label" DefaultValue="Open Silkview"/>
+        <bt:String id="Silkview.OpenTaskpane.Title" DefaultValue="Open Silkview Connect"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Connect Stripe and Xero to sync financial data with Excel."/>
+        <bt:String id="Silkview.OpenTaskpane.Desc" DefaultValue="Sync Stripe payouts to Xero from inside Excel."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
 </OfficeApp>
