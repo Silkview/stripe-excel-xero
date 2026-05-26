@@ -1,13 +1,1 @@
-{
-  "/api/auth/excel-handoff/route": "app/api/auth/excel-handoff/route.js",
-  "/api/onboarding/status/route": "app/api/onboarding/status/route.js",
-  "/api/auth/login-audit/route": "app/api/auth/login-audit/route.js",
-  "/api/stripe/status/route": "app/api/stripe/status/route.js",
-  "/api/xero/connections/route": "app/api/xero/connections/route.js",
-  "/api/stripe/connections/route": "app/api/stripe/connections/route.js",
-  "/api/workspace/route": "app/api/workspace/route.js",
-  "/api/xero/mapping-options/route": "app/api/xero/mapping-options/route.js",
-  "/api/debug/agent-log/route": "app/api/debug/agent-log/route.js",
-  "/api/stripe/balance-transactions/route": "app/api/stripe/balance-transactions/route.js",
-  "/api/xero/manual-journals/route": "app/api/xero/manual-journals/route.js"
-}
+{}

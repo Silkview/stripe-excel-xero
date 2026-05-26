@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { SUPPORT_EMAIL, supportMailtoUrl } from '@/lib/support';
 import styles from './UserGuide.module.css';
 
@@ -183,51 +184,13 @@ export default function UserGuide() {
             <div className={styles.mockupWrap}>
               <MockupTopbar title="Silkview Connect — Excel task pane" />
               <div className={styles.mockupBody}>
-                <div className={styles.tp}>
-                  <TpHeader />
-                  <TpWorkspaceBar value="Acme Retail Pty Ltd" />
-                  <div
-                    style={{
-                      padding: '16px 14px',
-                      textAlign: 'center',
-                      background: '#fff',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: 'var(--ink2)',
-                        marginBottom: 12,
-                      }}
-                    >
-                      Sign in to access your workspaces and connections.
-                    </div>
-                    <div
-                      style={{
-                        padding: 10,
-                        background: 'var(--accent)',
-                        color: '#fff',
-                        borderRadius: 8,
-                        fontSize: 13,
-                        fontWeight: 600,
-                      }}
-                    >
-                      Sign in
-                    </div>
-                    <div
-                      style={{
-                        marginTop: 8,
-                        fontSize: 11,
-                        color: 'var(--ink3)',
-                      }}
-                    >
-                      No account?{' '}
-                      <span style={{ color: 'var(--accent)' }}>
-                        Create one free →
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <Image
+                  className={styles.mockupImg}
+                  src="/support/taskpane-signin.png"
+                  alt="Silkview Connect task pane — Sign in screen"
+                  width={375}
+                  height={221}
+                />
               </div>
               <div className={styles.mockupCaption}>
                 Figure 1 — Workspace selector with the Sign in card. Clicking
@@ -356,93 +319,13 @@ export default function UserGuide() {
             <div className={styles.mockupWrap}>
               <MockupTopbar title="Connections — both connected" />
               <div className={styles.mockupBody}>
-                <div className={styles.tp}>
-                  <TpHeader />
-                  <TpWorkspaceBar value="Acme Retail Pty Ltd ▾" />
-                  <div className={styles.tpConns}>
-                    <div className={styles.tpConn}>
-                      <div
-                        className={`${styles.tpConnBar} ${styles.tpConnBarXero}`}
-                      >
-                        <div
-                          className={`${styles.tpConnLogo} ${styles.tpConnLogoXl}`}
-                        >
-                          X
-                        </div>
-                        <div className={styles.tpConnInfo}>
-                          <div className={styles.tpConnName}>
-                            Demo Company (AU)
-                          </div>
-                          <div className={styles.tpConnSub}>
-                            <div
-                              className={`${styles.dot6} ${styles.dg}`}
-                            />
-                            Connected &nbsp;
-                            <span className={styles.currencyPill}>AUD</span>
-                          </div>
-                        </div>
-                        <div
-                          className={`${styles.connBtn} ${styles.connBtnXero}`}
-                        >
-                          Reconnect
-                        </div>
-                      </div>
-                    </div>
-                    <div className={styles.tpConn}>
-                      <div
-                        className={`${styles.tpConnBar} ${styles.tpConnBarStripe}`}
-                      >
-                        <div
-                          className={`${styles.tpConnLogo} ${styles.tpConnLogoSl}`}
-                        >
-                          S
-                        </div>
-                        <div className={styles.tpConnInfo}>
-                          <div className={styles.tpConnName}>Stripe</div>
-                          <div className={styles.tpConnSub}>
-                            <div
-                              className={`${styles.dot6} ${styles.dg}`}
-                            />
-                            2 account(s) connected
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          padding: '8px 10px',
-                          background: '#fff',
-                          borderTop: '1px solid var(--rule2)',
-                        }}
-                      >
-                        <div className={styles.tpAccountsHead}>
-                          <span className={styles.tpAccountsLabel}>
-                            Accounts for pull
-                          </span>
-                          <span className={styles.tpSelectAll}>Select all</span>
-                        </div>
-                        <div
-                          className={`${styles.tpSaItem} ${styles.tpSaItemSel}`}
-                        >
-                          <div className={styles.tpCb}>✓</div>
-                          <div className={styles.tpAcctName}>
-                            Acme Retail · acct_1SvRJ58…
-                            <span className={styles.tpBadgeLive}>Live</span>
-                          </div>
-                        </div>
-                        <div className={styles.tpSaItem}>
-                          <div className={styles.tpCb} />
-                          <div className={styles.tpAcctName}>
-                            Acme Sandbox · acct_1T38yJA…
-                            <span className={styles.tpBadgeTest}>Test</span>
-                          </div>
-                        </div>
-                        <div className={styles.tpAddAccount}>
-                          + Add another account
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <Image
+                  className={styles.mockupImg}
+                  src="/support/taskpane-connections.png"
+                  alt="Silkview Connect task pane — Xero and Stripe connections"
+                  width={375}
+                  height={405}
+                />
               </div>
               <div className={styles.mockupCaption}>
                 Figure 2 — Both connections active. Xero shows the
@@ -847,98 +730,13 @@ export default function UserGuide() {
             <div className={styles.mockupWrap}>
               <MockupTopbar title="Pull tab — Payouts" />
               <div className={styles.mockupBody}>
-                <div className={styles.tp}>
-                  <TpHeader />
-                  <TpWorkspaceBar value="Acme Retail Pty Ltd ▾" />
-                  <div className={styles.tpSetup}>
-                    <div className={styles.tpSetupLabel}>Quick setup</div>
-                    <div className={styles.tpSetupBtns}>
-                      <div className={styles.tpSetupBtn}>
-                        <div
-                          className={styles.tpSetupIcon}
-                          style={{ background: '#EEF4FF' }}
-                        >
-                          📋
-                        </div>
-                        <div>
-                          <div
-                            style={{ fontSize: 11, fontWeight: 500 }}
-                          >
-                            Setup sheets
-                          </div>
-                          <div
-                            style={{ fontSize: 9.5, color: 'var(--ink3)' }}
-                          >
-                            Create workbook tabs
-                          </div>
-                        </div>
-                      </div>
-                      <div className={styles.tpSetupBtn}>
-                        <div
-                          className={styles.tpSetupIcon}
-                          style={{ background: 'var(--xero-l)' }}
-                        >
-                          ↻
-                        </div>
-                        <div>
-                          <div
-                            style={{ fontSize: 11, fontWeight: 500 }}
-                          >
-                            Refresh Xero
-                          </div>
-                          <div
-                            style={{ fontSize: 9.5, color: 'var(--ink3)' }}
-                          >
-                            Mapping dropdowns
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className={styles.tpTabs}>
-                    <div
-                      className={`${styles.tpTab} ${styles.tpTabActive}`}
-                    >
-                      <div className={styles.tpTabNum}>1</div>Pull
-                    </div>
-                    <div className={styles.tpTab}>
-                      <div className={styles.tpTabNum}>2</div>Build
-                    </div>
-                    <div className={styles.tpTab}>
-                      <div className={styles.tpTabNum}>3</div>Push
-                    </div>
-                  </div>
-                  <div className={styles.tpPanel}>
-                    <div className={styles.tpField}>
-                      <div className={styles.tpFieldLabel}>Object</div>
-                      <div className={styles.tpFieldVal}>Payouts ▾</div>
-                    </div>
-                    <div className={styles.tpDateRow}>
-                      <div className={styles.tpField}>
-                        <div className={styles.tpFieldLabel}>From</div>
-                        <div className={styles.tpFieldVal}>01/05/2026</div>
-                      </div>
-                      <div className={styles.tpField}>
-                        <div className={styles.tpFieldLabel}>To</div>
-                        <div className={styles.tpFieldVal}>31/05/2026</div>
-                      </div>
-                    </div>
-                    <div className={styles.tpField}>
-                      <div className={styles.tpFieldLabel}>Destination</div>
-                      <div className={styles.tpFieldVal}>
-                        Stripe_Payouts!A1
-                      </div>
-                    </div>
-                    <div className={styles.tpHint}>
-                      Max 90 days per pull · 2,000 rows total · accounts
-                      merged by date (Free plan: 100 rows total)
-                    </div>
-                    <div className={styles.tpBtnPull}>↓ Pull to sheet</div>
-                    <div className={styles.tpResult}>
-                      ✓ 42 rows pulled → Stripe_Payouts
-                    </div>
-                  </div>
-                </div>
+                <Image
+                  className={styles.mockupImg}
+                  src="/support/taskpane-pull.png"
+                  alt="Silkview Connect task pane — Pull tab with Payouts selected"
+                  width={375}
+                  height={724}
+                />
               </div>
               <div className={styles.mockupCaption}>
                 Figure 3 — Pull tab with a 1-month range. The Object dropdown
@@ -1226,75 +1024,13 @@ export default function UserGuide() {
             <div className={styles.mockupWrap}>
               <MockupTopbar title="Build tab" />
               <div className={styles.mockupBody}>
-                <div className={styles.tp}>
-                  <TpHeader />
-                  <div className={styles.tpTabs}>
-                    <div className={styles.tpTab}>
-                      <div
-                        className={`${styles.tpTabNum} ${styles.tpTabDoneNum}`}
-                      >
-                        ✓
-                      </div>
-                      Pull
-                    </div>
-                    <div
-                      className={`${styles.tpTab} ${styles.tpTabActive}`}
-                    >
-                      <div className={styles.tpTabNum}>2</div>Build
-                    </div>
-                    <div className={styles.tpTab}>
-                      <div className={styles.tpTabNum}>3</div>Push
-                    </div>
-                  </div>
-                  <div className={styles.tpPanel}>
-                    <div className={styles.tpHint}>
-                      Manual journals summarise balance transactions on
-                      Xero_Journals. Bank transactions create one RECEIVE
-                      line per payout on Xero_Bank_Transaction.
-                    </div>
-                    <div className={styles.tpBuildCard}>
-                      <div className={styles.tpBcHead}>
-                        <span>📒 Manual journals</span>
-                        <span
-                          className={`${styles.tpBadge} ${styles.tpBadgePerDay}`}
-                        >
-                          Per day
-                        </span>
-                      </div>
-                      <div className={styles.tpBcBody}>
-                        Charges, refunds, fees + clearing pairs. GST via Tax
-                        Type column from Account_Mappings.
-                        <div className={styles.tpBtnBuild}>
-                          Build journals from balance transactions
-                        </div>
-                      </div>
-                    </div>
-                    <div className={styles.tpBuildCard}>
-                      <div className={styles.tpBcHead}>
-                        <span>🏦 Bank transactions</span>
-                        <span
-                          className={`${styles.tpBadge} ${styles.tpBadgePerPayout}`}
-                        >
-                          Per payout
-                        </span>
-                      </div>
-                      <div className={styles.tpBcBody}>
-                        One RECEIVE row per payout. Bank account + clearing
-                        from Account_Mappings; contact from{' '}
-                        <code>=Account_Mappings!$B$11</code>.
-                        <div className={styles.tpBtnBuild}>
-                          Build bank transactions from balance transactions
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      className={`${styles.tpHint} ${styles.tpHintWarn}`}
-                    >
-                      ✏️ All rows editable before push. Add-in reads whatever
-                      is in the range.
-                    </div>
-                  </div>
-                </div>
+                <Image
+                  className={styles.mockupImg}
+                  src="/support/taskpane-build.png"
+                  alt="Silkview Connect task pane — Build tab with manual journals and bank transactions"
+                  width={375}
+                  height={775}
+                />
               </div>
               <div className={styles.mockupCaption}>
                 Figure 4 — Build tab. The Pull step is marked done; each
@@ -1554,60 +1290,13 @@ export default function UserGuide() {
             <div className={styles.mockupWrap}>
               <MockupTopbar title="Push tab — Manual journals" />
               <div className={styles.mockupBody}>
-                <div className={styles.tp}>
-                  <TpHeader />
-                  <div className={styles.tpTabs}>
-                    <div className={styles.tpTab}>
-                      <div
-                        className={`${styles.tpTabNum} ${styles.tpTabDoneNum}`}
-                      >
-                        ✓
-                      </div>
-                      Pull
-                    </div>
-                    <div className={styles.tpTab}>
-                      <div
-                        className={`${styles.tpTabNum} ${styles.tpTabDoneNum}`}
-                      >
-                        ✓
-                      </div>
-                      Build
-                    </div>
-                    <div
-                      className={`${styles.tpTab} ${styles.tpTabActive}`}
-                    >
-                      <div className={styles.tpTabNum}>3</div>Push
-                    </div>
-                  </div>
-                  <div className={styles.tpPanel}>
-                    <div className={styles.tpPushSeg}>
-                      <div
-                        className={`${styles.tpPushSegBtn} ${styles.tpPushSegBtnActive}`}
-                      >
-                        📒 Manual journals
-                      </div>
-                      <div className={styles.tpPushSegBtn}>
-                        🏦 Bank transactions
-                      </div>
-                    </div>
-                    <div className={styles.tpField}>
-                      <div className={styles.tpFieldLabel}>Read range</div>
-                      <div className={styles.tpFieldVal}>
-                        Xero_Journals!A2:J500
-                      </div>
-                    </div>
-                    <div className={styles.tpField}>
-                      <div className={styles.tpFieldLabel}>Status</div>
-                      <div className={styles.tpFieldVal}>Draft ▾</div>
-                    </div>
-                    <div className={styles.tpBtnPush}>
-                      ↑ Push journals to Xero
-                    </div>
-                    <div className={styles.tpResult}>
-                      ✓ 12 rows pushed → Xero IDs in column I
-                    </div>
-                  </div>
-                </div>
+                <Image
+                  className={styles.mockupImg}
+                  src="/support/taskpane-push.png"
+                  alt="Silkview Connect task pane — Push tab with Manual journals selected"
+                  width={375}
+                  height={775}
+                />
               </div>
               <div className={styles.mockupCaption}>
                 Figure 5a — Push tab with the segmented switch on{' '}
