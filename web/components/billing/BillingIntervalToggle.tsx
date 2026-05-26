@@ -1,7 +1,10 @@
 'use client';
 
 import type { BillingInterval } from '@/lib/plans/pricing';
-import { billingIntervalLabel } from '@/lib/plans/pricing';
+import {
+  annualSavingsLabel,
+  billingIntervalLabel,
+} from '@/lib/plans/pricing';
 
 type Props = {
   value: BillingInterval;
@@ -44,7 +47,7 @@ export default function BillingIntervalToggle({
                   selected ? 'text-white/80' : 'text-accent'
                 }`}
               >
-                Save
+                {annualSavingsLabel()}
               </span>
             )}
           </button>

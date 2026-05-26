@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
+import { betaFeedbackMailtoUrl } from '@/lib/support';
 import { useDashboard } from './dashboard-ui';
 
 const navItems = [
@@ -153,13 +154,22 @@ export default function DashboardSidebar() {
             {ctx.planCode}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="mt-2 w-full text-left text-[11px] text-white/50 hover:text-white"
-        >
-          Sign out
-        </button>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="text-[11px] text-white/50 hover:text-white"
+          >
+            Sign out
+          </button>
+          <a
+            href={betaFeedbackMailtoUrl()}
+            className="text-[11px] text-white/50 hover:text-white"
+            title="Send beta feedback"
+          >
+            Beta feedback →
+          </a>
+        </div>
       </div>
     </aside>
   );

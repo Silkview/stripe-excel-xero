@@ -15,7 +15,7 @@ const personas = [
   },
   {
     title: 'Finance teams',
-    body: 'Build reliable, repeatable month-end reporting models that update automatically.',
+    body: 'Build reliable, repeatable month-end reporting workflows.',
     accent: 'bg-accent',
     iconBg: 'bg-[#EEF4FF]',
     icon: '📈',

@@ -25,6 +25,24 @@ export const metadata: Metadata = {
   title: 'Silkview Connect — Stripe to Xero, inside Excel',
   description:
     'Pull Stripe balance transactions into Excel, build Xero journals, and push to your ledger.',
+  metadataBase: new URL('https://www.silkview.org'),
+  icons: { icon: '/favicon.svg' },
+  openGraph: {
+    title: 'Silkview Connect — Stripe to Xero, inside Excel',
+    description:
+      'Pull Stripe balance transactions into Excel, build Xero journals, and push to your ledger.',
+    url: 'https://www.silkview.org',
+    siteName: 'Silkview Connect',
+    images: [{ url: '/og-image.png', width: 1200, height: 800 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Silkview Connect — Stripe to Xero, inside Excel',
+    description:
+      'Pull Stripe balance transactions into Excel, build Xero journals, and push to your ledger.',
+    images: ['/og-image.png'],
+  },
 };
 
 export default function RootLayout({

@@ -17,6 +17,12 @@ export default function AuthShell({
 }: AuthShellProps) {
   return (
     <div className="min-h-screen gradient-hero flex flex-col items-center justify-center px-4 py-12">
+      <a
+        href="/"
+        className="mb-4 text-sm text-text-2 hover:text-ink transition-colors"
+      >
+        ← Back to silkview.org
+      </a>
       <a href="/" className="mb-8 text-lg font-bold text-ink tracking-tight">
         Silkview <span className="text-accent">Connect</span>
       </a>
