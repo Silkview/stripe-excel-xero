@@ -349,6 +349,13 @@
 .mockupBody {
   padding: 0;
 }
+.mockupImg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+  background: var(--bg);
+}
 
 /* TASKPANE MOCKUP */
 .tp {
