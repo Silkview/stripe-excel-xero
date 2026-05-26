@@ -9,3 +9,21 @@ export const PRIVACY_PATH = '/privacy';
 export function supportMailtoUrl(): string {
   return `mailto:${SUPPORT_EMAIL}`;
 }
+
+export function betaFeedbackMailtoUrl(): string {
+  const subject = encodeURIComponent('Beta feedback');
+  const body = encodeURIComponent(
+    [
+      'Hi Silkview team,',
+      '',
+      'What I was trying to do:',
+      '',
+      'What happened instead:',
+      '',
+      'Workspace / account (optional):',
+      '',
+      'Browser / Excel version (optional):',
+    ].join('\n')
+  );
+  return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+}

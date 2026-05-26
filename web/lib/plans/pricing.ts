@@ -36,3 +36,16 @@ export function planPriceDisplay(
 export function billingIntervalLabel(interval: BillingInterval): string {
   return interval === 'monthly' ? 'Monthly' : 'Annual';
 }
+
+/** Discount percentage (rounded) when paying annually vs. 12 monthly payments. */
+export function annualSavingsPercent(): number {
+  const monthly = PLAN_PRICING.pro.monthly.amountCents;
+  const annual = PLAN_PRICING.pro.annual.amountCents;
+  const yearOfMonthly = monthly * 12;
+  if (yearOfMonthly <= 0) return 0;
+  return Math.round((1 - annual / yearOfMonthly) * 100);
+}
+
+export function annualSavingsLabel(): string {
+  return `Save ${annualSavingsPercent()}%`;
+}

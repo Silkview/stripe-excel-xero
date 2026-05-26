@@ -29,8 +29,12 @@ export default function Footer() {
         <Link href={SUPPORT_GUIDE_PATH} className="hover:text-ink">
           User guide
         </Link>
-        <a href={supportMailtoUrl()} className="hover:text-ink">
-          {SUPPORT_EMAIL}
+        <a
+          href={supportMailtoUrl()}
+          className="hover:text-ink"
+          aria-label={`Contact ${SUPPORT_EMAIL}`}
+        >
+          Contact us
         </a>
       </nav>
     </footer>

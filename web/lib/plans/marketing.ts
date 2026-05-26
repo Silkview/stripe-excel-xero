@@ -33,7 +33,7 @@ export const MARKETING_PLANS: MarketingPlan[] = [
       { text: 'Pull Stripe data to Excel' },
       { text: 'Up to 100 transactions per pull', bold: true },
       { text: 'Account_Mappings sheet (setup only)' },
-      { text: 'Xero connect, refresh & push — Pro and Firm only', bold: true },
+      { text: 'Xero push (Pro and Firm only)', dimmed: true },
       { text: 'Full transaction history (2,000 rows)', dimmed: true },
     ],
     featured: false,

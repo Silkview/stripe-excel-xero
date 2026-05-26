@@ -1,5 +1,9 @@
 import Image from 'next/image';
-import { SUPPORT_EMAIL, supportMailtoUrl } from '@/lib/support';
+import {
+  betaFeedbackMailtoUrl,
+  SUPPORT_EMAIL,
+  supportMailtoUrl,
+} from '@/lib/support';
 import styles from './UserGuide.module.css';
 
 function WordmarkSvg({ size = 14 }: { size?: number }) {
@@ -1977,6 +1981,18 @@ export default function UserGuide() {
                 immediately.
               </li>
             </ul>
+
+            <div className={`${styles.callout} ${styles.calloutTip}`}>
+              <span className={styles.calloutIcon}>📣</span>
+              <p>
+                <strong>Found a bug or have feedback?</strong>{' '}
+                <a href={betaFeedbackMailtoUrl()}>
+                  Send beta feedback (30 seconds) →
+                </a>{' '}
+                A pre-filled email opens in your mail client — just describe
+                what you were doing and what happened.
+              </p>
+            </div>
 
             <h3>Getting help</h3>
             <p>For issues not covered here:</p>

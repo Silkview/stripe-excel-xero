@@ -268,15 +268,33 @@ function SignupInner() {
   );
 }
 
+function SignupFallback() {
+  return (
+    <AuthCard
+      title="Choose your plan"
+      subtitle="Loading the signup form…"
+    >
+      <div className="space-y-3">
+        <div className="h-10 animate-pulse rounded bg-border/40" />
+        <div className="h-10 animate-pulse rounded bg-border/40" />
+        <div className="h-10 animate-pulse rounded bg-border/40" />
+      </div>
+      <noscript>
+        <p className="mt-4 text-sm text-text-2">
+          Sign-up requires JavaScript. If you cannot enable it, email{' '}
+          <a className="text-stripe underline" href="mailto:admin@silkview.org">
+            admin@silkview.org
+          </a>{' '}
+          and we&apos;ll help you get set up.
+        </p>
+      </noscript>
+    </AuthCard>
+  );
+}
+
 export default function SignupPage() {
   return (
-    <Suspense
-      fallback={
-        <AuthCard title="Create your account" subtitle="Loading…">
-          <p className="text-sm text-text-2">Loading…</p>
-        </AuthCard>
-      }
-    >
+    <Suspense fallback={<SignupFallback />}>
       <SignupInner />
     </Suspense>
   );

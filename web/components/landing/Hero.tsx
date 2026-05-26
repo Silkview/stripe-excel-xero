@@ -12,6 +12,12 @@ export default function Hero() {
   return (
     <section className="gradient-hero border-b border-rule">
       <div className="mx-auto max-w-[900px] px-5 py-20 text-center sm:px-10 sm:py-24">
+        <div className="mb-4">
+          <p className="inline-flex items-center gap-2 rounded-full border border-amber-300/70 bg-amber-50 px-3 py-1 text-[12px] font-semibold uppercase tracking-wide text-amber-700 shadow-card">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+            Private beta · invite only
+          </p>
+        </div>
         <p className="mb-9 inline-flex items-center gap-2 rounded-full border border-rule bg-surface px-3.5 py-1.5 text-[13px] font-medium text-ink-2 shadow-card">
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EEF4FF] text-[11px]">
             ✦
