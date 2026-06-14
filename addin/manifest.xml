@@ -11,7 +11,7 @@
   <DisplayName DefaultValue="Silkview Connect"/>
   <Description DefaultValue="Connect Stripe and Xero to sync financial data with Excel."/>
   <IconUrl DefaultValue="https://addin.silkview.org/icon-32.png?v=3"/>
-  <HighResolutionIconUrl DefaultValue="https://addin.silkview.org/icon-80.png?v=3"/>
+  <HighResolutionIconUrl DefaultValue="https://addin.silkview.org/icon-64.png?v=4"/>
   <SupportUrl DefaultValue="https://www.silkview.org/support"/>
   <AppDomains>
     <AppDomain>https://addin.silkview.org</AppDomain>

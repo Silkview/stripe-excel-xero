@@ -21,6 +21,7 @@ import { getAppUrl } from '../utils/api';
 import { clearStripeAccountId } from '../utils/session';
 import NameStripeConnectionModal from './NameStripeConnectionModal';
 import BillingRequiredPanel from './BillingRequiredPanel';
+import WelcomePanel from './WelcomePanel';
 import {
   useNotifications,
   useNotifyEffect,
@@ -162,16 +163,11 @@ export default function App() {
     return (
       <TaskPaneShell {...shellProps} signedIn={false} showUpgradeBanner={false}>
         {workspaceBarProps && <WorkspaceBar {...workspaceBarProps} />}
-        <div className="p-3.5">
-          <p className="text-sm text-ink-2 mb-3">
-            {workspace.sessionExpired
-              ? 'Your session expired. Sign in again to sync Stripe and Xero data.'
-              : 'Sign in to sync Stripe and Xero data in this workbook.'}
-          </p>
-          <Button variant="build" onClick={auth.signIn} disabled={auth.loading}>
-            {auth.loading ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </div>
+        <WelcomePanel
+          onSignIn={auth.signIn}
+          signingIn={auth.loading}
+          sessionExpired={workspace.sessionExpired}
+        />
       </TaskPaneShell>
     );
   }
