@@ -22,7 +22,7 @@
   <DisplayName DefaultValue="Silkview Connect (Local)"/>
   <Description DefaultValue="Local development build of Silkview Connect. Points at https://localhost:4000."/>
   <IconUrl DefaultValue="https://localhost:4000/icon-32.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:4000/icon-80.png"/>
+  <HighResolutionIconUrl DefaultValue="https://localhost:4000/icon-64.png"/>
   <SupportUrl DefaultValue="https://www.silkview.org/support"/>
   <AppDomains>
     <AppDomain>https://localhost:4000</AppDomain>

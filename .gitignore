@@ -9,3 +9,4 @@ addin/dist/
 *.local
 .cursor/debug-*.log
 addin/manifest.local.xml
+.venv-pdf/
