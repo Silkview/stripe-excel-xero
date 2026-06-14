@@ -16,8 +16,23 @@ import AuthCard from '@/components/ui/AuthCard';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Alert from '@/components/ui/Alert';
+import DeploymentDeskNote from '@/components/enterprise/DeploymentDeskNote';
+import { ENTERPRISE_PATH } from '@/lib/support';
 
 const VALID_PLANS: PlanCode[] = ['free', 'pro', 'firm'];
+
+function signupAfterCard(wide = false) {
+  return (
+    <div className={`mt-4 w-full ${wide ? 'max-w-5xl' : 'max-w-md'}`}>
+      <DeploymentDeskNote />
+      <p className="mt-3 text-center text-sm text-text-2">
+        <Link href={ENTERPRISE_PATH} className="text-stripe font-medium hover:underline">
+          Learn more about Firm &amp; Enterprise deployment →
+        </Link>
+      </p>
+    </div>
+  );
+}
 
 function SignupInner() {
   const router = useRouter();
@@ -155,6 +170,7 @@ function SignupInner() {
       <AuthCard
         title="Check your email"
         subtitle="We sent a confirmation link to complete your signup."
+        afterCard={signupAfterCard()}
       >
         <Alert variant="success">
           Open the link in <strong>{email}</strong>, then finish setup with your{' '}
@@ -178,6 +194,7 @@ function SignupInner() {
         wide
         title="Choose your plan"
         subtitle="Pick the tier that fits how you work. You can change billing later for paid plans."
+        afterCard={signupAfterCard(true)}
         footer={
           <>
             Already have an account?{' '}
@@ -202,6 +219,7 @@ function SignupInner() {
     <AuthCard
       title="Create your account"
       subtitle={`Signing up on the ${selectedPlan} plan.`}
+      afterCard={signupAfterCard()}
       footer={
         <>
           <button

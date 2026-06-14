@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   PRIVACY_PATH,
+  ENTERPRISE_PATH,
   SUPPORT_EMAIL,
   SUPPORT_GUIDE_PATH,
   TERMS_PATH,
@@ -28,6 +29,9 @@ export default function Footer() {
         </Link>
         <Link href={SUPPORT_GUIDE_PATH} className="hover:text-ink">
           User guide
+        </Link>
+        <Link href={ENTERPRISE_PATH} className="hover:text-ink">
+          Enterprise
         </Link>
         <a
           href={supportMailtoUrl()}

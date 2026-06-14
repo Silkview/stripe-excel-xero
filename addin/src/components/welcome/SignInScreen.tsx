@@ -1,6 +1,7 @@
 import Button from '../ui/Button';
 import { getAppUrl } from '../../utils/api';
 import PrerequisitesCheck from './PrerequisitesCheck';
+import DeploymentDeskNote from './DeploymentDeskNote';
 
 function LockIcon() {
   return (
@@ -44,8 +45,7 @@ export default function SignInScreen({
   showPrerequisites = false,
 }: SignInScreenProps) {
   const signupUrl = `${getAppUrl()}/auth/signup`;
-  const firmSignupUrl = `${getAppUrl()}/auth/signup?plan=firm`;
-  const appUrl = getAppUrl();
+  const enterpriseUrl = `${getAppUrl()}/enterprise`;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -102,26 +102,16 @@ export default function SignInScreen({
       </div>
 
       <div className="mt-auto px-5 py-2.5 pb-[18px] bg-bg border-t border-rule">
-        <p className="text-[11.5px] text-ink-2 leading-relaxed text-center">
-          For accounting firms with multiple clients, ask your admin for an invite link or visit{' '}
+        <DeploymentDeskNote className="text-center" />
+        <p className="text-center mt-2.5 text-[11px] text-ink-2">
           <a
-            href={appUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-accent hover:underline"
-          >
-            silkview.org
-          </a>{' '}
-          to start a{' '}
-          <a
-            href={firmSignupUrl}
+            href={enterpriseUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-accent font-medium hover:underline"
           >
-            Firm plan
-          </a>{' '}
-          — up to 5 users and 5 workspaces.
+            View enterprise &amp; firm deployment options →
+          </a>
         </p>
       </div>
     </div>
