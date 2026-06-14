@@ -140,7 +140,7 @@ export default function UserGuide() {
                   <p>
                     Launch the add-in from the Excel <strong>Insert</strong>{' '}
                     tab. The task pane opens on the right side of Excel and
-                    shows a Sign in button.
+                    shows the sign-in screen with Stripe and Xero prerequisites.
                   </p>
                 </div>
               </div>
@@ -149,10 +149,10 @@ export default function UserGuide() {
                 <div className={styles.stepItemBody}>
                   <strong>Sign in or create an account</strong>
                   <p>
-                    Click <strong>Sign in</strong> in the task pane. A browser
-                    window opens to <code>silkview.org/auth/login</code>. Sign
-                    in with your credentials, or click{' '}
-                    <strong>Create account</strong> if you are new. After
+                    Click <strong>Sign in with Silkview</strong> in the task pane.
+                    A browser window opens to <code>silkview.org/auth/login</code>.
+                    Sign in with your credentials, or click{' '}
+                    <strong>Create a free account</strong> if you are new. After
                     sign-in, return to Excel — the task pane updates
                     automatically.
                   </p>
@@ -191,14 +191,16 @@ export default function UserGuide() {
                 <Image
                   className={styles.mockupImg}
                   src="/support/taskpane-signin.png"
-                  alt="Silkview Connect task pane — Sign in screen"
-                  width={375}
-                  height={221}
+                  alt="Silkview Connect task pane — Sign in screen with prerequisites and account options"
+                  width={345}
+                  height={658}
                 />
               </div>
               <div className={styles.mockupCaption}>
-                Figure 1 — Workspace selector with the Sign in card. Clicking
-                Sign in opens the browser auth flow.
+                Figure 1 — Sign in screen with Stripe/Xero prerequisites.{' '}
+                <strong>Sign in with Silkview</strong> opens the browser auth
+                flow; <strong>Create a free account</strong> opens signup on
+                silkview.org.
               </div>
             </div>
           </section>
