@@ -2,7 +2,7 @@ export const SUPPORT_EMAIL = 'admin@silkview.org';
 
 export const DEPLOYMENT_DESK_EMAIL = 'admin@silkview.org';
 
-export const ENTERPRISE_RELATIONS_EMAIL = 'support@silkview.org';
+export const ENTERPRISE_RELATIONS_EMAIL = 'admin@silkview.org';
 
 export const SUPPORT_GUIDE_PATH = '/support';
 
