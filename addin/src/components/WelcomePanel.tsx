@@ -25,6 +25,9 @@ export default function WelcomePanel({
   sessionExpired = false,
 }: WelcomePanelProps) {
   const [step, setStep] = useState<Step>(() => getInitialStep(sessionExpired));
+  const [firstRunFlowActive] = useState(
+    () => !sessionExpired && !hasCompletedFirstRun()
+  );
 
   const goToSignIn = useCallback(() => {
     markFirstRunComplete();
@@ -49,6 +52,7 @@ export default function WelcomePanel({
       onSignIn={onSignIn}
       signingIn={signingIn}
       sessionExpired={sessionExpired}
+      showPrerequisites={firstRunFlowActive}
     />
   );
 }

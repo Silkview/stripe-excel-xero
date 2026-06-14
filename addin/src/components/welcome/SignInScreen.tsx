@@ -1,5 +1,6 @@
 import Button from '../ui/Button';
 import { getAppUrl } from '../../utils/api';
+import PrerequisitesCheck from './PrerequisitesCheck';
 
 function LockIcon() {
   return (
@@ -33,12 +34,14 @@ type SignInScreenProps = {
   onSignIn: () => void;
   signingIn: boolean;
   sessionExpired?: boolean;
+  showPrerequisites?: boolean;
 };
 
 export default function SignInScreen({
   onSignIn,
   signingIn,
   sessionExpired = false,
+  showPrerequisites = false,
 }: SignInScreenProps) {
   const signupUrl = `${getAppUrl()}/auth/signup`;
   const firmSignupUrl = `${getAppUrl()}/auth/signup?plan=firm`;
@@ -62,6 +65,12 @@ export default function SignInScreen({
           <p className="text-[12.5px] text-ink-2 leading-snug">
             Your browser will open for secure sign-in. Return to Excel after completing.
           </p>
+        </div>
+      )}
+
+      {showPrerequisites && (
+        <div className="px-5 pt-2 pb-1">
+          <PrerequisitesCheck />
         </div>
       )}
 

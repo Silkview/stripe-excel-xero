@@ -145,6 +145,9 @@ export default function WelcomeHeroScreen({
             Sign in
           </button>
         </p>
+        <p className="text-center mt-3 text-[11px] text-ink-3 leading-relaxed">
+          A valid Stripe and Xero account is required for this add-in.
+        </p>
       </div>
     </div>
   );
