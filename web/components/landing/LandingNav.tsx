@@ -46,6 +46,12 @@ export default function LandingNav() {
             Support
           </Link>
           <Link
+            href="/enterprise"
+            className="hidden rounded-lg px-3.5 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink sm:inline-block"
+          >
+            Enterprise
+          </Link>
+          <Link
             href="/auth/login"
             className="rounded-lg px-3.5 py-1.5 text-sm text-ink-2 transition-colors hover:text-ink"
           >

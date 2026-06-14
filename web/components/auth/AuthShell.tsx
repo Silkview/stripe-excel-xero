@@ -6,6 +6,7 @@ interface AuthShellProps {
   children: ReactNode;
   footer?: ReactNode;
   wide?: boolean;
+  afterCard?: ReactNode;
 }
 
 export default function AuthShell({
@@ -14,6 +15,7 @@ export default function AuthShell({
   children,
   footer,
   wide = false,
+  afterCard,
 }: AuthShellProps) {
   return (
     <div className="min-h-screen gradient-hero flex flex-col items-center justify-center px-4 py-12">
@@ -40,6 +42,7 @@ export default function AuthShell({
           </div>
         )}
       </div>
+      {afterCard}
     </div>
   );
 }

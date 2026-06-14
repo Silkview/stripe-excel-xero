@@ -12,6 +12,7 @@ type Props = {
   meta: string;
   toc: LegalTocItem[];
   children: ReactNode;
+  eyebrow?: string;
 };
 
 export const legalContentClass =
@@ -63,13 +64,19 @@ export function LegalTable({
   );
 }
 
-export default function LegalPageLayout({ title, meta, toc, children }: Props) {
+export default function LegalPageLayout({
+  title,
+  meta,
+  toc,
+  children,
+  eyebrow = 'Legal',
+}: Props) {
   return (
     <>
       <LandingNav />
       <section className="bg-navy px-5 py-12 text-center sm:px-12 sm:py-16">
         <p className="font-mono text-[11px] uppercase tracking-widest text-white/45 mb-3.5">
-          Legal
+          {eyebrow}
         </p>
         <h1 className="text-[clamp(28px,4vw,42px)] font-semibold text-white tracking-tight mb-3">
           {title}

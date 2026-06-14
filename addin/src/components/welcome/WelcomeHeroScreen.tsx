@@ -1,4 +1,5 @@
 import Button from '../ui/Button';
+import DeploymentDeskNote from './DeploymentDeskNote';
 
 function ConnectLogoMark() {
   return (
@@ -148,6 +149,7 @@ export default function WelcomeHeroScreen({
         <p className="text-center mt-3 text-[11px] text-ink-3 leading-relaxed">
           A valid Stripe and Xero account is required for this add-in.
         </p>
+        <DeploymentDeskNote className="text-center mt-3 px-1" />
       </div>
     </div>
   );
