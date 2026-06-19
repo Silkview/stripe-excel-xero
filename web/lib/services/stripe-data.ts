@@ -5,12 +5,20 @@ import type {
   StripePayoutBalanceTransactionRow,
   StripePayoutRow,
 } from '@stripesync/shared';
+import {
+  STRIPE_API_PAGE_SIZE,
+  type StripeFetchLimits,
+} from '@stripesync/shared/pullLimits';
 import { REQUEST_TIMEOUT_MS } from '../api-response';
 import { getOAuthRedirectUri } from '../oauth-redirect';
 import {
   getStripeConnectClientId,
   getStripePlatformSecretKey,
 } from '../stripe-connect-config';
+import {
+  limitsForRemainingItems,
+  paginateStripeList,
+} from './stripe-list-paginated';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 
@@ -116,46 +124,92 @@ function mapPayoutBalanceTransactionRow(
   };
 }
 
-async function listBalanceTransactionsForPayout(
-  accessToken: string,
-  payoutId: string
-): Promise<StripeBalanceTransactionRow[]> {
-  const data = await stripeListGet(accessToken, '/balance_transactions', {
-    payout: payoutId,
-    limit: 100,
-  });
-  return data.map((t) => mapBalanceTransaction(t));
+export class StripeServiceError extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public retryAfter?: number
+  ) {
+    super(message);
+  }
 }
 
-const PAYOUT_BT_BATCH_SIZE = 5;
+async function stripeListPaginated(
+  accessToken: string,
+  path: string,
+  params: Record<string, unknown>,
+  limits: StripeFetchLimits
+): Promise<Record<string, unknown>[]> {
+  try {
+    return await paginateStripeList(async (startingAfter) => {
+      const pageParams: Record<string, unknown> = {
+        ...params,
+        limit: STRIPE_API_PAGE_SIZE,
+      };
+      if (startingAfter) {
+        pageParams.starting_after = startingAfter;
+      }
+
+      const response = await axios.get(`${STRIPE_API}${path}`, {
+        params: pageParams,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: REQUEST_TIMEOUT_MS,
+      });
+
+      return {
+        data: response.data?.data ?? [],
+        hasMore: Boolean(response.data?.has_more),
+      };
+    }, limits);
+  } catch (err) {
+    throw mapStripeError(err);
+  }
+}
+
+async function listBalanceTransactionsForPayout(
+  accessToken: string,
+  payoutId: string,
+  limits: StripeFetchLimits
+): Promise<StripeBalanceTransactionRow[]> {
+  const data = await stripeListPaginated(
+    accessToken,
+    '/balance_transactions',
+    { payout: payoutId },
+    limits
+  );
+  return data.map((t) => mapBalanceTransaction(t));
+}
 
 export async function getPayoutLinkedBalanceTransactions(
   accessToken: string,
   from: string,
-  to: string
+  to: string,
+  limits: StripeFetchLimits
 ): Promise<StripePayoutBalanceTransactionRow[]> {
   try {
-    const payouts = await getPayouts(accessToken, from, to);
+    const payouts = await getPayouts(accessToken, from, to, limits);
     const combined: StripePayoutBalanceTransactionRow[] = [];
 
-    for (let i = 0; i < payouts.length; i += PAYOUT_BT_BATCH_SIZE) {
-      const batch = payouts.slice(i, i + PAYOUT_BT_BATCH_SIZE);
-      const batchResults = await Promise.all(
-        batch.map(async (payout) => {
-          const txns = (
-            await listBalanceTransactionsForPayout(
-              accessToken,
-              payout.payout_id
-            )
-          ).filter((t) => t.type.toLowerCase() !== 'payout');
-          if (txns.length === 0) {
-            return [mapPayoutBalanceTransactionRow(payout)];
-          }
-          return txns.map((txn) => mapPayoutBalanceTransactionRow(payout, txn));
-        })
-      );
-      for (const rows of batchResults) {
-        combined.push(...rows);
+    for (const payout of payouts) {
+      if (combined.length >= limits.maxItems) break;
+
+      const remaining = limits.maxItems - combined.length;
+      const perPayoutLimits = limitsForRemainingItems(limits, remaining);
+      const txns = (
+        await listBalanceTransactionsForPayout(
+          accessToken,
+          payout.payout_id,
+          perPayoutLimits
+        )
+      ).filter((t) => t.type.toLowerCase() !== 'payout');
+
+      if (txns.length === 0) {
+        combined.push(mapPayoutBalanceTransactionRow(payout));
+      } else {
+        for (const txn of txns) {
+          if (combined.length >= limits.maxItems) break;
+          combined.push(mapPayoutBalanceTransactionRow(payout, txn));
+        }
       }
     }
 
@@ -181,42 +235,24 @@ function mapCharge(charge: Record<string, unknown>): StripeChargeRow {
   };
 }
 
-export class StripeServiceError extends Error {
-  constructor(
-    public code: string,
-    message: string,
-    public retryAfter?: number
-  ) {
-    super(message);
-  }
-}
-
-async function stripeListGet(
-  accessToken: string,
-  path: string,
-  params: Record<string, unknown>
-): Promise<Record<string, unknown>[]> {
-  const response = await axios.get(`${STRIPE_API}${path}`, {
-    params,
-    headers: { Authorization: `Bearer ${accessToken}` },
-    timeout: REQUEST_TIMEOUT_MS,
-  });
-  return response.data?.data ?? [];
-}
-
 export async function getPayouts(
   accessToken: string,
   from: string,
-  to: string
+  to: string,
+  limits: StripeFetchLimits
 ): Promise<StripePayoutRow[]> {
   const { fromTs, toTs } = dateRangeToUnix(from, to);
   try {
-    const data = await stripeListGet(accessToken, '/payouts', {
-      'arrival_date[gte]': fromTs,
-      'arrival_date[lte]': toTs,
-      limit: 100,
-      expand: ['data.destination'],
-    });
+    const data = await stripeListPaginated(
+      accessToken,
+      '/payouts',
+      {
+        'arrival_date[gte]': fromTs,
+        'arrival_date[lte]': toTs,
+        expand: ['data.destination'],
+      },
+      limits
+    );
     return data.map((p) => mapPayout(p));
   } catch (err) {
     throw mapStripeError(err);
@@ -226,15 +262,20 @@ export async function getPayouts(
 export async function getBalanceTransactions(
   accessToken: string,
   from: string,
-  to: string
+  to: string,
+  limits: StripeFetchLimits
 ): Promise<StripeBalanceTransactionRow[]> {
   const { fromTs, toTs } = dateRangeToUnix(from, to);
   try {
-    const data = await stripeListGet(accessToken, '/balance_transactions', {
-      'created[gte]': fromTs,
-      'created[lte]': toTs,
-      limit: 100,
-    });
+    const data = await stripeListPaginated(
+      accessToken,
+      '/balance_transactions',
+      {
+        'created[gte]': fromTs,
+        'created[lte]': toTs,
+      },
+      limits
+    );
     return data.map((t) => mapBalanceTransaction(t));
   } catch (err) {
     throw mapStripeError(err);
@@ -244,15 +285,20 @@ export async function getBalanceTransactions(
 export async function getCharges(
   accessToken: string,
   from: string,
-  to: string
+  to: string,
+  limits: StripeFetchLimits
 ): Promise<StripeChargeRow[]> {
   const { fromTs, toTs } = dateRangeToUnix(from, to);
   try {
-    const data = await stripeListGet(accessToken, '/charges', {
-      'created[gte]': fromTs,
-      'created[lte]': toTs,
-      limit: 100,
-    });
+    const data = await stripeListPaginated(
+      accessToken,
+      '/charges',
+      {
+        'created[gte]': fromTs,
+        'created[lte]': toTs,
+      },
+      limits
+    );
     return data.map((c) => mapCharge(c));
   } catch (err) {
     throw mapStripeError(err);

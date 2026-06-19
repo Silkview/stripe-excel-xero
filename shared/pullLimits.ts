@@ -12,6 +12,27 @@ export function maxStripePullRows(
   return planCode === 'free' ? MAX_STRIPE_PULL_ROWS_FREE : MAX_STRIPE_PULL_ROWS_PAID;
 }
 
+export const STRIPE_API_PAGE_SIZE = 100;
+export const STRIPE_API_MAX_PAGES = 20;
+export const STRIPE_API_PAGE_DELAY_MS = 1000;
+
+export type StripeFetchLimits = {
+  maxPages: number;
+  maxItems: number;
+  pageDelayMs: number;
+};
+
+export function stripeFetchLimitsForPlan(
+  planCode: PlanCode | null | undefined
+): StripeFetchLimits {
+  const maxItems = maxStripePullRows(planCode);
+  const maxPages = Math.min(
+    STRIPE_API_MAX_PAGES,
+    Math.max(1, Math.ceil(maxItems / STRIPE_API_PAGE_SIZE))
+  );
+  return { maxPages, maxItems, pageDelayMs: STRIPE_API_PAGE_DELAY_MS };
+}
+
 function parseYmd(dateStr: string): Date | null {
   const s = dateStr.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
