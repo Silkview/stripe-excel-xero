@@ -3,6 +3,8 @@ import {
   stripePullRangeError,
   stripePullRowCountError,
   maxStripePullRows,
+  stripeFetchLimitsForPlan,
+  type StripeFetchLimits,
 } from '@stripesync/shared/pullLimits';
 import type { StripePullResponse } from '@stripesync/shared';
 import type { PlanCode } from '@/lib/plans/types';
@@ -17,7 +19,8 @@ import { core } from './supabase/core';
 type FetchFn = (
   accessToken: string,
   from: string,
-  to: string
+  to: string,
+  limits: StripeFetchLimits
 ) => Promise<Array<{ currency: string }>>;
 
 function resolveStripeAccountId(request: Request): string | null {
@@ -97,7 +100,8 @@ export async function handleStripePull(
       }
     }
 
-    const raw = await fetchFn(stripe.access_token, from, to);
+    const limits = stripeFetchLimitsForPlan(planCode);
+    const raw = await fetchFn(stripe.access_token, from, to, limits);
     const totalBeforeCurrencyFilter = raw.length;
     let rows: typeof raw;
     let excludedByCurrency: number;

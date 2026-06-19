@@ -87,7 +87,7 @@ export async function apiGetWithStripeAccount<T>(
     const token = getAccessToken();
     const ws = getWorkspaceId();
     const res = await api.get<ApiResponse<T>>(fullUrl, {
-      timeout: 60_000,
+      timeout: 120_000,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(ws ? { 'X-Workspace-Id': ws } : {}),
