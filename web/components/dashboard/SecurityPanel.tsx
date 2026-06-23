@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { PRODUCT_NAME } from '@stripesync/shared/brand';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
 import {
   getMfaStatus,
@@ -9,7 +10,7 @@ import {
 } from '@/lib/auth/mfa';
 import Button from '@/components/ui/Button';
 import { DashboardModal, PageHeader, useDashboard } from './dashboard-ui';
-import { getAddinManifestDownloadUrl } from '@/lib/excel-launch';
+import { EXCEL_ADDIN_STORE_URL } from '@/lib/support';
 
 export default function SecurityPanel() {
   const ctx = useDashboard();
@@ -132,14 +133,16 @@ export default function SecurityPanel() {
           </h2>
           <p className="mt-2 text-sm text-text-2">
             OAuth tokens for Xero and Stripe are stored encrypted and scoped per
-            workspace. Connect only from the sideloaded add-in.
+            workspace. Connect only from the official {PRODUCT_NAME} Excel
+            add-in installed from Microsoft.
           </p>
           <a
-            href={getAddinManifestDownloadUrl()}
-            download="silkview-connect-manifest.xml"
+            href={EXCEL_ADDIN_STORE_URL}
+            target="_blank"
+            rel="noreferrer"
             className="mt-3 inline-block text-sm text-accent underline"
           >
-            Download add-in manifest
+            Get the add-in from Microsoft marketplace
           </a>
         </section>
       </div>

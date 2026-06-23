@@ -12,6 +12,13 @@ export const PRIVACY_PATH = '/privacy';
 
 export const ENTERPRISE_PATH = '/enterprise';
 
+const DEFAULT_EXCEL_ADDIN_STORE_URL =
+  'https://marketplace.microsoft.com/en-us/product/office/WA200011110?tab=Overview';
+
+export const EXCEL_ADDIN_STORE_URL =
+  process.env.NEXT_PUBLIC_EXCEL_ADDIN_STORE_URL?.trim() ||
+  DEFAULT_EXCEL_ADDIN_STORE_URL;
+
 export function supportMailtoUrl(): string {
   return `mailto:${SUPPORT_EMAIL}`;
 }
@@ -24,8 +31,8 @@ export function enterpriseRelationsMailtoUrl(): string {
   return `mailto:${ENTERPRISE_RELATIONS_EMAIL}`;
 }
 
-export function betaFeedbackMailtoUrl(): string {
-  const subject = encodeURIComponent('Beta feedback');
+export function productFeedbackMailtoUrl(): string {
+  const subject = encodeURIComponent('Product feedback');
   const body = encodeURIComponent(
     [
       'Hi Silkview team,',

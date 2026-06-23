@@ -3,15 +3,10 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { PRODUCT_NAME } from '@stripesync/shared/brand';
-import { getAddinManifestDownloadUrl } from '@/lib/excel-launch';
-
-function Code({ children }: { children: ReactNode }) {
-  return (
-    <code className="font-mono text-xs bg-bg px-1.5 py-0.5 rounded">
-      {children}
-    </code>
-  );
-}
+import {
+  ENTERPRISE_PATH,
+  EXCEL_ADDIN_STORE_URL,
+} from '@/lib/support';
 
 function GuideStep({
   title,
@@ -30,27 +25,7 @@ function GuideStep({
   );
 }
 
-function PlatformDetails({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <details className="rounded-lg border border-border bg-surface/80 px-4 py-3 mt-3 group">
-      <summary className="cursor-pointer font-medium text-ink list-none [&::-webkit-details-marker]:hidden">
-        <span className="text-accent mr-1.5">+</span>
-        {label}
-      </summary>
-      <div className="mt-3 text-sm text-text-2 space-y-2 pl-0.5">{children}</div>
-    </details>
-  );
-}
-
 export default function ExcelAccessGuide() {
-  const manifestDownloadUrl = getAddinManifestDownloadUrl();
-
   return (
     <section
       className="mt-10 rounded-xl border-2 border-accent/30 bg-accent/5 px-6 py-6"
@@ -60,167 +35,79 @@ export default function ExcelAccessGuide() {
         id="excel-access-heading"
         className="text-lg font-semibold text-ink sm:text-xl"
       >
-        Instructions for Beta Test Users
+        Get started with the Excel add-in
       </h2>
       <p className="mt-2 max-w-3xl text-sm text-text-2 sm:text-base leading-relaxed">
-        Welcome to the {PRODUCT_NAME} private beta. Complete Step 1 to set up
-        your account and download your access file, then follow the installation
-        section for your version of Excel.
+        Welcome to {PRODUCT_NAME}. Connect your platforms from this dashboard,
+        install the add-in from the Microsoft Office Add-ins store, then sign in
+        from Excel to pull data.
       </p>
 
-      <GuideStep title="Step 1: Create your account and download manifest">
+      <GuideStep title="Step 1: Connect your accounts">
         <p>
-          Before opening Excel, link your platforms and save your secure access
-          file.
+          Before opening Excel, link your platforms from this dashboard.
         </p>
         <ol className="list-decimal pl-5 space-y-2 text-ink">
           <li>
-            From your dashboard, click <strong>Connect Stripe</strong> and sign
-            in to authorize secure read access to your Stripe data.
+            Click <strong>Connect Stripe</strong> and sign in to authorize
+            secure read access to your Stripe data.
           </li>
           <li>
             Click <strong>Connect Xero</strong> and select the organisation you
-            want to link. Pro and Firm plans only — Free beta testers can skip
+            want to link. Pro and Firm plans only — Free plan users can skip
             Xero and still pull Stripe data from Excel.
-          </li>
-          <li>
-            When Stripe is connected (and Xero too, if on Pro/Firm),{' '}
-            <a
-              href={manifestDownloadUrl}
-              download="silkview-connect-manifest.xml"
-              className="font-medium text-accent underline hover:text-accent-hover"
-            >
-              download the manifest file
-            </a>
-            . This saves <Code>manifest.xml</Code> to your computer.
           </li>
         </ol>
       </GuideStep>
 
-      <GuideStep title="Step 2: Install the add-in (choose your platform)">
-        <p>Open the section that matches how you use Microsoft Excel.</p>
-
-        <PlatformDetails label="Option A: Excel on the Web (easiest)">
-          <p className="text-text-3 text-xs mb-2">
-            Use this if you run Excel in Chrome, Safari, or Edge.
-          </p>
-          <ol className="list-decimal pl-5 space-y-2 text-ink">
-            <li>
-              Go to{' '}
-              <a
-                href="https://office.com"
-                className="text-accent underline"
-                target="_blank"
-                rel="noreferrer"
-              >
-                office.com
-              </a>
-              , sign in, and open a new blank workbook.
-            </li>
-            <li>
-              On the ribbon, open the <strong>Home</strong> tab.
-            </li>
-            <li>
-              Click <strong>Add-ins</strong> (grid icon) on the right of the
-              toolbar.
-            </li>
-            <li>
-              Click <strong>More Add-ins</strong> or{' '}
-              <strong>Manage My Add-ins</strong> at the bottom of the panel.
-            </li>
-            <li>
-              In the popup, click <strong>Upload My Add-in</strong> (top
-              right).
-            </li>
-            <li>
-              Click <strong>Browse</strong>, select your downloaded{' '}
-              <Code>manifest.xml</Code>, and click <strong>Upload</strong>.
-            </li>
-          </ol>
-        </PlatformDetails>
-
-        <PlatformDetails label="Option B: Excel for Mac (WEF folder)">
-          <p className="text-text-3 text-xs mb-2">
-            Use this for the native Excel app on Mac. Apple requires a specific
-            system folder.
-          </p>
-          <ol className="list-decimal pl-5 space-y-2 text-ink">
-            <li>Open Finder.</li>
-            <li>
-              In the menu bar, click <strong>Go</strong> →{' '}
-              <strong>Go to Folder…</strong> (or press Cmd + Shift + G).
-            </li>
-            <li>
-              Paste this path and press Enter:{' '}
-              <Code>
-                ~/Library/Containers/com.microsoft.Excel/Data/Documents/wef
-              </Code>
-            </li>
-            <li>
-              If the <Code>wef</Code> folder does not exist, create a new folder
-              named exactly <Code>wef</Code> (all lowercase) inside{' '}
-              <Code>Documents</Code>, then open it.
-            </li>
-            <li>
-              Move your downloaded <Code>manifest.xml</Code> into the{' '}
-              <Code>wef</Code> folder.
-            </li>
-            <li>Quit Excel completely, then reopen it.</li>
-            <li>
-              Open a workbook → <strong>Insert</strong> tab → arrow next to{' '}
-              <strong>My Add-ins</strong> → check{' '}
-              <strong>Developer Add-ins</strong> for {PRODUCT_NAME}.
-            </li>
-          </ol>
-        </PlatformDetails>
-
-        <PlatformDetails label="Option C: Excel for Windows (trusted catalog folder)">
-          <p className="text-text-3 text-xs mb-2">
-            Use this for the native Excel app on Windows.
-          </p>
-          <p className="font-medium text-ink text-sm mt-1">Part 1 — Trusted folder</p>
-          <ol className="list-decimal pl-5 space-y-2 text-ink mt-2">
-            <li>
-              Create a folder (e.g. <Code>C:\SilkviewAddin</Code>) and place{' '}
-              <Code>manifest.xml</Code> inside it.
-            </li>
-            <li>
-              Right-click the folder → <strong>Properties</strong> →{' '}
-              <strong>Sharing</strong> tab → <strong>Share…</strong>
-            </li>
-            <li>
-              Share with yourself or Everyone, click <strong>Share</strong>, then{' '}
-              <strong>Done</strong>.
-            </li>
-            <li>
-              Copy the <strong>Network Path</strong> under the folder name (e.g.{' '}
-              <Code>\\Your-PC\SilkviewAddin</Code>).
-            </li>
-          </ol>
-          <p className="font-medium text-ink text-sm mt-4">Part 2 — Link to Excel</p>
-          <ol className="list-decimal pl-5 space-y-2 text-ink mt-2" start={5}>
-            <li>
-              In Excel: <strong>File</strong> → <strong>Options</strong> →{' '}
-              <strong>Trust Center</strong> → <strong>Trust Center Settings…</strong>
-            </li>
-            <li>
-              Click <strong>Trusted Add-in Catalogs</strong> on the left.
-            </li>
-            <li>
-              Paste the network path into <strong>Catalog URL</strong>, click{' '}
-              <strong>Add catalog</strong>.
-            </li>
-            <li>
-              Check <strong>Show in Menu</strong> for that row, click{' '}
-              <strong>OK</strong>, and restart Excel.
-            </li>
-            <li>
-              <strong>Insert</strong> → <strong>My Add-ins</strong> →{' '}
-              <strong>Shared Folder</strong> tab → select {PRODUCT_NAME} →{' '}
-              <strong>Add</strong>.
-            </li>
-          </ol>
-        </PlatformDetails>
+      <GuideStep title="Step 2: Install from the Office Add-ins store">
+        <p>
+          Install {PRODUCT_NAME} from the Microsoft marketplace. This works on
+          Excel for Mac, Windows, and the web.
+        </p>
+        <ol className="list-decimal pl-5 space-y-2 text-ink">
+          <li>
+            Open Microsoft Excel and create or open a workbook.
+          </li>
+          <li>
+            On the ribbon, go to the <strong>Insert</strong> tab and click{' '}
+            <strong>Get Add-ins</strong> (on Excel for the web, click{' '}
+            <strong>Add-ins</strong>, then <strong>More Add-ins</strong>).
+          </li>
+          <li>
+            Search for <strong>Silkview Connect</strong> in the Office Add-ins
+            store.
+          </li>
+          <li>
+            Click <strong>Add</strong> or <strong>Install</strong> and accept the
+            permissions prompt.
+          </li>
+          <li>
+            The {PRODUCT_NAME} button appears on the <strong>Home</strong>{' '}
+            ribbon once installation completes.
+          </li>
+        </ol>
+        <p>
+          <a
+            href={EXCEL_ADDIN_STORE_URL}
+            className="font-medium text-accent underline hover:text-accent-hover"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open in Microsoft marketplace
+          </a>
+        </p>
+        <p className="text-text-3 text-xs">
+          IT administrators can deploy the add-in org-wide via Microsoft 365 — see
+          our{' '}
+          <Link
+            href={ENTERPRISE_PATH}
+            className="text-accent underline hover:text-accent-hover"
+          >
+            Enterprise deployment guide
+          </Link>
+          .
+        </p>
       </GuideStep>
 
       <GuideStep title="Step 3: Sign in and pull data">
