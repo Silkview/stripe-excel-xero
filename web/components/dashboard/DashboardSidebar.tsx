@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase/browser';
-import { betaFeedbackMailtoUrl } from '@/lib/support';
+import { productFeedbackMailtoUrl } from '@/lib/support';
 import { useDashboard } from './dashboard-ui';
 
 const navItems = [
@@ -163,11 +163,11 @@ export default function DashboardSidebar() {
             Sign out
           </button>
           <a
-            href={betaFeedbackMailtoUrl()}
+            href={productFeedbackMailtoUrl()}
             className="text-[11px] text-white/50 hover:text-white"
-            title="Send beta feedback"
+            title="Send feedback"
           >
-            Beta feedback →
+            Send feedback →
           </a>
         </div>
       </div>

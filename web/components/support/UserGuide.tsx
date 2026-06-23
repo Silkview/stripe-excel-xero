@@ -1,6 +1,8 @@
 import Image from 'next/image';
+import { PRODUCT_NAME } from '@stripesync/shared/brand';
 import {
-  betaFeedbackMailtoUrl,
+  EXCEL_ADDIN_STORE_URL,
+  productFeedbackMailtoUrl,
   SUPPORT_EMAIL,
   supportMailtoUrl,
 } from '@/lib/support';
@@ -120,32 +122,52 @@ export default function UserGuide() {
               <div>
                 <div className={styles.stepTitle}>Get started</div>
                 <div className={styles.stepSub}>
-                  Open the Silkview task pane and sign in to your account
+                  Install the add-in from the Office store, then sign in from
+                  the task pane
                 </div>
               </div>
             </div>
 
             <p>
-              Silkview Connect is currently in <strong>beta</strong>. Access is
-              provisioned by the Silkview team — there is no public install
-              from the Office Store yet. Once your add-in is enabled in your
-              Excel workbook, follow the steps below to sign in.
+              Create your account at silkview.org, install the Excel add-in from
+              the Microsoft Office Add-ins store, then sign in from the task
+              pane and follow the steps below.
             </p>
 
             <div className={styles.stepsList}>
               <div className={styles.stepItem}>
                 <div className={styles.stepItemNum}>1</div>
                 <div className={styles.stepItemBody}>
-                  <strong>Open the Silkview Connect task pane in Excel</strong>
+                  <strong>Install Silkview Connect from the Office Add-ins store</strong>
                   <p>
-                    Launch the add-in from the Excel <strong>Insert</strong>{' '}
-                    tab. The task pane opens on the right side of Excel and
-                    shows the sign-in screen with Stripe and Xero prerequisites.
+                    Open Excel and go to the <strong>Insert</strong> tab →{' '}
+                    <strong>Get Add-ins</strong> (on Excel for the web:{' '}
+                    <strong>Add-ins</strong> → <strong>More Add-ins</strong>).
+                    Search for <strong>Silkview Connect</strong>, then click{' '}
+                    <strong>Add</strong> or <strong>Install</strong>. You can
+                    also{' '}
+                    <a href={EXCEL_ADDIN_STORE_URL} target="_blank" rel="noreferrer">
+                      open the listing in Microsoft marketplace
+                    </a>
+                    .
                   </p>
                 </div>
               </div>
               <div className={styles.stepItem}>
                 <div className={styles.stepItemNum}>2</div>
+                <div className={styles.stepItemBody}>
+                  <strong>Open the Silkview Connect task pane in Excel</strong>
+                  <p>
+                    Click the {PRODUCT_NAME} button on the <strong>Home</strong>{' '}
+                    ribbon, or launch the add-in from the Excel{' '}
+                    <strong>Insert</strong> tab. The task pane opens on the right
+                    side of Excel and shows the sign-in screen with Stripe and
+                    Xero prerequisites.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.stepItem}>
+                <div className={styles.stepItemNum}>3</div>
                 <div className={styles.stepItemBody}>
                   <strong>Sign in or create an account</strong>
                   <p>
@@ -159,7 +181,7 @@ export default function UserGuide() {
                 </div>
               </div>
               <div className={styles.stepItem}>
-                <div className={styles.stepItemNum}>3</div>
+                <div className={styles.stepItemNum}>4</div>
                 <div className={styles.stepItemBody}>
                   <strong>Complete account setup (new users only)</strong>
                   <p>
@@ -171,7 +193,7 @@ export default function UserGuide() {
                 </div>
               </div>
               <div className={styles.stepItem}>
-                <div className={styles.stepItemNum}>4</div>
+                <div className={styles.stepItemNum}>5</div>
                 <div className={styles.stepItemBody}>
                   <strong>Select your workspace</strong>
                   <p>
@@ -1988,8 +2010,8 @@ export default function UserGuide() {
               <span className={styles.calloutIcon}>📣</span>
               <p>
                 <strong>Found a bug or have feedback?</strong>{' '}
-                <a href={betaFeedbackMailtoUrl()}>
-                  Send beta feedback (30 seconds) →
+                <a href={productFeedbackMailtoUrl()}>
+                  Send product feedback (30 seconds) →
                 </a>{' '}
                 A pre-filled email opens in your mail client — just describe
                 what you were doing and what happened.
